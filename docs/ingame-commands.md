@@ -1,170 +1,254 @@
-# In-game commands to run
+# In-game work
 
-Working list for beta sessions. Sections get marked done as results come back; see
-`docs/status.md` for what is still outstanding and what it blocks.
+Working list for beta sessions. See `docs/status.md` for what is still outstanding and what
+it blocks.
 
-**Chat and macros cap at 255 characters.** Every `/run` below is under that on purpose. Keep
-each one on a single line.
+Section A is done (2026-09-18) — constants, category tree, tree names, account flag, trait
+config, point caps, reward track. Written up in `docs/legacy-internals.md`.
 
----
+## How to run these
 
-## Section A — done 2026-09-18
+Paste into **WoWLua**, hit run. No 255-character limit, so these are whole scripts rather
+than golfed one-liners.
 
-Constants, category tree, tree names, account flag, trait config, point caps, reward track.
-All written up in `docs/legacy-internals.md`. Nothing to re-run.
+Each script builds its output into a copyable EditBox instead of printing to chat. Select all,
+ctrl-C, paste it back. If the window fails to appear, the script is still fine — see
+**Fallback** at the bottom for a one-line change that prints to chat instead.
 
-What it settled, for context while running the rest:
-
-- `GetCategoryList()` returns only Legacy categories — 29, two levels deep, **111 challenges**
-- 65 earnable account-wide, 16 spendable per character, **one shared pool across all three trees**
-- Tree 1189 is "Resourcefulness"; all three trees share configID 2866866
-- Reward thresholds are **15, 25, 40, 55**; `renownLevel` is the earned point count
+Script 1 is a prototype of what `Debug/` will eventually do properly.
 
 ---
 
-## Section B — runs now, no progress needed
+## Script 1 — the whole of section B, one paste
 
-Achievement and criteria *definitions* are static client data. None of this needs an earned
-challenge. The only thing you can't get yet is a criterion sitting part-done — that's C3.
+Runs on any character, no progress needed. Answers B1 through B6 in a single pass: every
+category, every challenge with its criteria count and point value, the point total, which
+challenges use the progress-bar shape, full criteria for one of each shape, a full
+`GetAchievementInfo` row, and the remaining reward entries.
 
-### B1 — sweep a category
+```lua
+local CUR, FACTION = 4225, 2802
+local out = {}
+local function w(s) out[#out+1] = s end
+local function n(v) if v == nil then return "nil" end return tostring(v) end
 
-Prints `id, name, numCriteria, points` for every challenge in one category.
+local cats = GetCategoryList()
 
+w("== CATEGORIES ==")
+w("catID;name;parent;num;complete;incomplete")
+for _, c in ipairs(cats) do
+	local name, parent = GetCategoryInfo(c)
+	local a, cm, ic = GetCategoryNumAchievements(c)
+	w(n(c)..";"..n(name)..";"..n(parent)..";"..n(a)..";"..n(cm)..";"..n(ic))
+end
+
+w("")
+w("== CHALLENGES ==")
+w("catID;achID;name;numCriteria;points;completed;flags")
+local total, count = 0, 0
+local bars, checks = {}, {}
+for _, c in ipairs(cats) do
+	for i = 1, (GetCategoryNumAchievements(c) or 0) do
+		local id, name, _, completed, _, _, _, _, flags = GetAchievementInfo(c, i)
+		local nc = GetAchievementNumCriteria(id) or 0
+		local pts = C_Traits.GetTraitCurrencyForAchievement(CUR, id) or 0
+		total, count = total + pts, count + 1
+		w(n(c)..";"..n(id)..";"..n(name)..";"..n(nc)..";"..n(pts)..";"..n(completed)..";"..n(flags))
+		if nc > 0 then
+			local _, _, _, _, _, _, cf = GetAchievementCriteriaInfo(id, 1)
+			if cf and bit.band(cf, 1) == 1 then
+				bars[#bars+1] = id
+			else
+				checks[#checks+1] = id
+			end
+		end
+	end
+end
+
+w("")
+w("== SUMMARY ==")
+w("challenges="..count.."  totalPoints="..total)
+w("progressBar="..#bars.."  checklist="..#checks)
+w("barIDs="..table.concat(bars, ","))
+
+local function criteria(id, label)
+	w("")
+	if not id then w("== CRITERIA "..label..": none found ==") return end
+	local _, aname = GetAchievementInfo(id)
+	w("== CRITERIA "..label.." ach="..n(id).." "..n(aname).." ==")
+	w("i;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString")
+	for i = 1, (GetAchievementNumCriteria(id) or 0) do
+		local s, ct, comp, q, rq, cn, f, aid, qs = GetAchievementCriteriaInfo(id, i)
+		w(i..";"..n(s)..";"..n(ct)..";"..n(comp)..";"..n(q)..";"..n(rq)..";"..n(cn)..";"..n(f)..";"..n(aid)..";"..n(qs))
+	end
+end
+criteria(bars[1], "PROGRESSBAR")
+criteria(checks[1], "CHECKLIST")
+
+local sample = bars[1] or checks[1]
+if sample then
+	w("")
+	w("== GetAchievementInfo("..sample..") 14 returns ==")
+	local v, t = {GetAchievementInfo(sample)}, {}
+	for i = 1, 14 do t[i] = n(v[i]) end
+	w(table.concat(t, ";"))
+end
+
+w("")
+w("== REWARDS ==")
+w("level;idx;name;toastDescription;rewardType;itemID;spellID;mountID;titleMaskID;icon;isCollected")
+for _, lvl in ipairs({15, 25, 40, 55}) do
+	local r = C_MajorFactions.GetRenownRewardsForLevel(FACTION, lvl)
+	if r and r[1] then
+		for j, e in ipairs(r) do
+			w(lvl..";"..j..";"..n(e.name)..";"..n(e.toastDescription)..";"..n(e.rewardType)..";"..n(e.itemID)..";"..n(e.spellID)..";"..n(e.mountID)..";"..n(e.titleMaskID)..";"..n(e.icon)..";"..n(e.isCollected))
+		end
+	else
+		w(lvl..";none")
+	end
+end
+
+local text = table.concat(out, "\n")
+text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|", "!")
+
+if not LNDump then
+	local f = CreateFrame("Frame", "LNDump", UIParent)
+	f:SetSize(760, 520)
+	f:SetPoint("CENTER")
+	f:SetMovable(true)
+	f:EnableMouse(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	local bg = f:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(0, 0, 0, 0.92)
+	local sf = CreateFrame("ScrollFrame", "LNDumpScroll", f, "UIPanelScrollFrameTemplate")
+	sf:SetPoint("TOPLEFT", 12, -12)
+	sf:SetPoint("BOTTOMRIGHT", -32, 12)
+	local eb = CreateFrame("EditBox", nil, sf)
+	eb:SetMultiLine(true)
+	eb:SetFontObject(ChatFontNormal)
+	eb:SetWidth(700)
+	eb:SetAutoFocus(false)
+	eb:SetScript("OnEscapePressed", function() f:Hide() end)
+	sf:SetScrollChild(eb)
+	f.eb = eb
+end
+LNDump:Show()
+LNDump.eb:SetText(text)
+LNDump.eb:HighlightText()
+LNDump.eb:SetFocus()
 ```
-/run local c=15593 for i=1,GetCategoryNumAchievements(c) do local id,n=GetAchievementInfo(c,i) print(id,n,GetAchievementNumCriteria(id),C_Traits.GetTraitCurrencyForAchievement(4225,id)) end
-```
 
-Change the `15593` and run it on a few. Good candidates, all small:
+**What I need back:** all of it, but if it's too much, the `SUMMARY`, both `CRITERIA` blocks
+and `REWARDS` are the parts that unblock work. The `CHALLENGES` block is 111 lines and is
+mostly useful for the points breakdown.
 
-| ID | Category | Count | Why |
-|---|---|---|---|
-| 15593 | Dungeons | 3 | most likely to hold a counted "run N dungeons" criterion |
-| 15587 | Alchemy | 3 | profession shape, matters for v1's alt mapping |
-| 15597 | Ranks | 5 | PvP, largest of the PvP children |
-| 15607 | Explorer | 3 | exploration shape |
-| 15577 | Druid | 3 | class-leveling shape, matters for v1 |
-| 15596 | Adventure | 2 | the only top-level group with challenges of its own |
+**What I'm reading it for:**
 
-*Looking for:* which challenges are worth 0 points — 111 challenges against 65 points means
-plenty must be. And which have criteria worth dumping.
+- `totalPoints` should be **65**. If it isn't, points come from somewhere we haven't found.
+- `progressBar` versus `checklist` counts — how much the ranking logic leans on fractions.
+- The two `CRITERIA` blocks become the first fixtures in `spec/fixtures/`.
+- `GetAchievementInfo` order confirmed on Forever, and whether any `flags` has 131072 set.
+- Whether rewards at 40 and 55 have a `name`, and whether any is a mount or title rather than
+  an item.
 
-### B2 — all criteria of one challenge
-
-Substitute an ID from B1 that showed a non-zero criteria count.
-
-```
-/run local a=AID for i=1,GetAchievementNumCriteria(a) do print(i,GetAchievementCriteriaInfo(a,i)) end
-```
-
-Prints all nine returns per criterion: `criteriaString, criteriaType, completed, quantity,
-reqQuantity, charName, criteriaFlags, assetID, quantityString`.
-
-*Looking for:* **one challenge where `criteriaFlags` has bit 1 set and one where it doesn't.**
-That's the whole point of B — flag set means the progress-bar shape that gives us "3/5", flag
-clear means a checklist where remaining is a count of unticked rows. Two challenges is enough
-to seed `spec/fixtures/`.
-
-### B3 — the full info row for one challenge
-
-```
-/dump GetAchievementInfo(AID)
-```
-
-All 14 returns in order: `id, name, points, completed, month, day, year, description, flags,
-icon, rewardText, isGuild, wasEarnedByMe, earnedBy`.
-
-*Looking for:* confirmation of the return order on Forever, and whether `flags` has 131072
-(`ACHIEVEMENT_FLAGS_ACCOUNT`) set on any of them. Also whether `points` — the achievement's
-own value, which the Legacy UI throws away — is 0 or something else.
-
-### B4 — do the points add up to 65
-
-```
-/run local t=0 for _,c in ipairs(GetCategoryList()) do for i=1,GetCategoryNumAchievements(c) do local id=GetAchievementInfo(c,i) t=t+C_Traits.GetTraitCurrencyForAchievement(4225,id) end end print("total points",t)
-```
-
-*Looking for:* 65. If it comes out 65, `GetTraitCurrencyForAchievement` is complete and
-trustworthy and our "points available from remaining challenges" number is sound. If it
-doesn't, some points come from somewhere we haven't found.
-
-### B5 — find every counted challenge at once (optional)
-
-Two commands, in order. Only worth it if B1/B2 don't turn up a progress-bar criterion quickly.
-
-```
-/run function LNF(id) local n=GetAchievementNumCriteria(id) if not n or n<1 then return end local _,_,_,_,rq,_,f=GetAchievementCriteriaInfo(id,1) if bit.band(f or 0,1)==1 then print(id,rq) end end
-```
-
-```
-/run for _,c in ipairs(GetCategoryList()) do for i=1,GetCategoryNumAchievements(c) do LNF((GetAchievementInfo(c,i))) end end
-```
-
-*Looking for:* every challenge whose first criterion uses a progress bar, with its
-`reqQuantity`. Cross-reference IDs against B1 for names. Tells me how common the counted shape
-is, which decides how much the ranking logic leans on it.
-
-### B6 — the remaining two rewards
-
-```
-/dump C_MajorFactions.GetRenownRewardsForLevel(2802, 40)
-/dump C_MajorFactions.GetRenownRewardsForLevel(2802, 55)
-```
-
-*Looking for:* whether `name` is present. Level 15 had no `name` field and level 25 did, both
-had `toastDescription`. Two more samples tell me whether that's a beta authoring gap or normal,
-and whether any reward is a mount or title rather than an item (`rewardType` was 1 on both
-samples — I have no second value to compare).
+Note the script replaces `|` with `!` in output, so any pipes you see in names were colour
+codes or literal bars in the game text.
 
 ---
 
-## Section C — needs an actually played character
+## Script 2 — later, once you've played
 
-No rush on any of these. C1 and C2 want points spent; C3 and C4 want challenge progress.
+Needs points spent in **two different trees**, and ideally one challenge part-done and one
+completed. Covers C1, C3 and C4.
 
-### C1 — confirm the shared pool, and what maxQuantity really is
+```lua
+local CUR = 4225
+local out = {}
+local function w(s) out[#out+1] = s end
+local function n(v) if v == nil then return "nil" end return tostring(v) end
 
-Needs points spent in **two different trees**.
+w("== TREE CURRENCY ==")
+w("treeID;configID;quantity;maxQuantity;spent;spentInTree")
+for _, id in ipairs({1187, 1188, 1189}) do
+	local cfg = C_Traits.GetConfigIDByTreeID(id)
+	local t = cfg and C_Traits.GetTreeCurrencyInfo(cfg, id, true)
+	local i = t and t[1]
+	w(n(id)..";"..n(cfg)..";"..n(i and i.quantity)..";"..n(i and i.maxQuantity)..";"..n(i and i.spent)..";"..n(i and i.spentInTree))
+end
+w("maxAvailable(false)="..n(C_Traits.GetMaxAvailableTraitCurrency(CUR, false)))
+w("maxAvailable(true)="..n(C_Traits.GetMaxAvailableTraitCurrency(CUR, true)))
+w("renownLevel="..n(C_MajorFactions.GetCurrentRenownLevel(2802)))
+
+w("")
+w("== IN-PROGRESS AND COMPLETED CHALLENGES ==")
+w("achID;name;i;criteria;completed;quantity;reqQuantity;flags;wasEarnedByMe")
+for _, c in ipairs(GetCategoryList()) do
+	for k = 1, (GetCategoryNumAchievements(c) or 0) do
+		local id, name, _, done, _, _, _, _, _, _, _, _, mine = GetAchievementInfo(c, k)
+		for i = 1, (GetAchievementNumCriteria(id) or 0) do
+			local s, _, comp, q, rq, _, f = GetAchievementCriteriaInfo(id, i)
+			if done or comp or (q and q > 0) then
+				w(n(id)..";"..n(name)..";"..i..";"..n(s)..";"..n(comp)..";"..n(q)..";"..n(rq)..";"..n(f)..";"..n(mine))
+			end
+		end
+	end
+end
+
+local text = table.concat(out, "\n")
+text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|", "!")
+print(text)
+```
+
+This one prints to chat since the output should be short. If it floods, swap the last line for
+the EditBox block from script 1.
+
+**What I'm reading it for:**
+
+- `spent` identical across all three trees while `spentInTree` differs confirms the single
+  shared 16-point pool.
+- What `maxQuantity` becomes once points exist — it read **0** at zero points, so it is not
+  the static cap. Until this resolves, `Model/` uses `GetMaxAvailableTraitCurrency(4225, true)`.
+- A criterion with non-zero `quantity` — the mid-progress fixture the ranking tests need.
+- `wasEarnedByMe` true on anything you've completed.
+
+---
+
+## C2 — events, now just `/etrace`
+
+The probe script is retired. Open the event trace, filter to these four, spend a Legacy point
+and make some challenge progress:
 
 ```
-/run for _,id in ipairs({1187,1188,1189}) do local c=C_Traits.GetConfigIDByTreeID(id) local t=c and C_Traits.GetTreeCurrencyInfo(c,id,true) local i=t and t[1] print(id,c,i and i.quantity,i and i.maxQuantity,i and i.spent,i and i.spentInTree) end
+TRAIT_CONFIG_UPDATED
+TRAIT_TREE_CHANGED
+MAJOR_FACTION_RENOWN_LEVEL_CHANGED
+CRITERIA_UPDATE
 ```
 
-*Looking for:* two things. `spent` identical across all three trees while `spentInTree`
-differs confirms the single shared 16-point pool. And `maxQuantity` — it read **0** at zero
-points, so it is not the static cap. If it now reads 16, it's the cap after all; if it tracks
-points earned, it's a different number entirely. Until this resolves, `Model/` takes the cap
-from `GetMaxAvailableTraitCurrency(4225, true)`.
+Tell me which fire and what payload `TRAIT_CONFIG_UPDATED` carries. Blizzard's Legacy UI
+registers none of the trait or faction ones — it re-reads on show — so we have no precedent
+and our refresh strategy depends on this.
 
-### C2 — which events actually fire
+---
 
-Two commands, in order:
+## Fallback
 
-```
-/run LNP=CreateFrame("Frame") LNP:SetScript("OnEvent",function(_,e,...) print("EVT",e,...) end)
-```
+If the EditBox window doesn't appear in script 1 — `UIPanelScrollFrameTemplate`,
+`ChatFontNormal` or `SetColorTexture` not existing on this client would do it — replace
+everything from `if not LNDump then` to the end with:
 
-```
-/run for _,e in ipairs({"TRAIT_CONFIG_UPDATED","TRAIT_TREE_CHANGED","MAJOR_FACTION_RENOWN_LEVEL_CHANGED","CRITERIA_UPDATE","ACHIEVEMENT_EARNED"}) do LNP:RegisterEvent(e) end
+```lua
+for _, line in ipairs(out) do print(line) end
 ```
 
-Then spend a Legacy point and make some challenge progress.
+and tell me which line errored. That's useful in itself: those are all things `Debug/` will
+need, and I'd rather find out now than when writing it.
 
-*Looking for:* which of the five fire, and what `TRAIT_CONFIG_UPDATED` carries. Blizzard's
-Legacy UI registers none of the trait or faction ones — it re-reads on show instead — so I
-have no precedent and our refresh strategy depends on this. Lasts until `/reload` or logout.
+## Note on idTip
 
-### C3 — a criterion sitting part-done
-
-Once something is at 3/5, re-run **B2** on it.
-
-*Looking for:* a non-zero `quantity`. Until this exists the ranking tests stay `pending` — I'm
-not inventing a fixture shape.
-
-### C4 — a completed challenge
-
-Re-run **B3** on something you've earned.
-
-*Looking for:* `wasEarnedByMe` (position 13) true, and a non-zero date. Also re-run **B1** on
-that challenge's category: the source claims completed entries sort before incomplete ones in
-index order, and that's only visible once a category has one of each.
+The scripts enumerate IDs themselves, so you don't need it for these. It earns its keep for
+spot checks — hover a challenge in the Legacy UI, get its ID, and ask me about that one
+specifically without running a sweep.
