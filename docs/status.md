@@ -64,14 +64,9 @@ These came out of research and should not be relitigated without new evidence.
 
 Commands and what each answers are in `docs/ingame-commands.md`.
 
-**Section B, runs on any character, blocks Phase 2:**
-
-- B1/B2 — one challenge with `criteriaFlags` bit 1 set and one without. **This is the
-  blocker.** Until these land, the ranking tests stay `pending` and `spec/fixtures/` is empty.
-- B3 — confirm the 14-return `GetAchievementInfo` order on Forever
-- B4 — do the per-challenge points sum to 65 across all 111 challenges
-- B5 — optional sweep for every counted challenge at once
-- B6 — rewards at thresholds 40 and 55, to see whether the missing `name` field is a pattern
+**Section B — done 2026-09-18.** Full sweep captured: all 29 categories, all 111 challenges
+with criteria counts and point values, both criteria shapes, a full `GetAchievementInfo` row,
+and all four reward entries. Written up in `docs/legacy-internals.md`. Phase 2 is unblocked.
 
 **Section C, needs a played character, does not block Phase 2:**
 
@@ -80,6 +75,22 @@ Commands and what each answers are in `docs/ingame-commands.md`.
   `MAJOR_FACTION_RENOWN_LEVEL_CHANGED` actually fire
 - C3 — a criterion sitting part-done, for a real mid-progress fixture
 - C4 — `wasEarnedByMe` true, and whether completed entries sort before incomplete ones
+
+## Open design questions
+
+Raised by the section B sweep. Both need a decision before the ranking model is written, and
+both are Alex's call rather than mine.
+
+1. **How to rank the 34 challenges with no criteria.** A third of the list exposes no progress
+   at all — every class challenge, all five PvP Ranks, two others. Treating them as 0% parks
+   them at the top of a "closest to done" sort permanently. Options: a separate section, sort
+   them last, or hide them behind a toggle.
+2. **Whether the 46 zero-point `Explore *` achievements belong in Next Up.** They are the
+   criteria substrate for the single `Explorer` challenge rather than rewards in themselves.
+   Blizzard's UI shows them; ours is about points.
+3. **How deep to follow meta chains.** `Explorer` reads "0/1 criteria" while actually being
+   hundreds of subzones deep through `criteriaType` 8 `assetID` links. Recursing gives honest
+   closeness and costs a lot of API calls; not recursing means one entry in the list is a lie.
 
 ## What Phase 2 probably starts with
 

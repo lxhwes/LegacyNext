@@ -42,8 +42,8 @@ cross-account or guild sync, writing to trait configs.
 - **Never hardcode** achievement IDs, category IDs, or criteria. They will churn during beta.
 - **Never invent API response shapes.** If no captured fixture exists for a shape, write the
   test as `pending`.
-- I cannot run the game. Anything needing in-game verification: write the exact `/run` or
-  `/dump` command for me and stop.
+- I cannot run the game. Anything needing in-game verification becomes a script in
+  `docs/ingame-commands.md` — see In-game workflow — and I stop there.
 
 ## Client facts [verified]
 
@@ -96,6 +96,22 @@ Runtime facts [verified in game 2026-09-18, build 1.60.1, fresh character]:
   not one entry per level. `renownLevel` is the account's earned point count.
 - Reward entries carry a usable display name — `reward.name or reward.toastDescription`, since
   `name` is missing on some entries — plus `icon` and `isCollected`. No item lookup needed.
+  `isCollected` read **true** for an unreached threshold, so it is account collection state,
+  not "this reward level is claimed". Never render it as progress.
+- **Every point-bearing challenge awards exactly 1 point.** 65 challenges × 1 = 65; the other
+  46 (all `Explore *`) award 0. Do not hardcode 1 — but no point-weighting is needed today.
+- **Three criteria shapes, not two:** 18 progress-bar, 59 checklist, **34 with no criteria at
+  all**. The 34 expose no progress through the API and are binary; ranking must handle that
+  as a distinct case rather than treating them as 0%.
+- `criteriaType` 7 = skill threshold (`assetID` is a skill line), 8 = child achievement
+  (`assetID` is an achievement ID). Type 8 forms **meta chains** — real closeness needs to
+  recurse into the child.
+- `GetAchievementInfo` return order matches retail exactly. The achievement's own `points` is
+  **0** on Legacy challenges, which is why Blizzard overrides it. `rewardText` reads
+  "Earn 1 Legacy Point." and is usable for display.
+- `flags` on point-bearing challenges is `134349824` = bits 10, 17, 27. Bit 17 is
+  `ACHIEVEMENT_FLAGS_ACCOUNT`; bits 10 and 27 are unidentified. The 46 zero-point exploration
+  achievements have `flags == 0`, so they are per-character.
 
 **The generated API docs are a floor, not a contract.** The live reward struct carries five
 fields that appear in no documentation file. Feature-detect fields; never assume a documented
@@ -146,6 +162,28 @@ tools/venv/bin/hererocks tools/lua51 --lua 5.1 --luarocks latest`, then
 `./tools/lua51/bin/luarocks install --no-doc busted luacheck`.
 
 Vendored Blizzard source is pinned in `vendor/PINS.md` — read-only reference, never imported.
+
+## In-game workflow
+
+Alex runs everything in game and pastes output back, so **round trips are the scarcest
+resource**. Batch every open question into one script rather than a sequence of commands.
+
+Available: **WoWLua** (multi-line editor, so the 255-character chat limit no longer shapes
+anything) and **idTip** (IDs in tooltips, for spot checks). In the client: `/etrace` — use it
+instead of writing an event probe — plus `/api` (runtime API browser, worth cross-checking
+against our pin) and `/tinspect` (beats `/dump` on nested tables).
+
+Rules for any script I hand over:
+
+- **Semicolon-terminate every statement, and never use `--` comments.** Paste paths strip
+  newlines. A missing semicolon gives `malformed number near '2802local'`; a `--` comment in a
+  flattened script silently swallows everything after it, which is worse.
+- **Verify it parses first.** Extract the block and run `./tools/lua51/bin/luac -p` over both
+  the multi-line form and a flattened copy. Never hand over an unparsed script.
+- **Write output into a copyable EditBox**, not chat, past a few lines. `Debug/` will replace
+  these ad-hoc dumpers.
+- Scripts and their done/outstanding state live in `docs/ingame-commands.md`. Results get
+  written up in `docs/legacy-internals.md` and `CLAUDE.md` — never left only in chat.
 
 ## Conventions
 

@@ -3,8 +3,11 @@
 Working list for beta sessions. See `docs/status.md` for what is still outstanding and what
 it blocks.
 
-Section A is done (2026-09-18) — constants, category tree, tree names, account flag, trait
-config, point caps, reward track. Written up in `docs/legacy-internals.md`.
+**Sections A and B are done (2026-09-18)** — constants, category tree, tree names, account
+flag, trait config, point caps, reward track, and the full 111-challenge sweep with criteria
+shapes and point values. All written up in `docs/legacy-internals.md`.
+
+Script 1 below is kept for re-running after a build bump. **Section C is what's outstanding.**
 
 ## How to run these
 

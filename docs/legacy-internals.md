@@ -180,6 +180,34 @@ The achievement's own point value is discarded. The shared achievement template 
 override at `Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:1337`, and a zero
 result just hides the badge — `Blizzard_LegacySystem/Blizzard_LegacyChallengeButton.lua:310-312`.
 
+### Live point data, 2026-09-18
+
+Swept across all 111 challenges: **the total is exactly 65**, matching
+`GetMaxAvailableTraitCurrency(4225, false)`. So `GetTraitCurrencyForAchievement` is complete
+and trustworthy, and "points still available from incomplete challenges" is a sound number to
+compute and show.
+
+The distribution is flatter than expected:
+
+- **65 challenges award exactly 1 point each.** No challenge awards 2 or more.
+- **46 award 0** — every `Explore *` achievement, i.e. the whole exploration substrate.
+
+Two consequences. First, no point-weighting is needed in ranking today; a challenge is worth a
+point or it isn't. Do not hardcode 1, but do not build a weighting model either. Second, the
+46 zero-point entries are arguably not "challenges" in the sense the user cares about — they
+are the criteria substrate for `Explorer`. **Open design question:** whether v0's Next Up list
+filters to point-bearing challenges by default. Blizzard's own UI shows them all.
+
+`GetAchievementInfo(62012)` confirmed the 14-return order matches retail exactly, and shows
+the achievement's own `points` field is **0** — which is what the override exists to replace.
+`rewardText` reads "Earn 1 Legacy Point.", a free display string.
+
+`flags` on a point-bearing challenge is `134349824` — bits 10, 17 and 27. Bit 17 is
+`ACHIEVEMENT_FLAGS_ACCOUNT`. Bits 10 and 27 are unidentified and appear on all 65. The 46
+zero-point exploration achievements have `flags == 0`, so they are ordinary per-character
+achievements. The correlation between "awards a point" and "is account-wide" holds across all
+111, but it is an observation, not a documented invariant — do not branch on it.
+
 ### Q4. What the detail pane shows for criteria
 
 `Blizzard_LegacyChallengeButton.lua:158-200`. Count from `GetAchievementNumCriteria(id)`
@@ -215,6 +243,56 @@ return bit.band(flags, EVALUATION_TREE_FLAG_PROGRESS_BAR) == EVALUATION_TREE_FLA
 **Consequence for us:** "criteria remaining" is two different calculations depending on the flag.
 Ranking by closeness has to handle both: a fraction for progress-bar criteria, and
 `incomplete / total` for boolean criteria lists.
+
+### Live criteria data, 2026-09-18
+
+Full sweep of all 111 challenges. **There are three shapes, not two:**
+
+| Shape | Count | How progress reads |
+|---|---|---|
+| Progress bar (`flags` bit 1 set) | 18 | `quantity / reqQuantity` |
+| Checklist (`flags` bit 1 clear) | 59 | count of incomplete criteria |
+| **No criteria at all** (`GetAchievementNumCriteria` = 0) | **34** | **nothing — binary** |
+
+The 34 are every class challenge (9 × 3), all five PvP Ranks, `Conqueror of the Lair` and
+`Lord Valthalak Laid to Rest`. They expose no progress through the API at all. Ranking must
+treat them as a distinct case — not as 0%, which would park a third of the list at the top of
+a "closest to done" sort forever.
+
+This is also why v1's candidate-alt mapping is scoped to class-leveling and profession
+challenges: those are the ones we can compute from character state (level, skill) when the
+criteria tell us nothing.
+
+Two captured samples, which are the first real fixtures:
+
+```
+ach 62012 "Journeyman Alchemist"  (progress bar)
+i;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString
+1;150 Alchemy Skill;7;false;0;150;nil;1;2937;0 / 150
+
+ach 62053 "Explore Azeroth"  (checklist)
+1;Eastern Kingdoms;8;false;0;1;nil;0;62353;0
+2;Kalimdor;8;false;0;1;nil;0;62355;0
+```
+
+**`criteriaType` matters after all**, despite Blizzard's Legacy card discarding it:
+
+- **Type 7 — skill threshold.** `assetID` is a skill line ID (2937 = Alchemy), `reqQuantity`
+  is the skill level. Every one of the 18 progress-bar challenges is a profession skill gate.
+- **Type 8 — child achievement.** `assetID` is another achievement ID. This is
+  `CRITERIA_TYPE_ACHIEVEMENT`, which the retail UI special-cases at
+  `Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:1588`.
+
+**Type 8 forms meta chains**, and they are deep. `Explorer` (1 point) has one criterion,
+`Explore Azeroth`; that has two, `Explore Eastern Kingdoms` and `Explore Kalimdor`; those have
+23 and 20 zone achievements; each zone has 7–27 subzone criteria. A naive read says `Explorer`
+is "0/1 — one criterion left", which is wildly misleading. Honest closeness has to recurse
+through `assetID`, or the UI has to say the chain is unexpanded. **Open design question, not
+yet decided.**
+
+`quantityString` ("0 / 150") is pre-formatted by the client and matches
+`GENERIC_FRACTION_STRING_WITH_SPACING`. Using it saves us formatting, but it is a localised
+string — fine for display, never for arithmetic.
 
 ### Q5. Account-wide vs per-character completion
 
@@ -553,6 +631,23 @@ uiOrder          = 0
 renownRewardID   = 0
 description      = "Join a shootout with your air rifle. ... Visit Innkeeper Wiley in Ratchet to claim your reward."
 ```
+
+All four thresholds, swept 2026-09-18 — every reward is a single item, `rewardType` 1:
+
+| Level | `name` | `toastDescription` | itemID | isCollected |
+|---|---|---|---|---|
+| 15 | **nil** | Replica Ironforge Air Rifle | 276236 | false |
+| 25 | Spectral Bear Cub | Spectral Bear Cub | 277714 | false |
+| 40 | Spectral Bear Tabard | Spectral Bear Tabard | 277717 | **true** |
+| 55 | Reins of the Spectral Bear | Reins of the Spectral Bear | 277718 | false |
+
+`name` is missing on exactly one of four, so the `name or toastDescription` fallback stands.
+`spellID`, `mountID` and `titleMaskID` are nil on all four — the Reins are an item, not a
+mount entry.
+
+**`isCollected` is true at level 40 on a character at renown 0.** It reports account
+collection state, not whether the reward level is reached or claimed. Never render it as
+progress; the reward readout derives reached-ness from `renownLevel` against the threshold.
 
 Level 25, same shape **plus** a `name` field:
 
