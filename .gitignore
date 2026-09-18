@@ -9,5 +9,11 @@ tools/
 .release/
 *.zip
 
+# Skill eval run artifacts (outputs, gradings, benchmarks). The eval *specs* live with
+# their skill in .claude/skills/<name>/evals/ and are committed.
+.claude/skill-evals/
+
+__pycache__/
+
 .DS_Store
 .luacheckcache
