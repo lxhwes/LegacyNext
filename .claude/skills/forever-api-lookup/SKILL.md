@@ -28,11 +28,21 @@ grep -m1 -A3 'Read-only research against' docs/legacy-internals.md   # the pin i
 git -C vendor/wow-ui-source rev-parse --short HEAD                   # the pin on disk now
 ```
 
-If those disagree, the doc describes a build we are no longer pinned to. Treat every claim
-in it as `[unverified]` until re-derived from source, say so out loud, and check
-`docs/beta-builds.md` for what the intervening bump changed. Source wins over the doc,
-always — the doc is someone's earlier reading of the same files, and it inherits any
-mistake they made.
+If those disagree, the doc describes a build we are no longer pinned to. Treat its
+source-derived claims as `[unverified]` until re-derived, say so out loud, and check
+`docs/beta-builds.md` for what the intervening bump changed.
+
+Which of the two wins depends on how the claim was established, and the doc marks this:
+
+- **Source-derived claims** are someone's earlier reading of the same files you are about
+  to read. They inherit any mistake that reader made, so **the vendored source wins**.
+- **Claims marked `[verified in game <date>]`** came from a live client. That is evidence
+  neither you nor the vendored tree can produce offline, so **the in-game result wins** —
+  including where it contradicts the generated docs, which it demonstrably does.
+
+Never "correct" an in-game observation with an inference from source. If they genuinely
+conflict, that is a finding worth raising, not a discrepancy to resolve by picking the
+tidier answer.
 
 Even at a matching pin, you can check the citations mechanically rather than trusting them:
 
@@ -100,11 +110,11 @@ tail `[unverified]` rather than asserting the list is complete.
 **Tier C — absent entirely.** How much this proves depends on what kind of symbol it is,
 and the two halves of the search are not equally complete:
 
-- *The generated docs are complete.* 639 files covering 285 namespaces — the whole
-  client's namespaced API, dumped by Blizzard's own generator. So for a `C_Something.Foo`
-  symbol, absence from the docs is **strong**. `C_LegacySystem` returns nothing anywhere in
-  those 639 files, which is good evidence that namespace does not exist, not an artifact of
-  a narrow checkout.
+- *The generated docs are complete for namespaces and functions.* 639 files covering 285
+  namespaces, dumped by Blizzard's own generator. So for a `C_Something.Foo` symbol,
+  absence from the docs is **strong**. `C_LegacySystem` returns nothing anywhere in those
+  639 files, which is good evidence that namespace does not exist, not an artifact of a
+  narrow checkout. This does **not** extend to struct fields — see below.
 - *The call sites are not complete.* Only four addons are vendored, so a bare FrameXML
   global called from elsewhere in the UI looks identical to one that does not exist.
   Absence there is **weak**.
@@ -116,6 +126,29 @@ before going back to Alex. A user guessing `C_LegacySystem.GetTrackedChallenges`
 wants the capability, not that exact spelling; finding `C_ContentTracking.GetTrackedIDs`
 serves them better than a correct refusal. Follow the Tier C protocol below for whatever
 remains genuinely unverifiable.
+
+## A documented field list is a floor, not a contract
+
+This one is settled by live-client evidence, so it outranks anything you can infer from the
+vendored tree. The reward struct returned at runtime carries `description`, `isCollected`,
+`toastDescription`, `rewardType` and `name` — five fields that appear nowhere in
+`MajorFactionsDocumentation.lua:323-337`, the structure that documents it
+[verified in game 2026-09-18, `docs/legacy-internals.md`].
+
+So split what the docs guarantee:
+
+- **Function signatures — reliable.** Argument order, types and nilability are what the
+  generator emitted for this build. Trust them.
+- **Struct field lists — a minimum.** A field in the docs exists. A field absent from the
+  docs may still be there. Never conclude "the API can't give me X" from a doc field list
+  alone, and never write code that assumes the documented list is the whole table.
+
+In practice: read fields defensively in `Api/` (`reward.name or reward.toastDescription`
+is the real pattern that came out of this), and when a feature seems to need a field the
+docs don't mention, the answer is a `/dump` against the live client, not a redesign.
+
+The same caution applies in reverse to the script's struct resolution — it expands the
+documented fields, which is the floor, not an inventory of what comes back.
 
 ## The flavour trap
 
@@ -202,15 +235,23 @@ feature. Do all three:
    CLAUDE.md already uses.
 2. Write the affected test as `pending` with the reason, rather than asserting an invented
    shape. CLAUDE.md: never invent API response shapes.
-3. Hand Alex the exact one-liner to run in game, and stop rather than guessing past it:
+3. Add the exact one-liner to `docs/ingame-commands.md`, in the section matching what it
+   needs (Section B runs on a fresh character; Section C needs a played one), and stop
+   rather than guessing past it:
 
 ```
 /dump C_Traits.GetTreeCurrencyInfo(C_Traits.GetConfigIDByTreeID(1187), 1187, true)
 ```
 
-Make the command self-contained — it has to be pasteable into a chat box by someone who is
-mid-session and not holding this context. Once Alex pastes the output back, it becomes a
-fixture in `spec/fixtures/` and the test stops being pending.
+That file is the queue Alex actually works from in a beta session, so a command left only
+in chat gets lost. Two hard rules it sets: **255 characters max** (chat and macros cut off
+past that) and **one line**. Make it self-contained too — it has to be pasteable by someone
+mid-session who is not holding this context.
+
+Check the file before writing a new command. Section A is already answered, and a lot of
+what looks unverifiable has in fact been settled in game — 111 challenges, one shared
+configID across all three trees, reward thresholds at 15/25/40/55. Once Alex pastes output
+back, it becomes a fixture in `spec/fixtures/` and the test stops being pending.
 
 ## What is actually checked out — check, do not assume
 
