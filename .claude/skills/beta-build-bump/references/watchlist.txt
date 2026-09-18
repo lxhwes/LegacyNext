@@ -1,0 +1,56 @@
+# Symbols LegacyNext depends on. One per line; blank lines and # comments ignored.
+#
+# bump.sh greps the vendored diff for these and pulls out the hunks that mention them,
+# so a 3,000-line build diff collapses to the handful of lines that can actually break us.
+# This is a triage filter, not a contract: a symbol missing from this file still shows up
+# in full.diff. Add a line whenever Api/ starts calling something new.
+#
+# bump.sh also unions this list with every C_Namespace.Function reference it finds under
+# LegacyNext/, so symbols added to the addon are watched without editing this file. That
+# auto-discovery only catches namespaced calls, which is why the bare FrameXML globals and
+# the constant names below are listed by hand.
+
+# --- Constants (Constants.LegacyConsts) -------------------------------------
+# Value changes here are the highest-severity finding: our fallback literals in
+# CLAUDE.md go silently wrong rather than erroring.
+LegacyConsts
+LEGACY_REWARD_TRACK_FACTION_ID
+LEGACY_POINTS_TRAIT_CURRENCY_ID
+LEGACY_TREE_PROFESSIONS_ID
+LEGACY_TREE_ADVENTURE_ID
+LEGACY_TREE_PROGRESSION_ID
+LEGACY_TREE_ADVENTURE_TALENTED_NODE_ID
+
+# --- Achievements (Legacy Challenges are achievements) ----------------------
+GetAchievementInfo
+GetAchievementNumCriteria
+GetAchievementCriteriaInfo
+GetAchievementCategory
+GetCategoryNumAchievements
+GetNumFilteredAchievements
+GetFilteredAchievementID
+IsValidAchievement
+
+# --- Events -----------------------------------------------------------------
+ACHIEVEMENT_EARNED
+CRITERIA_UPDATE
+ACHIEVEMENT_SEARCH_UPDATED
+
+# --- Traits (read-only: trees and points) -----------------------------------
+GetConfigIDByTreeID
+GetTreeCurrencyInfo
+GetTraitCurrencyForAchievement
+GetMaxAvailableTraitCurrency
+ConfigHasStagedChanges
+
+# --- Major factions (the Legacy Reward Track is a renown faction) -----------
+GetMajorFactionData
+GetCurrentRenownLevel
+GetRenownLevels
+GetRenownRewardsForLevel
+IsMajorFactionHiddenFromExpansionPage
+
+# --- Guards -----------------------------------------------------------------
+# Api/ gates every read on this existing. If Blizzard renames or removes it the
+# guard silently becomes a no-op, which is worse than it erroring.
+issecretvalue
