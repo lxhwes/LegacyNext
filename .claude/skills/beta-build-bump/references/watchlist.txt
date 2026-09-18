@@ -30,6 +30,19 @@ GetCategoryNumAchievements
 GetNumFilteredAchievements
 GetFilteredAchievementID
 IsValidAchievement
+# Returns only Legacy categories (29 of them, two levels deep, 111 challenges at the
+# pinned build). v0's category filter is built directly on this.
+GetCategoryList
+GetCategoryInfo
+# Global state shared with Blizzard's own Achievement UI, not a private filter: the
+# filtered-achievement count reads 0 at login and 111 after any call. A change to how
+# this behaves breaks enumeration silently, in a way a signature diff would not show.
+SetAchievementSearchString
+
+# --- Bare constants (not in Constants.LegacyConsts, so not covered above) ----
+# Same severity class as the Legacy constants: a changed value goes wrong quietly
+# instead of erroring.
+ACHIEVEMENT_FLAGS_ACCOUNT
 
 # --- Events -----------------------------------------------------------------
 ACHIEVEMENT_EARNED
@@ -49,6 +62,10 @@ GetCurrentRenownLevel
 GetRenownLevels
 GetRenownRewardsForLevel
 IsMajorFactionHiddenFromExpansionPage
+# The struct proven to under-report itself: the live client returns five fields the
+# generated docs do not list. Any documented change here is worth reading closely,
+# because the doc moving means Blizzard touched something they usually leave alone.
+MajorFactionRenownRewardInfo
 
 # --- Guards -----------------------------------------------------------------
 # Api/ gates every read on this existing. If Blizzard renames or removes it the

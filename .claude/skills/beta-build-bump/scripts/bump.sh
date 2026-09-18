@@ -13,6 +13,8 @@
 # Exit codes:
 #   0  check completed (read summary.txt for the verdict) / apply succeeded
 #   3  already current, no new build
+#   4  apply SUCCEEDED and the checkout did move, but pin-relative citations in docs/
+#      no longer resolve. Not a failed bump — a bump with follow-up work. Do not re-apply.
 #  64  bad usage
 #  69  vendored checkout missing
 #  70  fetch or git operation failed
@@ -68,7 +70,84 @@ read the diff, then apply. Applying blind defeats the point of the two phases." 
 	echo "  version.txt: $(cat "$VENDOR/version.txt" 2>/dev/null || echo unknown)"
 	echo
 	echo "vendor/PINS.md still records the OLD pin. Update it now, in the same commit."
-	exit 0
+	echo
+
+	# Citations into the vendored source are pin-relative: a one-line insertion upstream
+	# shifts every line number below it, and a stale `path:line` is worse than none because
+	# it still reads as verified. This can only run after the checkout moves — there is no
+	# way to check the new tree before we are standing on it.
+	#
+	# The verifier belongs to the forever-api-lookup skill. Depending on a sibling skill is
+	# a real coupling, so treat its absence as a reportable gap rather than a crash.
+	VERIFY="$ROOT/.claude/skills/forever-api-lookup/scripts/verify_citations.py"
+	CITED=()
+	while IFS= read -r f; do CITED+=("$f"); done < <(grep -rlE '[A-Za-z_][A-Za-z0-9_/]*\.lua:[0-9]+' "$ROOT/docs" --include='*.md' 2>/dev/null | sort)
+
+	if [[ ! -f "$VERIFY" ]]; then
+		echo "CITATION_CHECK_UNAVAILABLE: $VERIFY is missing."
+		echo "  Citations in docs/ are pin-relative and just went unverified. Re-derive by hand."
+		exit 0
+	fi
+	if [[ ${#CITED[@]} -eq 0 ]]; then
+		echo "no docs/ file carries path:line citations; nothing to re-verify."
+		exit 0
+	fi
+
+	# Structural check first, because it is the reliable one.
+	#
+	# verify_citations.py can only ask "does this line still exist and look plausible". It
+	# cannot know that docs/legacy-internals.md:537 was meant to land on
+	# `Name = "GetTreeCurrencyInfo"` and now lands on the `{` above it — a one-line upstream
+	# insertion produces exactly that, and every line it shifts onto is non-blank, so the
+	# citation passes while pointing at the wrong thing.
+	#
+	# What we do know for certain is which files this bump changed. Any citation into one of
+	# those files is suspect by construction, whatever the verifier says. That is a coarser
+	# signal and it over-reports, which is correct here: the cost of re-checking a citation
+	# that was fine is a minute, and the cost of a stale one is a wrong `[verified]` claim.
+	CHANGED="$OUTROOT/$NEW/namestatus.txt"
+	SUSPECT=""
+	if [[ -f "$CHANGED" ]]; then
+		for doc in "${CITED[@]}"; do
+			hits=""
+			while IFS= read -r cited; do
+				[[ -z "$cited" ]] && continue
+				if grep -qE "(^|/)${cited//./\\.}$" <(awk '{print $2}' "$CHANGED") 2>/dev/null; then
+					hits="$hits $cited"
+				fi
+			done < <(grep -oE '[A-Za-z_][A-Za-z0-9_/]*\.lua:[0-9]+' "$doc" | sed 's/:[0-9]*$//' | sort -u)
+			# The same file is often cited both bare and directory-qualified; collapse to
+			# basenames so one changed file is reported once.
+			hits="$(printf '%s\n' $hits | sed 's|.*/||' | sort -u | tr '\n' ' ' | sed 's/ $//')"
+			[[ -n "$hits" ]] && SUSPECT="$SUSPECT
+  ${doc#"$ROOT/"} cites files this bump changed: $hits"
+		done
+	fi
+
+	echo "re-verifying pin-relative citations against the new checkout:"
+	verify_rc=0
+	python3 "$VERIFY" --expect-symbol "${CITED[@]}" || verify_rc=$?
+
+	if [[ -n "$SUSPECT" ]]; then
+		echo
+		echo "CITATIONS_SUSPECT: line numbers may have shifted.$SUSPECT"
+		echo
+		echo "  The verifier above checks only that a cited line exists and is non-blank, so"
+		echo "  a one-line shift onto a neighbouring line passes it. Re-derive these by hand"
+		echo "  with api_lookup.sh and confirm each lands on what the prose claims."
+		exit 4
+	fi
+
+	if [[ $verify_rc -eq 0 ]]; then
+		echo "citations still resolve, and this bump changed no file they cite."
+		exit 0
+	fi
+	echo
+	echo "CITATIONS_BROKEN: the pin moved and the citations above no longer resolve."
+	echo "  The bump itself succeeded — do NOT re-run --apply. Re-derive each broken line"
+	echo "  with forever-api-lookup's api_lookup.sh before committing. Nudging the number"
+	echo "  by hand is how a citation ends up pointing at a plausible wrong line."
+	exit 4
 fi
 
 [[ $# -eq 0 ]] || die "unexpected argument '$1' (usage: bump.sh | bump.sh --apply <sha>)" 64

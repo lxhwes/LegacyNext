@@ -20,6 +20,12 @@ Most bumps are boring, and that is the point. Across the five builds on the mirr
 boring bump quickly and saying so plainly is a success, not a non-answer. Do not manufacture
 findings to justify the run.
 
+Length should track what actually happened. A build that moved nothing deserves a few lines;
+`NO_NEW_BUILD` deserves two. Resist the pull to pad a null result with the checks you ran to
+establish it — "already at 1.60.1.69913, nothing to do" is the complete answer, and listing
+your methodology to prove you did the work makes a non-event look like an event. Save the
+detail for a build that earns it.
+
 The bump is two phases. `check` never touches the working tree, so you can read the diff and
 walk away with nothing to undo. `--apply` is the only thing that moves the checkout, and it
 refuses to run without check artifacts for that SHA.
@@ -37,7 +43,7 @@ The markers that matter:
 
 | Marker | What it means | What you do |
 |---|---|---|
-| `NO_NEW_BUILD` (exit 3) | Already at the newest commit | Say so in one line. Stop. Do not edit anything. |
+| `NO_NEW_BUILD` (exit 3) | Already at the newest commit | Report the pinned build and that it is current. Two or three lines, then stop. Edit nothing. |
 | `VENDORED_DIRS_UNCHANGED` | Build moved, our four dirs did not | The boring case. Go to step 3, skip the diff reading. |
 | `WATCHLIST_HIT` | A symbol LegacyNext calls appears in the diff | Go to step 2. This is the whole reason the skill exists. |
 | `CONSTANTS_CHANGED` | `LegacyConstantsDocumentation.lua` moved | Highest severity. Read `constants.diff` in full, always. |
@@ -60,6 +66,13 @@ For each hit, decide which of these it is, because they have very different cost
   Breaks `Api/` at the point of use. Name the function and quote the before/after.
 - **A documentation file was added or removed.** A removed file means a namespace went away.
   An added file may be a new API worth knowing about, but is not a break.
+- **A field appeared on a struct.** Read it as "Blizzard documented a field", not "Blizzard
+  added a field". The generated docs are a floor, not a contract — the live client returns
+  five fields on `MajorFactionRenownRewardInfo` that `MajorFactionsDocumentation.lua:323-337`
+  never lists. So a field showing up in the diff may have existed all along, and a field
+  absent from the docs is not evidence it is absent from the client. Never report a doc-only
+  field list as the complete shape, and never conclude from a *missing* doc entry that
+  something was removed — check for a deleted file or a removed `Name = "..."` entry instead.
 - **A Blizzard call site changed.** Weakest signal. It tells you how Blizzard uses an API,
   not that the API changed. Useful colour, not a finding.
 
@@ -79,7 +92,16 @@ directory stopped existing at the new commit, say so under the recreate recipe; 
 file claims "All four directories were present at this commit" and that claim has to stay true.
 
 **`LegacyNext/LegacyNext.toc`** — only on `TOC_INTERFACE_STALE`. Set `## Interface:` to the
-number the script computed.
+number the script computed, which is `major*10000 + minor*100 + patch` from `version.txt`.
+
+That formula is corroborated, not proven. At the `70ef1b2` pin, `version.txt` reads
+`1.60.1.69913` and the committed `.toc` reads `## Interface: 16001` — the formula reproduces
+16001 exactly. One observation at one pin is consistent with the convention rather than
+establishing it, and the second data point arrives free at the first real bump: if the
+computed number matches what the client then accepts, the formula holds. Say that when you
+report a bump, instead of presenting the number as derived fact. If it ever disagrees with a
+`.toc` that is known-good, trust the `.toc` and flag it — a wrong Interface number makes the
+addon fail to load with no useful error, which is worse than being a build behind.
 
 **`CLAUDE.md`** — only for facts the vendored source mechanically decides:
 
@@ -87,6 +109,29 @@ number the script computed.
 - values in the Legacy constants table
 - the pinned-SHA citation attached to `Constants.LegacyConsts`
 - removing a function from the Legacy API surface list when its doc entry is gone
+
+**Citations in `docs/`** — `--apply` checks these two ways and exits 4 if either fires. Exit 4
+means the bump succeeded and left follow-up work; it does not mean re-apply.
+
+- `CITATIONS_BROKEN` — `forever-api-lookup`'s `verify_citations.py` says a cited line is out
+  of range or blank. Catches deletions and large shifts.
+- `CITATIONS_SUSPECT` — this bump changed a file that a doc cites. Coarser, and the one that
+  actually matters. The verifier can only ask whether a line still exists and looks plausible;
+  it cannot know that `legacy-internals.md:537` was meant to land on
+  `Name = "GetTreeCurrencyInfo"` and now lands on the `{` above it. A one-line insertion
+  upstream produces exactly that, every line it shifts onto is non-blank, and the citation
+  passes while pointing at the wrong thing. This was reproduced, not theorised.
+
+So treat a clean `verify_citations.py` run as weak evidence and `CITATIONS_SUSPECT` as the
+real signal. It over-reports on purpose: re-checking a citation that was fine costs a minute,
+and a stale one costs a `[verified]` claim that is quietly false.
+
+Re-derive each broken one with `api_lookup.sh`. Do not nudge the line number until the file
+looks right: off-by-one lands on a plausible neighbouring line and the error becomes
+invisible. Leave the surrounding prose alone unless the diff actually changed what it says —
+these docs are hand-written research, and mechanically rewriting 35k of prose around a line
+number is how real findings get lost. If a citation's *claim* is now wrong rather than just
+its line number, that is a finding for the report, not a silent edit.
 
 Everything else in CLAUDE.md stays put, and you propose rather than edit. In particular do
 not touch anything marked `[unverified]` (the "Resourcefulness" public name is a guess that a
