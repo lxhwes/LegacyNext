@@ -1,0 +1,13 @@
+# Vendored Blizzard UI source is a pinned reference checkout, not our code.
+vendor/*
+!vendor/PINS.md
+
+# Local Lua 5.1 + luarocks toolchain built by hererocks.
+tools/
+
+# Packager output
+.release/
+*.zip
+
+.DS_Store
+.luacheckcache

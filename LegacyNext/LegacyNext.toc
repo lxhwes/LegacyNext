@@ -1,0 +1,14 @@
+## Interface: 16001
+## Title: LegacyNext
+## Notes: Which Legacy challenge is closest to done, and which character should finish it.
+## Version: 0.0.1
+## SavedVariables: LegacyNextDB
+## SavedVariablesPerCharacter: LegacyNextCharDB
+# ## IconTexture: Interface\AddOns\LegacyNext\Media\icon
+
+Store\Store.lua
+Api\Api.lua
+Model\Model.lua
+UI\UI.lua
+Debug\Debug.lua
+Core.lua

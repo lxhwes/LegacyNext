@@ -1,0 +1,21 @@
+package-as: LegacyNext
+
+enable-nolib-creation: no
+
+# The addon lives in a subdirectory so the repo root can hold specs, docs and the vendored
+# reference checkout. This lifts LegacyNext/ up to the package root.
+# UNVERIFIED: not yet exercised against BigWigsMods/packager. See docs/distribution.md.
+move-folders:
+  LegacyNext/LegacyNext: LegacyNext
+
+ignore:
+  - spec
+  - docs
+  - tools
+  - vendor
+  - .github
+  - .busted
+  - .gitignore
+  - .luacheckrc
+  - .pkgmeta
+  - CLAUDE.md
