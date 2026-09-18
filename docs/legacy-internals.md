@@ -19,17 +19,17 @@ cd vendor/wow-ui-source && git sparse-checkout set Interface   # 53 MB, 4405 fil
 
 | | Question | Status |
 |---|---|---|
-| Q1 | Challenge enumeration | **Answered**, with two unresolved sub-questions |
-| Q2 | Category representation | **Answered** in mechanism; the actual category set is unresolved |
+| Q1 | Challenge enumeration | **Answered**, verified in game |
+| Q2 | Category representation | **Answered**, full category tree captured |
 | Q3 | Points per challenge | **Answered** |
 | Q4 | Criteria in the detail pane | **Answered** |
-| Q5 | Account-wide vs per-character | **Answered**, one constant value unresolved |
+| Q5 | Account-wide vs per-character | **Answered**, flag value verified |
 | Q6 | What the Challenge Tracker does | **Answered** |
-| Q7 | Spent / unspent / cap | **Answered** in fields; cap scope unresolved |
-| Q8 | Tree 1189 display name | **UNRESOLVED: needs in-game check** |
+| Q7 | Spent / unspent / cap | **Answered**; cap source found, one recheck at non-zero points |
+| Q8 | Tree 1189 display name | **Answered** — "Resourcefulness" |
 | Q9 | `LEGACY_TREE_ADVENTURE_TALENTED_NODE_ID` | **Answered** |
-| Q10 | Reward track math | **Answered**, reward *names* unresolved |
-| Q11 | Load-on-demand | **Answered**, one unresolved sub-question |
+| Q10 | Reward track math | **Answered**, fully verified |
+| Q11 | Load-on-demand | **Answered** |
 | Q12 | Events | **Answered** |
 
 ---
@@ -82,18 +82,31 @@ The completed/incomplete toggles themselves are a plain Lua table, not an API �
 
 Two sub-questions the source cannot answer:
 
-- **UNRESOLVED: needs in-game check** — does `GetCategoryList()` return only Legacy
-  categories on Forever, or every achievement category? The Legacy page applies no
-  Legacy-specific filter, so either Forever narrowed the global or the Legacy frame would show
-  ordinary achievements. See command **C3**.
-- **UNRESOLVED: needs in-game check** — with an empty search string, does
-  `GetNumFilteredAchievements()` return everything or zero? The Legacy page uses the filter
-  set as a hard gate for visibility, so empty must mean "everything passes" for the UI to work
-  at all. See command **C4**.
+- **Resolved in game, 2026-09-18** — `GetCategoryList()` returns **only Legacy categories**,
+  29 of them. Forever narrowed the global; the Legacy page needs no discriminator and neither
+  do we. Full tree under Q2.
+- **Resolved in game, 2026-09-18** — the filter set is empty at login
+  (`GetNumFilteredAchievements()` = 0, nobody has called `SetAchievementSearchString` yet).
+  After `SetAchievementSearchString("")` it returns **111**, which is every challenge. So an
+  empty string means "match everything", and the Legacy page renders because opening it fires
+  the search box's `OnTextChanged` with an empty string
+  (`Blizzard_LegacyChallenges.lua:10-14`).
+
+  111 also independently confirms the category arithmetic under Q2 — summing
+  `GetCategoryNumAchievements` across the 29 categories gives the same number, so
+  `GetCategoryList()` covers the whole Legacy set with nothing missed and nothing double
+  counted.
 
 **Consequence for us:** `SetAchievementSearchString` is global client state shared with the
-Achievement UI. Calling it would clobber whatever the user has typed there. v0 should
-enumerate categories directly and never call it.
+Achievement UI. Calling it would clobber whatever the user has typed there, and the filter set
+changes underneath us whenever the user searches there or opens the Legacy frame. v0
+enumerates categories directly with `GetCategoryNumAchievements` +
+`GetAchievementInfo(categoryID, index)` and never calls it.
+
+`GetNumFilteredAchievements` + `GetFilteredAchievementID` would give a flat list of all 111
+challenges in two calls, which is tempting. We still do not use it: it only holds that list
+because something else populated it, and that something can change it at any time. It is
+useful as a one-off cross-check of our own enumeration, nothing more.
 
 ### Q2. How categories are represented
 
@@ -109,11 +122,42 @@ Legacy category concept in the source.
   `Blizzard_LegacyChallenges.lua:98-136` — so the sidebar is arbitrary-depth, not a flat
   six-item list.
 
-**UNRESOLVED: needs in-game check** — which categories actually exist, and whether the public
-six-ish grouping (classes, professions, adventure/exploration, PvP, reputation,
-dungeons/raids) is one top-level category each or a deeper tree. The IDs must not be
-hardcoded; we need the shape so the category filter UI knows whether to render a flat list or
-a tree. See command **C3**.
+### The live category tree
+
+Captured in game 2026-09-18, fresh character, beta build 1.60.1. **IDs are recorded for shape
+only — never hardcode them**, they will churn through beta.
+
+29 categories, **exactly two levels deep**, six real top-level groups plus one junk bucket.
+Counts are `numAchievements, numComplete, numIncomplete` from `GetCategoryNumAchievements`.
+
+| Top level (`parent == -1`) | Own | Children |
+|---|---|---|
+| 15425 Do Not Display | 0 | — |
+| 15568 Classes | 0 | Druid, Hunter, Mage, Paladin, Priest, Rogue, Shaman, Warlock, Warrior — 3 each |
+| 15586 Tradeskills | 0 | Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking, Tailoring — 3 each |
+| 15593 Dungeons | 3 | — |
+| 15594 Raids | 3 | 15626 Tier 1 Gear (0) |
+| 15595 Player vs. Player | 0 | Ranks (5), Reputations (4), Season Journey (3) |
+| 15596 Adventure | 2 | Explorer (3), Eastern Kingdoms (23), Kalimdor (20) |
+
+**111 challenges in total**, against 65 earnable points — so a challenge is not worth one
+point, and some are presumably worth zero. `C_Traits.GetTraitCurrencyForAchievement` per
+challenge is the only way to know which.
+
+Notes that matter for the UI:
+
+- Depth is 2, never more. The category filter can be a flat list of the six top-level groups;
+  we do not need the recursive tree builder Blizzard uses at
+  `Blizzard_LegacyChallenges.lua:98-136`.
+- **"Do Not Display" (15425) is a real category** `GetCategoryList()` hands back. It has zero
+  achievements, so Blizzard's `HasChallenges` check drops it incidentally rather than by name.
+  Our enumeration must drop empty categories too, and must not match on the string.
+- Classes covers the nine vanilla classes only — no Death Knight, Monk, Demon Hunter or
+  Evoker. Relevant to v1's class-leveling → candidate-alt mapping.
+- Three of the six top-level groups hold no achievements of their own and exist purely as
+  parents.
+- "Tradeskills" is the internal category name; the tree is publicly "Professions". Do not
+  assume category names and tree names line up.
 
 ### Q3. Points per challenge
 
@@ -188,8 +232,9 @@ id, name, points, completed, month, day, year, description, flags, icon, rewardT
   `Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:1340`. The Legacy card art
   branches on the resulting `self.accountWide` —
   `Blizzard_LegacyChallengeButton.lua:51-55,370,380`.
-  **UNRESOLVED: needs in-game check** — `ACHIEVEMENT_FLAGS_ACCOUNT` is not defined anywhere in
-  the pinned dirs. See command **C5**.
+  **Verified in game, 2026-09-18:** `ACHIEVEMENT_FLAGS_ACCOUNT = 131072` (`0x20000`, bit 17).
+  It is not defined anywhere in the pinned dirs, so feature-detect it and fall back to the
+  literal.
 - **`wasEarnedByMe` (position 13)** is what separates per-character from account completion.
   The Legacy detail pane explicitly counts other characters' completions as incomplete —
   `Blizzard_LegacySystem/Blizzard_LegacyChallengeDetailPane.lua:45-49`:
@@ -282,16 +327,40 @@ it as the account-wide summary. The talent panel instead passes
 `self.excludeStagedChangesForCurrencies` —
 `Blizzard_SharedTalentUI/Blizzard_SharedTalentFrame.lua:1353-1371` (outside the pinned set).
 
-**UNRESOLVED: needs in-game check** — is the 16-point cap per character across all three
-trees, or per tree? The source is suggestive but not conclusive: all three trees share
-currency `4225`, and the struct carries both `spent` and `spentInTree` as separate fields,
-which only makes sense if `spent` is currency-wide and `spentInTree` is per tree. That implies
-a single shared 16-point pool. `LegacySystem.UpdateCurrencyInfo` reading only tree 1 for an
-account-level summary points the same way. Confirm with command **C6**.
+### Where the 65 and the 16 actually come from
+
+**Verified in game, 2026-09-18**, fresh character with zero points:
+
+```
+C_Traits.GetMaxAvailableTraitCurrency(4225, false) → 65   -- total earnable, account-wide
+C_Traits.GetMaxAvailableTraitCurrency(4225, true)  → 16   -- spendable cap, per character
+```
+
+The `limitBySourcedMax` argument is the whole difference between the two headline numbers from
+the BlizzCon deep dive. Neither comes from `maxQuantity`.
+
+**All three trees share one config.** `C_Traits.GetConfigIDByTreeID` returned the same
+`configID` (2866866) for 1187, 1188 and 1189. Combined with the single shared currency 4225,
+that settles it: **the 16-point cap is one pool spent across all three trees, not 16 per
+tree.** A character's total spend is `spent`; `spentInTree` splits it per tree.
+
+A fresh character *does* have a config — `GetConfigIDByTreeID` returned a number, not nothing,
+at zero points. Still guard it: the API is documented `MayReturnNothing`.
+
+At zero points all three trees reported `quantity=0, maxQuantity=0, spent=0, spentInTree=0`.
+
+**Open — recheck at non-zero points:** `maxQuantity` read **0**, not 16. So it is not the
+static cap, despite the UI formatting it into `LEGACY_POINTS_SEASONAL_CAP`
+(`Blizzard_LegacyTree.lua:315`) — which on a fresh character would render "cap 0". It is
+probably dynamic, tracking points earned so far. Re-run command **C6** once points exist. Until
+then `Model/` takes the cap from `GetMaxAvailableTraitCurrency(currencyID, true)`, not from
+`maxQuantity`.
 
 ### Q8. Tree 1189 display name
 
-**UNRESOLVED: needs in-game check.**
+**Answered.** `LEGACY_TREE_PROGRESSION` = **"Resourcefulness"**, verified in game 2026-09-18
+alongside `LEGACY_TREE_PROFESSIONS` = "Professions" and `LEGACY_TREE_ADVENTURE` = "Adventure".
+So tree 1189 is the public Resourcefulness tree.
 
 The name is the global string `LEGACY_TREE_PROGRESSION` —
 `Blizzard_LegacySystem/Blizzard_LegacySystemConstants.lua:11-16`:
@@ -310,9 +379,10 @@ the constant ID, and the doc file. Nothing named "Resourcefulness" appears in th
 (the only `Resourcefulness` hits are the unrelated profession stat in
 `ProfessionConstantsDocumentation.lua:318` and friends). Command **C2**.
 
-Note the internal name is "Progression" while the public name is reportedly
-"Resourcefulness" — do not assume the atlas name, the constant name, and the display string
-agree.
+Note that three different names refer to the same tree: the constant is
+`LEGACY_TREE_PROGRESSION_ID`, the atlas is `UI-Legacy-Tree-Progression`, and the display
+string is "Resourcefulness". Never assume they agree. The same trap applies to the
+"Tradeskills" category versus the "Professions" tree.
 
 ### Q9. `LEGACY_TREE_ADVENTURE_TALENTED_NODE_ID` (110298)
 
@@ -410,11 +480,112 @@ Struct shapes, from `Blizzard_APIDocumentationGenerated/MajorFactionsDocumentati
   `itemID`, `spellID`, `mountID`, `transmogID`, `transmogSetID`, `titleMaskID`,
   `transmogIllusionSourceID`, `icon`.
 
-**UNRESOLVED: needs in-game check** — "next reward name" has no name field. The reward struct
-carries IDs and an icon only, so a name means resolving `itemID`/`spellID`/`mountID`
-separately, and the card mixin that renders them (`RewardTrackFrameMixin`, referenced at
-`Blizzard_LegacyRewardTrack.lua:242`) is not in the pinned set. Command **C7** dumps a real
-reward so we can see which ID fields are actually populated before picking a lookup strategy.
+### Live data, 2026-09-18, fresh character at zero points
+
+`C_MajorFactions.GetMajorFactionData(2802)`, fields that matter:
+
+```
+name                   = "Legacy Track"
+factionID              = 2802
+renownLevel            = 0
+maxLevel               = 90
+renownReputationEarned = 0
+renownLevelThreshold   = 1
+isUnlocked             = true
+textureKit             = "storm"
+expansionID            = 0
+```
+
+`C_MajorFactions.GetRenownLevels(2802)` returned **four** entries:
+
+| level | locked | isMilestone | isCapstone |
+|---|---|---|---|
+| 15 | true | false | false |
+| 25 | true | false | false |
+| 40 | true | false | false |
+| 55 | true | false | false |
+
+**The levels table is sparse.** It is not one entry per renown level the way retail major
+factions work — it is the four *reward* levels only. `levelInfo.level` is a point threshold,
+not an index. Anything we write has to treat it as a sorted list of thresholds.
+
+Cross-check that this is intentional: `IsScrollingTrack()` is
+`#self.renownLevelsInfo > MAX_STATIC_ITEMS` where `MAX_STATIC_ITEMS` is 4
+(`Blizzard_LegacyRewardTrack.lua:9,38-40`), and `STATIC_CARD_POSITION_TO_PROGRESS` holds
+exactly four card positions (line 6). Four rewards is the designed case, and the track renders
+static rather than scrolling.
+
+`renownLevel` is the account's earned Legacy point count — consistent with
+`Blizzard_LegacySystemUtil.lua:38` using `GetCurrentRenownLevel` as the point total. So
+`maxLevel = 90` is headroom against 65 earnable at launch; do not treat 90 as a point cap.
+
+`renownLevelThreshold = 1` and `renownReputationEarned = 0` are confirmed irrelevant — they
+are the two dead locals at `Blizzard_LegacyRewardTrack.lua:189-190`.
+
+**The Blizzard arithmetic checks out against this data.** Worked through the loop at lines
+196-205:
+
+- At 0 points: `nextLevelThresholdDifference = 15 - 0 = 15`, `progressToNextLevel = 0` → 15
+  points to the first reward. Correct.
+- At 20 points: first entry passes (`20 >= 15`), so `progressToNextLevel = 20 - 15 = 5` and
+  `lastThreshold = 15`; second entry fails (`20 < 25`), so
+  `nextLevelThresholdDifference = 25 - 15 = 10` → 5 of 10 toward the next reward. Correct.
+
+So `Model/` reimplements it as: given `renownLevel` and the sorted threshold list, the next
+reward is the first threshold above the current level, and points remaining is
+`threshold - renownLevel`. Two client reads, no other state.
+
+### What a reward entry actually contains
+
+**Verified in game, 2026-09-18.** `GetRenownRewardsForLevel` returns a *list*; each of these
+thresholds holds exactly one reward.
+
+Level 15:
+
+```
+toastDescription = "Replica Ironforge Air Rifle"
+itemID           = 276236
+icon             = 135614
+rewardType       = 1
+isCollected      = false
+isAccountUnlock  = false
+uiOrder          = 0
+renownRewardID   = 0
+description      = "Join a shootout with your air rifle. ... Visit Innkeeper Wiley in Ratchet to claim your reward."
+```
+
+Level 25, same shape **plus** a `name` field:
+
+```
+name             = "Spectral Bear Cub"
+toastDescription = "Spectral Bear Cub"
+itemID           = 277714
+icon             = 294471
+```
+
+Three things here matter.
+
+**The runtime struct exceeds the documented one.** `description`, `isCollected`,
+`toastDescription`, `rewardType` and `name` appear in none of
+`MajorFactionsDocumentation.lua:323-337`. The generated docs are a floor, not a contract —
+feature-detect fields, never assume the documented list is complete.
+
+**`name` is inconsistent and `toastDescription` is not.** The level-15 reward has no `name`;
+the level-25 one has both, holding the same string. So the display name is
+`reward.name or reward.toastDescription`, in that order, and `Model/` treats a missing name as
+normal rather than as an error. Whether level 15 is genuinely nameless or an authoring gap on
+the beta is unknown — the fallback covers either.
+
+**We do not need an item lookup.** A usable name ships in the reward table itself, so the
+reward readout avoids `GetItemInfo` and its async cache-miss path entirely. `icon` is a fileID
+we can render directly, and `isCollected` gives us claimed-versus-unclaimed for free.
+
+`renownRewardID` is 0 on both, so it is not a usable identifier. `uiOrder` is 0 on both.
+`rewardType = 1` is an unlabelled enum; both samples are items, so we have no second value to
+compare against and we do not branch on it.
+
+Rewards are claimed from an NPC (Innkeeper Wiley in Ratchet), which is flavour for us but
+explains `isCollected` being false at a threshold the character has not reached.
 
 ---
 
@@ -467,11 +638,12 @@ not addon code. What is gone before load is all the *Lua* scaffolding:
 So: **we never call `C_AddOns.LoadAddOn`.** Forcing a Blizzard LoD addon to load as a side
 effect of opening our frame is exactly the kind of thing that breaks on a patch.
 
-**UNRESOLVED: needs in-game check** — is `Constants.LegacyConsts` populated before
-`Blizzard_LegacySystem` loads? It should be (the `Constants` table is client-provided, and
-`Blizzard_MicroMenu` reads `Constants.LegacyConsts` at startup without the Legacy addon
-loaded, which is strong evidence), but our whole constant-reading strategy depends on it.
-Command **C1**.
+**Verified in game, 2026-09-18**, fresh login on the beta before opening the Legacy UI:
+`C_AddOns.IsAddOnLoaded("Blizzard_LegacySystem")` returned `false, false` (`loaded`,
+`finished`), while `Constants.LegacyConsts` returned all six values. The constants are client
+data, not addon data, and are readable without the load-on-demand addon. `Api/` reads the
+runtime table; the literals in `CLAUDE.md` stay a fallback for the case where the table shape
+changes under us.
 
 ### Q12. Events
 
@@ -625,17 +797,14 @@ in `spec/fixtures/` have to come from a live dump.
 Run these and paste the output back. Several are long; `/dump` output goes to the chat frame,
 so for the big ones use the `/run ... print(...)` forms which chunk the output.
 
-### C1 — Constants available before the LoD addon loads (Q11)
-
-Run this **first thing after login, before opening the Legacy UI or pressing its key bind.**
+### C1 — Constants available before the LoD addon loads (Q11) — **DONE 2026-09-18**
 
 ```
 /dump C_AddOns.IsAddOnLoaded("Blizzard_LegacySystem")
 /dump Constants and Constants.LegacyConsts
 ```
 
-Expected: `false`, then a table of six values. If the second is `nil`, our constant strategy
-changes and we fall back to literals.
+Returned `false, false` and all six constants. See Q11 above.
 
 ### C2 — Tree display names (Q8)
 

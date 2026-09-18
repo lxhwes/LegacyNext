@@ -63,10 +63,10 @@ cross-account or guild sync, writing to trait configs.
 
 ## Legacy API surface [verified: used by Blizzard_LegacySystem / Blizzard_LegacyChallengeTracker]
 
-Constants — read at runtime via `Constants.LegacyConsts.<NAME>` [verified: the doc table is
-`{ Name = "LegacyConsts", Type = "Constants" }` in
-`Blizzard_APIDocumentationGenerated/LegacyConstantsDocumentation.lua` at the pinned SHA].
-These literals are a fallback only.
+Constants — read at runtime via `Constants.LegacyConsts.<NAME>` [verified in game 2026-09-18:
+all six values present on a fresh login while
+`C_AddOns.IsAddOnLoaded("Blizzard_LegacySystem")` returned `false, false`, so they are client
+data, not addon data]. These literals are a fallback only.
 
 | Constant | Value |
 |---|---|
@@ -74,8 +74,32 @@ These literals are a fallback only.
 | `LEGACY_POINTS_TRAIT_CURRENCY_ID` | 4225 |
 | `LEGACY_TREE_PROFESSIONS_ID` | 1187 |
 | `LEGACY_TREE_ADVENTURE_ID` | 1188 |
-| `LEGACY_TREE_PROGRESSION_ID` | 1189 — public name presumably "Resourcefulness" [unverified] |
-| `LEGACY_TREE_ADVENTURE_TALENTED_NODE_ID` | 110298 — purpose unknown |
+| `LEGACY_TREE_PROGRESSION_ID` | 1189 — display name "Resourcefulness" [verified in game 2026-09-18] |
+| `LEGACY_TREE_ADVENTURE_TALENTED_NODE_ID` | 110298 — lowers the class-talent unlock level; out of scope |
+
+Runtime facts [verified in game 2026-09-18, build 1.60.1, fresh character]:
+
+- `GetCategoryList()` returns **only Legacy categories** — 29 of them, exactly two levels
+  deep, six real top-level groups plus a "Do Not Display" bucket holding zero achievements.
+  111 challenges total, confirmed twice. Full tree in `docs/legacy-internals.md`.
+- The filter API (`GetNumFilteredAchievements` / `GetFilteredAchievementID`) reads 0 at login
+  and 111 after any `SetAchievementSearchString("")`. It is global state shared with
+  Blizzard's Achievement UI — we never call it, and never read it as a source of truth.
+- All three trees share **one** `configID`. The 16-point cap is a single pool spent across
+  all three, not 16 per tree.
+- `C_Traits.GetMaxAvailableTraitCurrency(4225, false)` = 65 earnable account-wide;
+  `(4225, true)` = 16 spendable per character. The cap does **not** come from
+  `TreeCurrencyInfo.maxQuantity`, which read 0 at zero points.
+- `ACHIEVEMENT_FLAGS_ACCOUNT` = 131072.
+- Reward track faction 2802 is named "Legacy Track", `maxLevel` 90, `isUnlocked` true.
+  `GetRenownLevels` returns a **sparse** list of the four reward thresholds (15, 25, 40, 55),
+  not one entry per level. `renownLevel` is the account's earned point count.
+- Reward entries carry a usable display name — `reward.name or reward.toastDescription`, since
+  `name` is missing on some entries — plus `icon` and `isCollected`. No item lookup needed.
+
+**The generated API docs are a floor, not a contract.** The live reward struct carries five
+fields that appear in no documentation file. Feature-detect fields; never assume a documented
+field list is complete.
 
 Challenges are achievements:
 `GetAchievementInfo`, `GetAchievementNumCriteria`, `GetAchievementCriteriaInfo`,
