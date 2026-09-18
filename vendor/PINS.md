@@ -26,6 +26,11 @@ version.txt
 
 All four directories were present at this commit.
 
+`docs/legacy-internals.md` cites four files outside this set (`Blizzard_MicroMenu`,
+`Blizzard_SharedTalentUI`, `Blizzard_FrameXML`, `Blizzard_FrameXMLBase`). They were read by
+running `git sparse-checkout set Interface` at this same SHA — 53 MB, 4405 files — and then
+narrowing back. Widen the same way to re-check them; the pin does not move.
+
 ### Recreate
 
 ```sh
