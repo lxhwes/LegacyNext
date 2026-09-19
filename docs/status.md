@@ -16,10 +16,9 @@ none — the call succeeded and tallied `ok`, and only its first *value* was nil
 absence-versus-failure distinction working in the field. The `skipped` is `GetProfessionInfo`,
 correctly declining to invent a failure for a probe it had no index for.
 
-Still outstanding from section D: the remaining dump sections (`character`, `trees`,
-`rewards`, `challenges`), which are what `spec/fixtures/` is still waiting on, and **D4
-professions, which this character could not answer** — `GetProfessions`' seven Forever slots
-are still unverified against a real return. Needs a character with two primaries and cooking.
+`trees` and `challenges 1` landed as fixtures the same day. Still open: **D6** (`rewards`, dead
+until the mixin fix ships), **D4** (professions — this character knew none) and **D7**
+(challenge pages 2–6). See the queue in `docs/ingame-commands.md`.
 
 ## Phases
 
