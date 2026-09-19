@@ -16,7 +16,8 @@ This skill moves the pin forward and tells you what it cost.
 ## The shape of the job
 
 Most bumps are boring, and that is the point. Across the five builds on the mirror so far,
-**not one** touched the four vendored directories — only `version.txt` moved. Recognising a
+**not one** touched the vendored directories listed in `vendor/PINS.md` — only `version.txt`
+moved. Recognising a
 boring bump quickly and saying so plainly is a success, not a non-answer. Do not manufacture
 findings to justify the run.
 
@@ -44,7 +45,7 @@ The markers that matter:
 | Marker | What it means | What you do |
 |---|---|---|
 | `NO_NEW_BUILD` (exit 3) | Already at the newest commit | Report the pinned build and that it is current. Two or three lines, then stop. Edit nothing. |
-| `VENDORED_DIRS_UNCHANGED` | Build moved, our four dirs did not | The boring case. Go to step 3, skip the diff reading. |
+| `VENDORED_DIRS_UNCHANGED` | Build moved, the vendored directories listed in `vendor/PINS.md` did not | The boring case. Go to step 3, skip the diff reading. |
 | `WATCHLIST_HIT` | A symbol LegacyNext calls appears in the diff | Go to step 2. This is the whole reason the skill exists. |
 | `CONSTANTS_CHANGED` | `LegacyConstantsDocumentation.lua` moved | Highest severity. Read `constants.diff` in full, always. |
 | `TOC_INTERFACE_STALE` | Build implies a different `## Interface:` than the .toc has | Fix the .toc in step 3. |

@@ -110,14 +110,16 @@ tail `[unverified]` rather than asserting the list is complete.
 **Tier C — absent entirely.** How much this proves depends on what kind of symbol it is,
 and the two halves of the search are not equally complete:
 
-- *The generated docs are complete for namespaces and functions.* 639 files covering 285
+- *The generated docs are complete for namespaces and functions.* 639 files covering 284
   namespaces, dumped by Blizzard's own generator. So for a `C_Something.Foo` symbol,
   absence from the docs is **strong**. `C_LegacySystem` returns nothing anywhere in those
   639 files, which is good evidence that namespace does not exist, not an artifact of a
   narrow checkout. This does **not** extend to struct fields — see below.
-- *The call sites are not complete.* Only four addons are vendored, so a bare FrameXML
-  global called from elsewhere in the UI looks identical to one that does not exist.
-  Absence there is **weak**.
+- *The call sites are not complete.* Only the directories `vendor/PINS.md` lists are vendored.
+  FrameXML-level symbols are now checkable, since `Blizzard_FrameXML`, `Blizzard_FrameXMLBase`
+  and `Blizzard_SharedXML` are in the checkout, but a global called only from a directory
+  PINS.md lists as outside the checkout looks identical to one that does not exist. Absence
+  there is **weak**.
 
 So: a missing `C_*` namespace or function you can call fake with confidence. A missing
 bare global you cannot. Either way Tier C licenses refusing to invent a shape — and when
@@ -258,9 +260,9 @@ back, it becomes a fixture in `spec/fixtures/` and the test stops being pending.
 
 ## What is actually checked out — check, do not assume
 
-Four directories: `Blizzard_LegacySystem`, `Blizzard_LegacyChallengeTracker`,
-`Blizzard_AchievementUI`, `Blizzard_APIDocumentationGenerated`. That is what
-`vendor/PINS.md` documents and what is on disk.
+The directories `vendor/PINS.md` lists: the original four Legacy and API-doc addons plus the
+2026-09-19 widening (FrameXML, SharedXML, fonts, UI panel templates and more). Run
+`ls vendor/wow-ui-source/Interface/AddOns` and compare against that file.
 
 Verify it at the start of any lookup session rather than trusting this paragraph:
 
@@ -276,9 +278,10 @@ much a Tier C verdict is worth, so read it rather than remembering it. If the sp
 or the pin has moved, say so plainly instead of re-deriving citations silently; a moved
 pin during beta is itself the news.
 
-Because only four addons are present, un-vendored FrameXML globals and constants
-(`EVALUATION_TREE_FLAG_*`, `CRITERIA_TYPE_*`, generic format strings) cannot be checked
-here at all. Mark those `[unverified]` rather than reasoning about them from retail.
+Check `vendor/PINS.md` for the current set. FrameXML-level symbols are now checkable; only
+symbols that live in directories PINS.md lists as outside the checkout (`Blizzard_MicroMenu`,
+`Blizzard_SharedTalentUI`, `Blizzard_MajorFactions`, `Blizzard_Professions` at the time of
+writing) stay `[unverified]`. Mark those rather than reasoning about them from retail.
 
 **Do not widen the sparse checkout to get at them.** It is tempting and it works, but the
 cone is shared state: widening it changes what every concurrent session sees, and a

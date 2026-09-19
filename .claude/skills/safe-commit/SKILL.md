@@ -68,8 +68,9 @@ one:
 git log --oneline -15
 ```
 
-Types in use: `feat`, `fix`, `docs`, `chore`. Scopes in use: `skills`, `ingame`, `legacy`,
-`vendor`, `git`, `scaffold`. Subject in the imperative, no trailing period.
+Types in use: `feat`, `fix`, `docs`, `chore`. Scopes in use: `skills`, `api`, `fixtures`,
+`debug`, `legacy`, `ingame`, `ui`, `release`, `model`, `status`, `scaffold`, `git`. Subject in
+the imperative, no trailing period.
 
 **Examples:**
 

@@ -21,7 +21,7 @@ gets asked again.
 
 ```sh
 grep -n 'verified in game' docs/legacy-internals.md   # what the client has already told us
-sed -n '1,40p' docs/ingame-commands.md                # what is queued and what is done
+awk '/^---/{exit} {print}' docs/ingame-commands.md    # queue and Closed tables, up to the first rule
 sed -n '/Outstanding — needs the game/,/^## /p' docs/status.md
 ```
 
@@ -136,8 +136,10 @@ escape. (This is lossy on purpose — do not try to reverse it when the paste co
 script 1 rather than a new one. Chat truncates, wraps, and cannot be selected cleanly.
 
 **Give it a fallback.** `UIPanelScrollFrameTemplate`, `ChatFontNormal` and `SetColorTexture`
-are all retail-normal and **none are verified on Forever**. So every EditBox script carries
-the replacement in its prose:
+are verified in game 2026-09-19 via the `/lgn dump` window, which is built on exactly those
+and produced every committed fixture (queue row D3; `docs/ui-templates.md`). The fallback
+stays because a build bump can remove any of them. So every EditBox script carries the
+replacement in its prose:
 
 > If it errors, replace everything from `if not LNDump then` to the end with
 > `for _, line in ipairs(out) do print(line); end;` and tell me what errored.

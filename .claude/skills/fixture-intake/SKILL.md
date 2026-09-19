@@ -35,7 +35,8 @@ a new ad-hoc script is only for something the addon does not read yet.
 1. **Preserve before you interpret.** Save the paste verbatim first. Every later step can be
    redone from the raw text; nothing can be recovered from a paste you paraphrased.
 2. **Generate the fixture** with the script below, which keeps the raw block inside the file.
-3. **Wire the stub** in `spec/stubs/` so `Api/` specs read the fixture.
+3. **Add a `Model/` test against the fixture.** Add an inline stub in the `Api` spec only if
+   the guard behaviour itself is what changed; `spec/stubs/` holds only a README.
 4. **Spend it** — every pending test the capture actually covers, not just the one you came for.
 5. **Write the finding down** in `docs/legacy-internals.md`, and in `CLAUDE.md` if it changes a
    client fact. Mark the queue entry in `docs/ingame-commands.md` done with the date, and
@@ -97,7 +98,9 @@ out of a markdown table is a small lie that gets load-bearing later.
 
 ## Stubs, and the arity rule
 
-`spec/stubs/` is the fake WoW environment `Api/` specs run against. Stubs return fixture data
+There is no stub layer on disk: `spec/stubs/` holds only a README, and `Api/` specs inject
+trivial stubs inline (see the header of `spec/api/api_spec.lua`). Captured shapes are tested
+through `Model/` against `spec/fixtures/`. Where a stub is written, it returns fixture data
 and nothing else — no computed values, no filled gaps.
 
 Where a fixture covers only part of a function's returns, the stub returns that part and the

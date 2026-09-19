@@ -27,14 +27,26 @@ PINS="$ROOT/vendor/PINS.md"
 SKILL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WATCHLIST="$SKILL/references/watchlist.txt"
 
-# The sparse-checkout set from PINS.md. Kept as an array: these must stay separate argv
-# entries, and an unquoted string variable does not word-split under zsh.
-PATHS=(
-	Interface/AddOns/Blizzard_LegacySystem
-	Interface/AddOns/Blizzard_LegacyChallengeTracker
-	Interface/AddOns/Blizzard_APIDocumentationGenerated
-	Interface/AddOns/Blizzard_AchievementUI
-)
+# The sparse-checkout set, read from PINS.md so a widened checkout is diffed without editing
+# this script: every `Interface/AddOns/...` line inside a fenced code block, de-duplicated,
+# which covers both the original list and the widened list. Kept as an array: these must
+# stay separate argv entries, and an unquoted string variable does not word-split under zsh.
+# bash 3.2 (macOS) has no mapfile, hence the read loop.
+PATHS=()
+if [[ -r "$PINS" ]]; then
+	while IFS= read -r p; do
+		PATHS+=("$p")
+	done < <(awk '/^```/ { fence = !fence; next } fence && /^Interface\/AddOns\//' "$PINS" | awk '!seen[$0]++')
+fi
+if [[ ${#PATHS[@]} -eq 0 ]]; then
+	echo "WARN: no sparse-checkout paths parsed from $PINS; falling back to the original four" >&2
+	PATHS=(
+		Interface/AddOns/Blizzard_LegacySystem
+		Interface/AddOns/Blizzard_LegacyChallengeTracker
+		Interface/AddOns/Blizzard_APIDocumentationGenerated
+		Interface/AddOns/Blizzard_AchievementUI
+	)
+fi
 
 # Keyed by checkout path as well as target SHA, so two clones of this repo on one machine
 # (a worktree, an eval sandbox) cannot read each other's artifacts and apply the wrong diff.

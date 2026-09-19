@@ -43,6 +43,8 @@ SetAchievementSearchString
 # Same severity class as the Legacy constants: a changed value goes wrong quietly
 # instead of erroring.
 ACHIEVEMENT_FLAGS_ACCOUNT
+# Read as a bare global by Api.lua (FLAG_FALLBACK); live value 1 on build 1.60.1.
+EVALUATION_TREE_FLAG_PROGRESS_BAR
 
 # --- Events -----------------------------------------------------------------
 ACHIEVEMENT_EARNED

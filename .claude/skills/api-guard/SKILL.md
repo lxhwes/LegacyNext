@@ -47,7 +47,8 @@ end
 
 `call` is the shared guard in `Api.lua` and does four of the five gates below for you —
 resolve, feature-detect, `pcall`, secret-check — then deep-copies any table before handing it
-up. Read it at `LegacyNext/Api/Api.lua:191` rather than writing a second one beside it. The
+up. Read it at `LegacyNext/Api/Api.lua:210` (line at the time of writing; grep for
+`local function call`) rather than writing a second one beside it. The
 citation placeholders are placeholders on purpose: an example carrying real-looking line
 numbers gets copied, and a copied citation that was never verified is exactly the failure the
 pin stamp exists to catch.
@@ -160,18 +161,22 @@ each has a specific failure it prevents:
 1. **The citation comment**, with the **pin stamp**. Line numbers are pin-relative; after a
    bump they point at plausible wrong lines, which is worse than no citation because it still
    reads as verified. The pin is what makes the staleness detectable.
-2. **A `read_globals` entry in `.luacheckrc`.** Without it lint fails. Note what the entry
-   means: it is a claim that the symbol exists, and it does not excuse the runtime
-   feature-detect.
+2. **A `read_globals` entry in `.luacheckrc`.** Lint will not fail without it: `Api/` reaches
+   every global through `rawget`/`resolve`, so luacheck never sees the symbol. The entry is a
+   manifest of what we depend on, kept exhaustive by convention. It is a claim that the symbol
+   exists, and the runtime feature-detect is the real gate.
 3. **A watchlist line, if the symbol is a bare global or a constant name.** `beta-build-bump`
    auto-discovers `C_Namespace.Function` references under `LegacyNext/`, so namespaced calls
    need nothing. `GetAchievementInfo` and `ACHIEVEMENT_FLAGS_ACCOUNT` cannot be discovered and
    go in `.claude/skills/beta-build-bump/references/watchlist.txt` by hand. Miss the line and
    the symbol still appears in `full.diff` — it just stops being surfaced, which is how a
    silent break gets through a bump.
-4. **A stub in `spec/stubs/` plus a fixture, or an honest `pending` test.** Stubs are driven by
-   captured fixtures, never invented data. Where the fixture only covers a prefix of the
-   returns, the stub returns that prefix and the spec asserts nothing about the tail — this
+4. **A fixture in `spec/fixtures/` with a `Model/` test, an inline stub in the `Api` spec, or an
+   honest `pending` test naming the queue row.** `spec/stubs/` holds only a README; `Api` specs
+   inject trivial stubs inline (see the header of `spec/api/api_spec.lua`), and those exercise
+   the guard, not a response shape. Stubs are driven by captured fixtures, never invented data.
+   Where the fixture only covers a prefix of the returns, the stub returns that prefix and the
+   spec asserts nothing about the tail — this
    mirrors the "at least N returns" rule, since nothing stops the real function returning more
    than any vendored caller consumes. No fixture yet? The test is `pending` with the command
    that unblocks it, queued via `ingame-script`.

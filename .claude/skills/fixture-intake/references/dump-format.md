@@ -18,7 +18,8 @@ and the fixture.
 
 ## Shape 1 — the Lua literal
 
-`Debug.Build` (`LegacyNext/Debug/Debug.lua:212`) serializes `Api` output into one returned
+`Debug.Build` (`LegacyNext/Debug/Debug.lua:231`, line at the time of writing; grep for
+`function Debug.Build`) serializes `Api` output into one returned
 table. Its design choices are load-bearing for intake:
 
 - **Everything is data inside one table. No comment lines.** A dump that loses its newlines on
@@ -32,10 +33,13 @@ table. Its design choices are load-bearing for intake:
   dumps are therefore meaningful; keep it that way.
 - **`meta` carries the provenance already** — section, client info, and for challenges the
   count and paging. That is the metadata `dump_to_fixture.py` has to be told by hand.
-- **Sections exist because the copy truncates.** `all`, `summary`, `challenges`, `rewards`,
-  `trees`, `character`, `probe`, with challenges paged 20 at a time and a nudge past 60k
-  characters. A partial paste is the failure mode to watch for: check the closing brace is
+- **Sections exist because the copy truncates.** `all`, `summary`, `challenges`, `categories`,
+  `rewards`, `trees`, `character`, `probe`, with challenges paged 20 at a time and a nudge past
+  60k characters. A partial paste is the failure mode to watch for: check the closing brace is
   there before treating a dump as complete.
+- **`/lgn uidump` is a third capture command**, next to `/lgn dump` and `/lgn probe`. It
+  produces the frame's content as text through `Debug.RenderView`, not a Lua literal, and is
+  golden-tested in `spec/golden/`. Intake for it is a golden file, not a fixture.
 
 Intake for this shape is short: save the text as `spec/fixtures/<name>.lua`, prepend the
 provenance comment header, confirm it loads, and note which section and page it was. Do not run
