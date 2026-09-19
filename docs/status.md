@@ -1,11 +1,25 @@
 # Status
 
-Last updated 2026-09-18.
+Last updated 2026-09-19.
 
-**Where we are: Phase 2 written, not yet run in game.**
+**Where we are: Phase 2 ran in the client. D1–D3 pass, one guard bug found and fixed.**
 
-`Api/` and `Debug/` are implemented and green on lint and tests, but no line of either has
-executed inside the client. Section D in `docs/ingame-commands.md` is the first run.
+`/lgn probe` and `/lgn dump summary` both work. The summary reproduces the section B sweep
+exactly — 111 challenges, 65 points, 18 progress-bar, 59 checklist, 34 no-criteria — from a
+completely different code path, so enumeration is confirmed twice over.
+
+**No secrets on our surface.** The one `secret` in the tally was our own guard misfiring; see
+below. Midnight's restrictions do not reach the Legacy APIs on build 1.60.1 (69913).
+
+Every probe line is accounted for. The `nil` is `GetProfessions` on a level 1 Shaman who knows
+none — the call succeeded and tallied `ok`, and only its first *value* was nil, which is the
+absence-versus-failure distinction working in the field. The `skipped` is `GetProfessionInfo`,
+correctly declining to invent a failure for a probe it had no index for.
+
+Still outstanding from section D: the remaining dump sections (`character`, `trees`,
+`rewards`, `challenges`), which are what `spec/fixtures/` is still waiting on, and **D4
+professions, which this character could not answer** — `GetProfessions`' seven Forever slots
+are still unverified against a real return. Needs a character with two primaries and cooking.
 
 ## Phases
 
@@ -15,8 +29,8 @@ executed inside the client. Section D in `docs/ingame-commands.md` is the first 
 | 1 | Read-only research into Blizzard's Legacy system, answering Q1–Q12 | **Done** — `0ad6e6c` plus in-game verification |
 | — | Project skills: `forever-api-lookup`, `beta-build-bump` | **Done** — `d9bb4a6`, `c9db19c` |
 | — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
-| 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Written**, unrun in game — section D |
-| 3 | Not yet defined. `Model/` ranking is the obvious candidate, blocked on the three design questions below. | Not started |
+| 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
+| 3 | `Model/` ranking and the v0 UI. Design questions settled 2026-09-19; blocked only on section D fixtures. | Not started |
 
 ## Research questions
 
@@ -83,21 +97,108 @@ consequential finding of the phase.
 - C3 — a criterion sitting part-done, for a real mid-progress fixture
 - C4 — `wasEarnedByMe` true, and whether completed entries sort before incomplete ones
 
-## Open design questions
+## What the first in-game run found — 2026-09-19
 
-Raised by the section B sweep. Both need a decision before the ranking model is written, and
-both are Alex's call rather than mine.
+`ok=28 nil=1 error=1 skipped=1` on the probe, and one symbol tallied `secret=2 ok=0`:
+`C_MajorFactions.GetMajorFactionData`, with `lastDetail = "unsupported type function"`.
 
-1. **How to rank the 34 challenges with no criteria.** A third of the list exposes no progress
-   at all — every class challenge, all five PvP Ranks, two others. Treating them as 0% parks
-   them at the top of a "closest to done" sort permanently. Options: a separate section, sort
-   them last, or hide them behind a toggle.
-2. **Whether the 46 zero-point `Explore *` achievements belong in Next Up.** They are the
-   criteria substrate for the single `Explorer` challenge rather than rewards in themselves.
-   Blizzard's UI shows them; ours is about points.
-3. **How deep to follow meta chains.** `Explorer` reads "0/1 criteria" while actually being
-   hundreds of subzones deep through `criteriaType` 8 `assetID` links. Recursing gives honest
-   closeness and costs a lot of API calls; not recursing means one entry in the list is a lie.
+Not a secret. Two defects in the guard, both now fixed:
+
+1. **`plainCopy` rejected a whole table over one unusable field.** `MajorFactionData` carries
+   `factionFontColor`, a `DBColorExport` (`MajorFactionsDocumentation.lua:281`) whose `color`
+   field is declared `Mixin = "ColorMixin"` (`UIColorSharedDocumentation.lua:11`). The client
+   attaches ColorMixin's methods, so the copy hit real functions two levels down and threw
+   away `name`, `maxLevel`, `isUnlocked`, `renownLevel` along with them.
+   `Api.GetRewardTrack()` returned `nil, "GetMajorFactionData unavailable"` — the entire
+   reward track, a v0 feature, was dead.
+
+   Unusable *fields* are now dropped and named in a third return; an unusable *value* still
+   fails the read. A secret stays the exception and fails the table outright.
+
+2. **Every `plainCopy` rejection was recorded as `secret`.** Cyclic, too-deep and
+   unsupported-type all filed under the one status that means Midnight's restrictions reached
+   us. The probe row said `error` for the same event the tally called `secret`. A partial copy
+   now counts as `ok` plus a separate `partial` marker carrying the dropped paths, and
+   `secret` means only what it says.
+
+This is the value of the probe: the bug was in our guard, not the client, and only a live run
+could have shown it. Everything else on the surface reads clean.
+
+Confirmed the same run, all `(runtime)` rather than `(fallback)`:
+
+- **`issecretvalue` exists and the guard is active.** "No secrets" is therefore a tested
+  negative. Re-check per build.
+- All six `Constants.LegacyConsts` values, plus `ACHIEVEMENT_FLAGS_ACCOUNT` (131072) and
+  `EVALUATION_TREE_FLAG_PROGRESS_BAR` (1) — the latter two are live client globals even
+  though neither appears in the pinned source.
+- `GetMaxAvailableTraitCurrency` = 16 spendable, `GetConfigIDByTreeID` = 2938022 on a fresh
+  character, `GetCurrentRenownLevel` = 0, `GetRenownLevels` = 4 sparse thresholds.
+- `criteriaType` 7 renders as "150 Alchemy Skill", matching the skill-threshold reading.
+
+Provenance note: this probe came back as an OCR'd screenshot (`Criterialnfo`,
+`Is ValidAchievement`). Every number corroborates the 2026-09-18 sweep, so the transcription
+is sound; the only claim without independent corroboration is the active secret guard.
+
+## Fixtures landed — 2026-09-19
+
+First real captures in `spec/fixtures/`, both from a fresh level 1 Shaman on build 69913:
+
+| File | Covers |
+|---|---|
+| `dump_trees_fresh.lua` | Full `treeSpend`: one shared `configId` 2938022, cap 16, earnable 65, all three tree display names |
+| `dump_challenges_page1_fresh.lua` | 20 of 111 challenges — all three `criteriaType` values, the no-criteria shape, and both point-bearing and zero-point entries |
+
+Both parse under `luac -p`, and `#criteria == criteriaExpected` on all 20, so nothing was lost
+in transcription. The `failures` tally from each capture is deliberately not in the fixture: it
+records our guard's behaviour at capture time, not client data.
+
+Captured on the pre-fix build. That bug rejected tables whole rather than truncating them, so
+everything present is complete — and neither section reads `GetMajorFactionData`. `rewards` was
+the only casualty, dumping `rewardTrack = { unavailable = "GetMajorFactionData unavailable" }`,
+exactly as predicted. Not fixtured; it will be recaptured on the fixed build.
+
+### Three findings that change the plan
+
+1. **`criteriaType` 43 exists** — area discovery, `assetID` is an area ID. We had documented
+   only 7 and 43's absence was invisible because it never appears on a point-bearing challenge.
+   The lesson is the general one: treat the type list as open and never switch exhaustively.
+2. **The Explore chain is three levels deep.** `Explore Azeroth` → `Explore Eastern Kingdoms`
+   → `Explore Alterac Mountains` → 15 type-43 leaves. This puts the locked "recurse one level"
+   decision in tension with itself: one level takes Explorer from "0/2" to "0/23" and still
+   isn't the truth. **Resolved: v0 drops meta recursion entirely** — see decision 3 below.
+3. **Class challenges have no machine-readable level.** `Novice Druid` is level 25, but
+   `criteriaExpected == 0` and the 25 lives only in `description` prose. Phase 4 specifies
+   candidate-alt mapping "driven by criteriaType/assetId, NOT by parsing challenge names" —
+   for class-leveling challenges there is nothing to drive it with. Either v1 parses the
+   description or class-leveling mapping drops to profession challenges only.
+
+### One bug fixed
+
+`/lgn dump characters` (the section is `character`, singular) produced a meta block and no
+payload — indistinguishable from the client having nothing to say. `Debug.Build` now rejects an
+unknown section and lists the valid ones.
+
+## Ranking decisions — Alex, 2026-09-19
+
+Raised by the section B sweep, all three settled. These are inputs to Phase 3's scoring
+function; changing one is a scoring change, not a rewrite.
+
+1. **Challenges with no criteria sort last.** One ranked list, not two, and nothing hidden
+   behind a toggle. The 34 binary challenges — every class challenge, all five PvP Ranks, two
+   others — sink below anything with measurable progress rather than sitting at a permanent
+   0%. Detect them by `criteriaExpected == 0`, never by category or name.
+2. **Zero-point challenges are excluded from Next Up.** That drops all 46 `Explore *`
+   achievements, which are criteria substrate for the single `Explorer` challenge rather than
+   rewards. `Explorer` itself still appears. Filter on the point value from
+   `GetTraitCurrencyForAchievement`, never on the name — and don't hardcode the 0, since every
+   point-bearing challenge awarding exactly 1 today is an observation, not a contract.
+3. ~~**Meta chains recurse one level.**~~ **Superseded the same day — v0 does not recurse at
+   all.** The 2026-09-19 capture showed the Explore chain is three levels deep
+   (`Explore Azeroth` → `Explore Eastern Kingdoms` → `Explore Alterac Mountains` → type-43
+   leaves), so one level would have bought a number that is larger but still not true. Combined
+   with decision 2, the only entries that recursion would have fixed are zero-point Explore
+   achievements that Next Up already excludes. `followMetaChains` stays in `Api`, stays off,
+   and is a v1 question if a point-bearing meta challenge ever turns up — none has yet.
 
 ## What Phase 2 built
 

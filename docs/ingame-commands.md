@@ -84,6 +84,36 @@ primaries and cooking is the useful case.
 hand-written scripts — the answers fall out of `/lgn dump trees` and `/lgn dump challenges`
 once you have points spent and progress made.
 
+### D5 — the re-run, after the guard fix (2026-09-19)
+
+D1–D3 passed on 2026-09-19 and found one bug in our own copy guard, now fixed:
+`GetMajorFactionData` was being thrown away whole because of a ColorMixin field, which killed
+the reward track. **Copy the addon folder over again before this run** — the installed copy is
+the broken one.
+
+Batched so it is one session, not four:
+
+```
+/lgn probe
+/lgn dump rewards
+/lgn dump trees
+/lgn dump character
+/lgn dump challenges 1
+```
+
+- `probe` should now read `ok=29 partial=1` or similar, with
+  `partial C_MajorFactions.GetMajorFactionData ... dropped return1.factionFontColor.color.<method>`.
+  A `partial` line naming the dropped method is the fix working. Still `error` means the drop
+  policy did not catch it and I need the new detail string.
+- `rewards` is the one that was dead. It should carry `name`, `maxLevel`, four thresholds and
+  reward entries.
+- **On a character with professions if you have one** — `/lgn dump character` is still the only
+  open question from D4. Forever reads seven slots from `GetProfessions` where retail reads
+  six; the level 1 Shaman knew none, so the shape is still unverified. Two primaries plus
+  cooking is the useful case.
+
+All of these go straight into `spec/fixtures/` and are what Phase 3 is waiting on.
+
 ## How to run these
 
 Paste into **WoWLua**, hit run. Output goes to a copyable EditBox; select all, ctrl-C, paste

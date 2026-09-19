@@ -54,8 +54,10 @@ cross-account or guild sync, writing to trait configs.
   the vast majority of APIs available in 12.1.5".
 - Forever's API docs differ from live retail 12.1.0 — 26 extra doc files, ~6k line diff.
   **Do not assume retail behavior**; check the forever branch source.
-- Midnight addon restrictions (secret values) apply. Believed irrelevant to our APIs, but
-  every API read still goes through the guard.
+- Midnight addon restrictions (secret values) apply. **`issecretvalue` exists on this client
+  and the guard is active** [verified in game 2026-09-19 via `/lgn probe`], and no API on our
+  surface returned a secret. That is a tested negative, not an assumption — but it is a
+  per-build one, so re-run the probe after any bump.
 - **BUG: SavedVariables are written but never loaded back.** Blizzard-side, confirmed by
   other addon authors. v1 depends on a workaround — see Thunderz96/forever-addon-kit
   `sv_bridge`, Wicksmods/WickCore Profiles.
@@ -85,12 +87,21 @@ Runtime facts [verified in game 2026-09-18, build 1.60.1, fresh character]:
 - The filter API (`GetNumFilteredAchievements` / `GetFilteredAchievementID`) reads 0 at login
   and 111 after any `SetAchievementSearchString("")`. It is global state shared with
   Blizzard's Achievement UI — we never call it, and never read it as a source of truth.
-- All three trees share **one** `configID`. The 16-point cap is a single pool spent across
-  all three, not 16 per tree.
+- All three trees share **one** `configID` — 2938022 on a fresh character
+  [verified in game 2026-09-19]. The 16-point cap is a single pool spent across all three, not
+  16 per tree.
+- **Class challenges carry no machine-readable level threshold** [verified in game 2026-09-19].
+  `Novice / Experienced / Master Druid` (61502–61504) are levels 25/45/60, but they have
+  `criteriaExpected == 0` and the number appears only in `description` prose. v1's
+  candidate-alt mapping cannot key off criteria for these — see `docs/status.md`.
 - `C_Traits.GetMaxAvailableTraitCurrency(4225, false)` = 65 earnable account-wide;
   `(4225, true)` = 16 spendable per character. The cap does **not** come from
   `TreeCurrencyInfo.maxQuantity`, which read 0 at zero points.
-- `ACHIEVEMENT_FLAGS_ACCOUNT` = 131072.
+- `ACHIEVEMENT_FLAGS_ACCOUNT` = 131072 and `EVALUATION_TREE_FLAG_PROGRESS_BAR` = 1 are both
+  **live client globals** [verified in game 2026-09-19], despite appearing nowhere in the
+  pinned source. Keep reading them at runtime; the literals in `Api` stay a fallback.
+- All six `Constants.LegacyConsts` values read `(runtime)`, not `(fallback)`
+  [verified in game 2026-09-19]. The literals in the table above are not carrying us.
 - Reward track faction 2802 is named "Legacy Track", `maxLevel` 90, `isUnlocked` true.
   `GetRenownLevels` returns a **sparse** list of the four reward thresholds (15, 25, 40, 55),
   not one entry per level. `renownLevel` is the account's earned point count.
@@ -103,9 +114,17 @@ Runtime facts [verified in game 2026-09-18, build 1.60.1, fresh character]:
 - **Three criteria shapes, not two:** 18 progress-bar, 59 checklist, **34 with no criteria at
   all**. The 34 expose no progress through the API and are binary; ranking must handle that
   as a distinct case rather than treating them as 0%.
-- `criteriaType` 7 = skill threshold (`assetID` is a skill line), 8 = child achievement
-  (`assetID` is an achievement ID). Type 8 forms **meta chains** — real closeness needs to
-  recurse into the child.
+- **Three `criteriaType` values seen, not two** [verified in game 2026-09-19]: 7 = skill
+  threshold (`assetID` is a skill line, e.g. 2937 Alchemy), 8 = child achievement (`assetID` is
+  an achievement ID), **43 = area discovery** (`assetID` is an area ID). Type 43 is the leaf of
+  the Explore tree and never appears on a point-bearing challenge. Treat the list as open —
+  feature-detect the type, never switch exhaustively on it.
+- **The Explore meta chain is three levels deep, not two** [verified in game 2026-09-19]:
+  `Explore Azeroth` (62053, 2 criteria) → type 8 → `Explore Eastern Kingdoms` (62353, 23
+  criteria) → type 8 → `Explore Alterac Mountains` (760, 15 type-43 criteria). One level of
+  recursion improves the number without making it true, so **v0 does not recurse at all** and
+  `followMetaChains` stays off — every chain found so far is zero-point, and Next Up excludes
+  those.
 - `GetAchievementInfo` return order matches retail exactly. The achievement's own `points` is
   **0** on Legacy challenges, which is why Blizzard overrides it. `rewardText` reads
   "Earn 1 Legacy Point." and is usable for display.
@@ -116,6 +135,13 @@ Runtime facts [verified in game 2026-09-18, build 1.60.1, fresh character]:
 **The generated API docs are a floor, not a contract.** The live reward struct carries five
 fields that appear in no documentation file. Feature-detect fields; never assume a documented
 field list is complete.
+
+**A documented struct field can be an object with methods.** `MajorFactionData.factionFontColor`
+is a `DBColorExport` whose `color` is declared `Mixin = "ColorMixin"`
+(`MajorFactionsDocumentation.lua:281`, `UIColorSharedDocumentation.lua:11`), so the client hands
+back functions nested inside a struct of otherwise plain scalars. `Api`'s copy drops such fields
+and names them rather than rejecting the struct — verified in game 2026-09-19, where rejecting it
+had killed the whole reward track.
 
 Challenges are achievements:
 `GetAchievementInfo`, `GetAchievementNumCriteria`, `GetAchievementCriteriaInfo`,
