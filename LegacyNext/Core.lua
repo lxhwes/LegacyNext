@@ -24,12 +24,31 @@ end
 
 ns.say = say
 
+-- One read of everything the v0 view needs. The only place Api output is gathered for
+-- Model, shared by the frame and by /lgn uidump so the two cannot disagree.
+function ns.ReadViewInput()
+	local Api = ns.Api
+	local challenges, challengesReason = Api.GetChallenges()
+	local rewardTrack, rewardTrackReason = Api.GetRewardTrack()
+	local categories = Api.GetCategories()
+	return {
+		challenges = challenges,
+		challengesReason = challengesReason,
+		rewardTrack = rewardTrack,
+		rewardTrackReason = rewardTrackReason,
+		categories = categories,
+	}
+end
+
+ns.UI.SetDataSource(ns.ReadViewInput)
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(_, event)
 	if event == "PLAYER_LOGIN" then
 		ns.version = getVersion()
-		say("v" .. ns.version .. " loaded.")
+		-- No "v" prefix: the packager writes the tag name into ## Version, and tags carry it.
+		say(ns.version .. " loaded. /lgn to open, /lgn help for commands.")
 	end
 end)
 
@@ -38,6 +57,9 @@ SLASH_LEGACYNEXT2 = "/lgn"
 
 local function usage()
 	say("commands:")
+	print("  /lgn                     open or close the Next Up window")
+	print("  /lgn show | hide")
+	print("  /lgn uidump [category]   what the window would show, as copyable text")
 	print("  /lgn probe               one line per API: ok / nil / missing / error / secret")
 	print("  /lgn dump                everything Api returns, as a Lua literal")
 	print("  /lgn dump <section>      one of: " .. table.concat(ns.Debug.sections, ", "))
@@ -48,7 +70,15 @@ SlashCmdList["LEGACYNEXT"] = function(input)
 	local command, rest = string.match(input or "", "^%s*(%S*)%s*(.-)%s*$")
 	command = string.lower(command or "")
 
-	if command == "probe" then
+	if command == "" or command == "toggle" then
+		ns.UI.Toggle()
+	elseif command == "show" then
+		ns.UI.Show()
+	elseif command == "hide" then
+		ns.UI.Hide()
+	elseif command == "uidump" then
+		ns.Debug.UIDump(rest ~= "" and rest or nil)
+	elseif command == "probe" then
 		ns.Debug.Probe()
 	elseif command == "dump" then
 		local section, page = string.match(rest, "^(%S*)%s*(%S*)$")
@@ -56,7 +86,7 @@ SlashCmdList["LEGACYNEXT"] = function(input)
 			section = nil
 		end
 		ns.Debug.Dump(section, tonumber(page))
-	elseif command == "" or command == "help" then
+	elseif command == "help" then
 		usage()
 	else
 		say("unknown command '" .. command .. "'")
