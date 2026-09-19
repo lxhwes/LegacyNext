@@ -61,21 +61,10 @@ through the same function, so the two cannot disagree on content.
 
 **3c, from the three agents:**
 
-- **Packaging: the reported problem is gone.** BigWigsMods/packager merged Forever support on
-  2026-09-17 (`toc_to_type` maps `16???` to `forever`, `16001` becomes `1.60.1`). A real
-  dry-run against a throwaway tag produced `LegacyNext-v0.0.1-drytest-forever.zip` with the
-  TOC at the zip root, so `move-folders` works and the `.pkgmeta` comment now says so.
-  CurseForge's Forever version type (`88568`) could not be checked without a token; WoWInterface
-  has no Forever category and the packager skips it; Wago lists `1.60.1`. Detail in
-  `docs/distribution.md`.
-- **Listing.** `README.md` is now the CurseForge listing; the developer bootstrap moved to
-  `docs/development.md`. `CHANGELOG.md` exists with an `[Unreleased]` section. Version scheme:
-  SemVer `0.x.y` through beta, `1.0.0` at launch, `## Version: @project-version@` in the TOC
-  and `v0.1.0` as the first tag. **The TOC line is Alex's edit, not made.** `Core.lua` no
-  longer prefixes the version with `v`, so a `v0.1.0` tag prints `v0.1.0 loaded.`
-- **UI templates.** Every symbol `UI/` uses is Tier A at the pin, cited in
-  `docs/ui-templates.md`. Two Tier C items became **U2**. The vendored sparse checkout was
-  widened (12 more directories, same SHA) and `vendor/PINS.md` records it.
+The three release findings (packager fixed upstream and dry-run verified, README and
+CHANGELOG rewritten with the `v0.1.0` tag scheme, every UI template Tier A at the pin with
+two Tier C items queued as U2) are recorded once, under "Phase 3c — release prep" below.
+The live checklist is "What must be true to ship v0".
 
 **Not done, and why:** ~~the icon~~ (done later the same day, see 3c below); the TOC version
 line (Alex's); CI packaging (wire `BigWigsMods/packager@v2` in once the CurseForge check
@@ -388,10 +377,35 @@ What blocks what, as of 2026-09-19:
 | Whether long names ellipsise or only clip | U2 |
 | `Api.GetCharacterInfo`'s profession slots (v1, not v0) | D4 |
 | Real mid-progress ranking tests — derived values carry Phase 3a until then | C3 |
-| Whether the registered events fire at all (the frame still refreshes on show) | C2 |
+| Whether the registered events fire at all (the frame refreshes on show either way) | C2 |
 | ~~Whether a ~900-call sweep is a visible hitch~~ | folded into U1 |
 
 D5, D6 and D7 closed 2026-09-19. U1, U2, U3 and D9 opened 2026-09-19.
+
+## Phase 3 readiness — checked 2026-09-19
+
+Green. `Api` is verified against the live client on two characters, all four functions
+returning usable data. ~~`Model/` and `UI/` are untouched 5-line placeholders, so nothing is
+half-built.~~ (True at 16:13; both were built later the same day, see "Phase 3 built".) Frame creation is proven — `/lgn dump`'s window is a real frame that works in the
+client.
+
+Scoring inputs, all settled and not to be relitigated without new evidence:
+
+1. Zero-point challenges excluded (Ranking decision 2)
+2. `criteriaExpected == 0` sorts last (Ranking decision 1)
+3. No meta-chain recursion (Ranking decision 3, superseded to "none")
+4. Use `need`/`have` whenever `need > 1`, not only when the progress-bar bit is set (D7)
+5. Mid-progress test values may be derived from captured shapes, labelled — see
+   `spec/fixtures/README.md`
+
+**The known weakness, stated so it is not discovered later:** every captured point-bearing
+criterion reads `have = 0`. Ordering by fewest absolute steps is testable from real data
+(0/150 Alchemy against 0/300; 0/6 dungeons against 0/17), but partial-progress ordering — the
+case the feature exists for — runs on derived values until **C3** lands.
+
+Not blocking Phase 3: **C2** (events) — the v0 UI refreshes on `ACHIEVEMENT_EARNED`,
+`CRITERIA_UPDATE` and on show, which is what Blizzard's own Legacy UI does. **D4**
+(professions) — v0 does not read professions; that is v1's roster.
 
 ## What the first in-game run found — 2026-09-19
 
@@ -495,31 +509,6 @@ function; changing one is a scoring change, not a rewrite.
    with decision 2, the only entries that recursion would have fixed are zero-point Explore
    achievements that Next Up already excludes. `followMetaChains` stays in `Api`, stays off,
    and is a v1 question if a point-bearing meta challenge ever turns up — none has yet.
-
-## Phase 3 readiness — checked 2026-09-19
-
-Green. `Api` is verified against the live client on two characters, all four functions
-returning usable data. `Model/` and `UI/` are untouched 5-line placeholders, so nothing is
-half-built. Frame creation is proven — `/lgn dump`'s window is a real frame that works in the
-client.
-
-Scoring inputs, all settled and not to be relitigated without new evidence:
-
-1. Zero-point challenges excluded (Ranking decision 2)
-2. `criteriaExpected == 0` sorts last (Ranking decision 1)
-3. No meta-chain recursion (Ranking decision 3, superseded to "none")
-4. Use `need`/`have` whenever `need > 1`, not only when the progress-bar bit is set (D7)
-5. Mid-progress test values may be derived from captured shapes, labelled — see
-   `spec/fixtures/README.md`
-
-**The known weakness, stated so it is not discovered later:** every captured point-bearing
-criterion reads `have = 0`. Ordering by fewest absolute steps is testable from real data
-(0/150 Alchemy against 0/300; 0/6 dungeons against 0/17), but partial-progress ordering — the
-case the feature exists for — runs on derived values until **C3** lands.
-
-Not blocking Phase 3: **C2** (events) — the v0 UI refreshes on `ACHIEVEMENT_EARNED`,
-`CRITERIA_UPDATE` and on show, which is what Blizzard's own Legacy UI does. **D4**
-(professions) — v0 does not read professions; that is v1's roster.
 
 ## What Phase 2 built
 
