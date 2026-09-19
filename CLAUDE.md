@@ -227,6 +227,12 @@ Rules for any script I hand over:
   session that unblocks it.
 - Scripts live in the same file under their ID. Results get written up in
   `docs/legacy-internals.md` and `CLAUDE.md` — never left only in chat.
+- **Surface the open queue rows without being asked.** Alex will not go looking. Name the ID,
+  what it unblocks, and how long it takes. Do it when: a session starts or I'm asked what's
+  next; a task finishes and the next step is blocked on a row; I'm about to write or leave a
+  `pending` test; Alex mentions logging in, playing, or an alt; or I'm proposing work that a
+  row blocks. Not every turn — that is noise, and noise is how the D4 row got skipped while
+  sitting in two documents.
 
 ## Conventions
 
