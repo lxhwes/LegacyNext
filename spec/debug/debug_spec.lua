@@ -66,3 +66,26 @@ describe("Debug.Serialize", function()
 		assert.is_truthy(literal:find("criteria = {}", 1, true))
 	end)
 end)
+
+describe("Debug.Build", function()
+	-- `/lgn dump characters` (the section is `character`) produced a dump with a meta block
+	-- and no payload, indistinguishable from the client having nothing to say.
+	it("names an unknown section instead of dumping nothing", function()
+		local Debug = loadDebug()
+
+		local text = Debug.Build("characters")
+		local result = assert(loadstring(text))()
+
+		assert.equals("characters", result.unknownSection)
+		assert.is_table(result.sections)
+		assert.is_nil(result.meta)
+	end)
+
+	it("accepts every section it advertises", function()
+		local Debug = loadDebug()
+
+		for _, name in ipairs(Debug.sections) do
+			assert.is_true(Debug.IsSection(name), name .. " is advertised but rejected")
+		end
+	end)
+end)

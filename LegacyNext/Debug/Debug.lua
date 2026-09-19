@@ -207,11 +207,28 @@ end
 
 Debug.sections = { "all", "summary", "challenges", "rewards", "trees", "character", "probe" }
 
+function Debug.IsSection(name)
+	for _, known in ipairs(Debug.sections) do
+		if known == name then
+			return true
+		end
+	end
+	return false
+end
+
 -- Everything is data inside one returned table — no comment lines. A dump that loses its
 -- newlines on the way back still parses, which `--` headers would not.
 function Debug.Build(section, page)
 	local Api = ns.Api
 	section = section or "all"
+
+	-- An unrecognised name used to fall through every branch and produce a dump with a meta
+	-- block and no payload, which reads exactly like "the client returned nothing". `/lgn dump
+	-- characters` cost a round trip that way. Say so instead.
+	if not Debug.IsSection(section) then
+		return "return {\n\tunknownSection = " .. string.format("%q", section)
+			.. ",\n\tsections = { \"" .. table.concat(Debug.sections, "\", \"") .. "\" },\n}\n"
+	end
 
 	local dump = { meta = clientInfo() }
 	dump.meta.section = section
@@ -409,7 +426,7 @@ function Debug.Probe()
 	end
 
 	local parts = {}
-	for _, state in ipairs({ "ok", "nil", "missing", "error", "secret", "skipped" }) do
+	for _, state in ipairs({ "ok", "partial", "nil", "missing", "error", "secret", "skipped" }) do
 		if counts[state] then
 			parts[#parts + 1] = state .. "=" .. counts[state]
 		end
