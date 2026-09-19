@@ -235,7 +235,7 @@ return bit.band(flags, EVALUATION_TREE_FLAG_PROGRESS_BAR) == EVALUATION_TREE_FLA
 ```
 
 `EVALUATION_TREE_FLAG_PROGRESS_BAR = 0x00000001` —
-`Blizzard_FrameXMLBase/Constants.lua:110` (outside the pinned set).
+`Blizzard_FrameXMLBase/Constants.lua:110` (outside the pinned set) [in the checkout since the 2026-09-19 widening; line re-verified].
 
 - **Flag set:** progress bar, `quantity` clamped into `0..reqQuantity`, label formatted with
   `GENERIC_FRACTION_STRING_WITH_SPACING` — lines 118-122. This is the `3/5` case.
@@ -718,7 +718,7 @@ end
 
 Triggered from exactly two places: the micro button at
 `Blizzard_MicroMenu/Mainline/MainMenuBarMicroButtons.lua:1045`, and a key binding at
-`Blizzard_FrameXML/Bindings_Camelot.xml:1218` (both outside the pinned set).
+`Blizzard_FrameXML/Bindings_Camelot.xml:1218` (both outside the pinned set) [`Blizzard_FrameXML` is in the checkout since the 2026-09-19 widening and the binding line re-verified; `Blizzard_MicroMenu` is still absent].
 
 **Do the APIs we need work without it loaded?** The C APIs do — `C_Traits.*`,
 `C_MajorFactions.*`, `C_AchievementInfo.*` and the achievement globals are client functions,

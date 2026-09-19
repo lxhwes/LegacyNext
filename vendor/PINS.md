@@ -50,10 +50,13 @@ Interface/AddOns/Blizzard_AddOnList
 step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
 `LegacyNext/UI/UI.lua` resolve only with them present.
 
-`docs/legacy-internals.md` cites four files outside this set (`Blizzard_MicroMenu`,
-`Blizzard_SharedTalentUI`, `Blizzard_FrameXML`, `Blizzard_FrameXMLBase`). They were read by
-running `git sparse-checkout set Interface` at this same SHA — 53 MB, 4405 files — and then
-narrowing back. Widen the same way to re-check them; the pin does not move.
+Four directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
+`Blizzard_SharedTalentUI` (`docs/legacy-internals.md`), `Blizzard_MajorFactions`
+(`docs/legacy-internals.md`, toast events) and `Blizzard_Professions` (`CLAUDE.md`,
+`docs/status.md`). `Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on this list until the
+widening above brought them in. They were read by running `git sparse-checkout set Interface`
+at this same SHA — 53 MB, 4405 files — and then narrowing back. Widen the same way to re-check
+them; the pin does not move.
 
 ### Recreate
 
@@ -68,6 +71,7 @@ git sparse-checkout set \
   Interface/AddOns/Blizzard_APIDocumentationGenerated \
   Interface/AddOns/Blizzard_AchievementUI
 git checkout
+git sparse-checkout add <every path in the "Widened on 2026-09-19" list above>
 ```
 
 The clone is shallow, so moving the pin means re-fetching rather than checking out an older

@@ -10,8 +10,8 @@ but defined C-side or elsewhere. **C** not found; needs the game.
 
 Scope note: this pass widened the sparse checkout (same SHA) with `Blizzard_SharedXML{,Base,Game}`,
 `Blizzard_FrameXML{,Base,Util}`, `Blizzard_Fonts_Shared`, `Blizzard_UIParent{,PanelManager,Util}`,
-`Blizzard_UIPanelTemplates` and `Blizzard_GameTooltip`. `vendor/PINS.md` still lists the original
-four; reconcile before relying on these citations from another session.
+`Blizzard_UIPanelTemplates` and `Blizzard_GameTooltip`. `vendor/PINS.md` records the widened set
+under "Widened on 2026-09-19".
 
 TOC tags: `[Family]` resolves to `Mainline/` and `[Game]` to `Camelot/` on Forever
 (`Blizzard_SharedXML/Blizzard_SharedXML.toc:31` loads `[Game]\NineSliceLayoutOverrides.lua
@@ -87,8 +87,8 @@ What it needs from us: a scroll child via `SetScrollChild` (documented, `IsProte
 `SimpleScrollFrameAPIDocumentation.lua:91`) with an explicit width and height. The scrollbar
 range is derived, not sized by us: `ScrollFrame_OnScrollRangeChanged` reads
 `GetVerticalScrollRange()` and calls `SetMinMaxValues(0, yrange)` (`SecureScrollTemplates.lua:64-73`).
-The handlers use `self.ScrollBar` first and fall back to `_G[name.."ScrollBar"]`
-(`:28`, `:66`), so an unnamed frame is fine, which matches the Debug window working in game.
+The handlers use `self.ScrollBar` first and fall back to `envTable[name.."ScrollBar"]`
+(`:66`; `:28` spells it `envTable[self:GetName().."ScrollBar"]`), so an unnamed frame is fine, which matches the Debug window working in game.
 
 The file is marked deprecated in favour of ScrollBox (`SecureScrollTemplates.xml:3-6`) and
 `HybridScrollFrame` is "Retained only for addons" (`Blizzard_SharedXML.toc:239`), but both still
@@ -222,7 +222,12 @@ secret-value machinery. They affect what `Api/` reads, not whether the frame may
 
 ## Recommended feature-detect
 
-Before building the ScrollBox list, all of these must be non-nil; otherwise fall through.
+**Superseded 2026-09-19.** The settled scroll decision is `UIPanelScrollFrameTemplate` via
+`pcall`, falling back to a bare `ScrollFrame`; ScrollBox is not used. See `docs/status.md`,
+"The five open 3b decisions, settled", and `LegacyNext/UI/UI.lua:103`. The block below is kept
+as research for the ScrollBox path, should U1 reopen it.
+
+If the ScrollBox list is ever built, all of these must be non-nil first; otherwise fall through.
 
 ```lua
 local ok = type(CreateScrollBoxListLinearView) == "function"

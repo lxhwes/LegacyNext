@@ -11,6 +11,9 @@ and the Lua toolchain. Neither is in the clone. Recreate both:
 
 **1. Vendored reference source.** Read-only, never imported, pinned in `vendor/PINS.md` —
 that file is the source of truth for the SHA, check it before trusting the command below.
+The command below is the minimum. After it, run `git sparse-checkout add` with the full list
+in `vendor/PINS.md` (the original four plus the 2026-09-19 widening); the citations in
+`LegacyNext/UI/` and `docs/ui-templates.md` resolve only with the widened set.
 
 ```sh
 git clone --filter=blob:none --no-checkout --depth 1 --branch forever \
@@ -67,6 +70,8 @@ Expect zero warnings and a green suite. CI does the same thing on Lua 5.1 via
 | `docs/beta-builds.md` | What changed per re-pin of the vendored source |
 | `docs/distribution.md` | Packaging: what the packager dry-run showed, and what is still unverified |
 | `docs/ui-templates.md` | Which frame templates, fonts and FontString methods exist on the Forever branch, with citations |
+| `docs/icon-design.md` | The addon icon: the decision, the concepts, and the steps to ship it |
+| `docs/icon-drafts/` | Icon SVG source, rendered PNGs, and the render scripts |
 
 ## Working on this
 
@@ -78,7 +83,7 @@ Three commands exist for that:
 
 | Command | What it gives you |
 |---|---|
-| `/lgn probe` | One chat line per API: `ok`, `nil`, `missing`, `error`, `secret` or `skipped` |
+| `/lgn probe` | One chat line per API: `ok`, `partial`, `nil`, `missing`, `error`, `secret` or `skipped` |
 | `/lgn dump [section] [page]` | A copyable `return { ... }` literal. Sections: `all`, `summary`, `challenges`, `categories`, `rewards`, `trees`, `character`, `probe` |
 | `/lgn uidump [category]` | What the window would show, as text: header lines, filter bar with counts, every row, the state line and the names that overflow the row. Compare it to `spec/golden/uidump_combined.txt` |
 

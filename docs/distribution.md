@@ -77,7 +77,7 @@ macOS-only wart: changelog generation printed `sed: 2: ... unused label` because
 `/usr/bin/sed` is BSD sed. `CHANGELOG.md` was still written (40 KB, readable). Unverified on
 GitHub's Ubuntu runners, which use GNU sed.
 
-`.pkgmeta` line 7 still says `UNVERIFIED`; it is verified now and the comment can go.
+`.pkgmeta` line 7 was updated in the same commit; it now reads `Verified against BigWigsMods/packager on 2026-09-19`.
 
 ## 3. CurseForge Forever game version: could not test, needs a token
 
@@ -122,3 +122,6 @@ repos/McTalian-WoW-Addons/wow-build-tools/commits`). The earlier note that it wo
 - CurseForge type 88568 needs the browser or token check above before the first upload.
 - `BigWigsMods/packager@v2` is not wired into CI. When it is, `-g` is unnecessary; the TOC
   alone yields `forever` / `1.60.1`.
+- `.pkgmeta`'s ignore list did not include `.claude/` at dry-run time, and whether the packager
+  skipped it was not recorded. `.claude` is being added to the ignore list on 2026-09-19; the
+  next dry run should confirm it is absent from the zip.
