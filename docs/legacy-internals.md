@@ -195,8 +195,10 @@ The distribution is flatter than expected:
 Two consequences. First, no point-weighting is needed in ranking today; a challenge is worth a
 point or it isn't. Do not hardcode 1, but do not build a weighting model either. Second, the
 46 zero-point entries are arguably not "challenges" in the sense the user cares about — they
-are the criteria substrate for `Explorer`. **Open design question:** whether v0's Next Up list
-filters to point-bearing challenges by default. Blizzard's own UI shows them all.
+are the criteria substrate for `Explorer`. ~~**Open design question:** whether v0's Next Up
+list filters to point-bearing challenges by default.~~ **Decided 2026-09-19 — zero-point
+challenges are excluded**, filtered on the point value and never on the name. Blizzard's own UI
+shows them all; ours is about points. See Ranking decisions in `docs/status.md`.
 
 `GetAchievementInfo(62012)` confirmed the 14-return order matches retail exactly, and shows
 the achievement's own `points` field is **0** — which is what the override exists to replace.

@@ -80,21 +80,25 @@ data, not addon data]. These literals are a fallback only.
 | `LEGACY_TREE_PROGRESSION_ID` | 1189 — display name "Resourcefulness" [verified in game 2026-09-18] |
 | `LEGACY_TREE_ADVENTURE_TALENTED_NODE_ID` | 110298 — lowers the class-talent unlock level; out of scope |
 
-Runtime facts [verified in game 2026-09-18, build 1.60.1, fresh character]:
+Runtime facts, all from a fresh character on build 1.60.1 (69913). Each carries its own
+verification date — the section does not have one, because it accretes with every capture.
+Deeper detail and the raw captures are in `docs/legacy-internals.md`; this list is the part
+that changes how code gets written.
 
 - `GetCategoryList()` returns **only Legacy categories** — 29 of them, exactly two levels
   deep, six real top-level groups plus a "Do Not Display" bucket holding zero achievements.
-  111 challenges total, confirmed twice. Full tree in `docs/legacy-internals.md`.
+  111 challenges total, confirmed three times by separate code paths. Full tree in
+  `docs/legacy-internals.md`.
 - The filter API (`GetNumFilteredAchievements` / `GetFilteredAchievementID`) reads 0 at login
   and 111 after any `SetAchievementSearchString("")`. It is global state shared with
   Blizzard's Achievement UI — we never call it, and never read it as a source of truth.
 - All three trees share **one** `configID` — 2938022 on a fresh character
   [verified in game 2026-09-19]. The 16-point cap is a single pool spent across all three, not
   16 per tree.
-- **Class challenges carry no machine-readable level threshold** [verified in game 2026-09-19].
-  `Novice / Experienced / Master Druid` (61502–61504) are levels 25/45/60, but they have
-  `criteriaExpected == 0` and the number appears only in `description` prose. v1's
-  candidate-alt mapping cannot key off criteria for these — see `docs/status.md`.
+- **Class challenges carry no machine-readable level threshold** [2026-09-19].
+  `Novice / Experienced / Master Druid` (61502–61504) are levels 25/45/60, but
+  `criteriaExpected == 0` and the number appears only in `description` prose. Profession
+  challenges are the opposite — `criteriaType` 7 gives `assetId` 2937, `need` 150.
 - `C_Traits.GetMaxAvailableTraitCurrency(4225, false)` = 65 earnable account-wide;
   `(4225, true)` = 16 spendable per character. The cap does **not** come from
   `TreeCurrencyInfo.maxQuantity`, which read 0 at zero points.
@@ -112,26 +116,23 @@ Runtime facts [verified in game 2026-09-18, build 1.60.1, fresh character]:
   not "this reward level is claimed". Never render it as progress.
 - **Every point-bearing challenge awards exactly 1 point.** 65 challenges × 1 = 65; the other
   46 (all `Explore *`) award 0. Do not hardcode 1 — but no point-weighting is needed today.
-- **Three criteria shapes, not two:** 18 progress-bar, 59 checklist, **34 with no criteria at
-  all**. The 34 expose no progress through the API and are binary; ranking must handle that
-  as a distinct case rather than treating them as 0%.
-- **Three `criteriaType` values seen, not two** [verified in game 2026-09-19]: 7 = skill
-  threshold (`assetID` is a skill line, e.g. 2937 Alchemy), 8 = child achievement (`assetID` is
-  an achievement ID), **43 = area discovery** (`assetID` is an area ID). Type 43 is the leaf of
-  the Explore tree and never appears on a point-bearing challenge. Treat the list as open —
-  feature-detect the type, never switch exhaustively on it.
-- **The Explore meta chain is three levels deep, not two** [verified in game 2026-09-19]:
-  `Explore Azeroth` (62053, 2 criteria) → type 8 → `Explore Eastern Kingdoms` (62353, 23
-  criteria) → type 8 → `Explore Alterac Mountains` (760, 15 type-43 criteria). One level of
-  recursion improves the number without making it true, so **v0 does not recurse at all** and
-  `followMetaChains` stays off — every chain found so far is zero-point, and Next Up excludes
-  those.
+- **Criteria come in three shapes** [2026-09-18]: 18 progress-bar (`criteriaFlags` bit 1, a
+  real `quantity`/`reqQuantity` fraction), 59 checklist (boolean each, remaining is a count),
+  and **34 with no criteria at all** (`criteriaExpected == 0`). The 34 expose no progress
+  whatsoever and are binary — handle them as their own case, never as 0%.
+- **`criteriaType` is a separate, open-ended axis** [2026-09-19]: 7 = skill threshold
+  (`assetID` is a skill line, e.g. 2937 Alchemy), 8 = child achievement (`assetID` is an
+  achievement ID), 43 = area discovery (`assetID` is an area ID). Those are the three seen so
+  far, not the three that exist. Feature-detect the type; never switch exhaustively on it.
+- **Type 8 forms meta chains, and they are deep** [2026-09-19] — `Explorer` reaches subzone
+  criteria four hops down. Chain map in `docs/legacy-internals.md`. Every chain found so far is
+  zero-point.
 - `GetAchievementInfo` return order matches retail exactly. The achievement's own `points` is
   **0** on Legacy challenges, which is why Blizzard overrides it. `rewardText` reads
   "Earn 1 Legacy Point." and is usable for display.
-- `flags` on point-bearing challenges is `134349824` = bits 10, 17, 27. Bit 17 is
-  `ACHIEVEMENT_FLAGS_ACCOUNT`; bits 10 and 27 are unidentified. The 46 zero-point exploration
-  achievements have `flags == 0`, so they are per-character.
+- `flags` is `134349824` on point-bearing challenges and `0` on the 46 zero-point exploration
+  ones, so the latter are per-character. `isAccountWide` is **derived** from `flags`, not
+  returned. Bit breakdown in `docs/legacy-internals.md`.
 
 **The generated API docs are a floor, not a contract.** The live reward struct carries five
 fields that appear in no documentation file. Feature-detect fields; never assume a documented
@@ -182,7 +183,11 @@ Reference source, read-only, on the forever branch:
 | `Model/` | Pure Lua: ranking, reward-track math, roster mapping. **No WoW globals at all.** This is where the tests live. |
 | `UI/` | Frames. Talks to `Model`, never to `Api` directly. |
 | `Store/` | SavedVariables behind an interface, so the SV-bug workaround (or its removal) is a one-file change. |
-| `Debug/` | `/legacynext dump`: serializes `Api` output into a copyable multiline EditBox so I can paste real client data back as test fixtures. Needed because SavedVariables are broken. |
+| `Debug/` | `/lgn dump`: serializes `Api` output into a copyable multiline EditBox so I can paste real client data back as test fixtures. Needed because SavedVariables are broken. |
+
+**Adding a source file means editing `LegacyNext.toc`.** Load order is explicit and `Core.lua`
+must stay last — it registers the slash commands and reads `ns.Debug`. A file missing from the
+TOC simply never loads, with no error, on a client I cannot debug interactively.
 
 ## Toolchain
 
@@ -191,8 +196,13 @@ formula, so the interpreter is PUC Lua 5.1.5 rather than the system LuaJIT.
 
 ```sh
 ./tools/lua51/bin/luacheck LegacyNext spec   # lint
-./tools/lua51/bin/busted                     # test
+./tools/lua51/bin/busted                     # test — picks up spec/**/*_spec.lua
+./tools/lua51/bin/luac -p <file>             # parse-check, used on in-game scripts
 ```
+
+Both gate CI (`.github/workflows/ci.yml`) on push and PR. **A new WoW global called from `Api/`
+needs a `read_globals` entry in `.luacheckrc` or lint fails** — and note what that entry means:
+it asserts the symbol exists, and does not excuse the runtime feature-detect.
 
 Rebuild: `python3 -m venv tools/venv && tools/venv/bin/pip install hererocks &&
 tools/venv/bin/hererocks tools/lua51 --lua 5.1 --luarocks latest`, then
@@ -250,9 +260,9 @@ Rules for any script I hand over:
   flattened script silently swallows everything after it, which is worse.
 - **Verify it parses first.** Extract the block and run `./tools/lua51/bin/luac -p` over both
   the multi-line form and a flattened copy. Never hand over an unparsed script.
-- **Write output into a copyable EditBox**, not chat, past a few lines. `/legacynext dump` and
-  `/legacynext probe` now do this properly — prefer them over a new ad-hoc script, and only
-  hand over raw Lua for something the addon does not read yet.
+- **Write output into a copyable EditBox**, not chat, past a few lines. `/lgn dump` and
+  `/lgn probe` now do this properly — prefer them over a new ad-hoc script, and only hand over
+  raw Lua for something the addon does not read yet.
 - **The queue table at the top of `docs/ingame-commands.md` is the one list of what needs the
   game.** Add the row the moment a question turns out to need the client, not at the end of the
   task, and give it a stable ID that is never renumbered, reused or deleted. Pending tests,
