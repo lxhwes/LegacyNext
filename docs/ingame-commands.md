@@ -7,7 +7,82 @@ it blocks.
 flag, trait config, point caps, reward track, and the full 111-challenge sweep with criteria
 shapes and point values. All written up in `docs/legacy-internals.md`.
 
-Script 1 below is kept for re-running after a build bump. **Section C is what's outstanding.**
+**Section D is the next thing to run:** the addon now has `/legacynext probe` and
+`/legacynext dump`, which replace the hand-written sweeps. Do D first — if the addon works,
+every future question is a slash command instead of a pasted script.
+
+Script 1 below is kept for re-running after a build bump. **Sections C and D are outstanding.**
+
+---
+
+## Section D — first run of the addon itself
+
+Install: copy the `LegacyNext` folder (the inner one, with `LegacyNext.toc` in it) into
+`_classic_beta_/Interface/AddOns/`, so you end up with
+`_classic_beta_/Interface/AddOns/LegacyNext/LegacyNext.toc`. Enable it at the character
+select screen, log in.
+
+**D1 — does it load.** On login you should see one line in chat:
+
+```
+LegacyNext: v0.0.1 loaded.
+```
+
+If nothing appears, check the addon is enabled and not marked out of date. Tell me the exact
+error text if the client throws one — the client stops reporting Lua errors after 100, so grab
+the first, not the last.
+
+**D2 — the probe.** This is the important one. It prints one line per API we depend on.
+
+```
+/lgn probe
+```
+
+Expected: every line `ok` except `issecretvalue`, which may legitimately be `missing` on this
+build. **Paste the whole thing back.** What I am reading it for:
+
+- any `missing` — the API is not on this client and `Api/` has to route around it
+- any `error` — we are calling it with the wrong arguments
+- any `secret` — the Midnight restrictions do reach our surface after all, which would be the
+  most important thing to come out of this whole phase
+- `Constants.LegacyConsts.*` reading `(fallback)` rather than `(runtime)` — means the constants
+  table moved and the hardcoded literals are carrying us
+
+**D3 — the dump.** Opens a movable window with a Lua literal in it. Ctrl-A, Ctrl-C, paste back.
+
+```
+/lgn dump summary
+```
+
+Start with `summary`: it is a few lines and confirms the numbers agree with the section B
+sweep (111 challenges, 65 points, 18 progress-bar, 59 checklist, 34 with no criteria). If those
+match, the enumeration is correct and everything below is just volume.
+
+Then the sections, smallest first:
+
+```
+/lgn dump character
+/lgn dump trees
+/lgn dump rewards
+/lgn dump challenges 1
+```
+
+`challenges` is paged 20 at a time because the full list is large — `/lgn dump challenges 2`
+for the next page, and so on. `/lgn dump` with no argument dumps everything in one go; try it,
+but if the copy comes back truncated, fall back to sections. The window tells you the character
+count when it is big enough to be a risk.
+
+Each dump is a `return { ... }` table and nothing else — no comment lines, so it still parses
+if the paste path eats the newlines. These go straight into `spec/fixtures/`.
+
+**D4 — professions, if the character has any.** `/lgn dump character` is the check. Forever's
+own code reads seven slots from `GetProfessions` where retail reads six, and we iterate rather
+than naming them, so I want to see what a real character comes back with. A character with two
+primaries and cooking is the useful case.
+
+**What section D unblocks:** everything. Once `dump` works, section C below stops needing
+hand-written scripts — the answers fall out of `/lgn dump trees` and `/lgn dump challenges`
+once you have points spent and progress made.
 
 ## How to run these
 

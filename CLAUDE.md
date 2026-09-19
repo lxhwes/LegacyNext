@@ -132,6 +132,16 @@ Reward track is a renown faction:
 `C_MajorFactions.GetMajorFactionData`, `GetCurrentRenownLevel`, `GetRenownLevels`,
 `GetRenownRewardsForLevel`, `IsMajorFactionHiddenFromExpansionPage`.
 
+Character state, for the dump and for v1's roster:
+`UnitClass`, `UnitLevel`, `UnitName`, `GetRealmName`, `GetProfessions`, `GetProfessionInfo`.
+**`GetProfessions` returns seven values on Forever, not six** — verified on the forever branch at
+`Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:16`, which destructures
+`prim1, prim2, sec1..sec5`. Mainline's six (`prof1, prof2, arch, fish, cook, firstAid`) mean
+different things. Never name the slots; iterate every return.
+`GetProfessionInfo(index)` → `name, texture, rank, maxRank, numSpells, spellOffset, skillLine,
+rankModifier, specializationIndex, specializationOffset, skillLineName`
+(`Blizzard_ProfessionsFrame.lua:55`).
+
 Reference source, read-only, on the forever branch:
 `Interface/AddOns/Blizzard_LegacySystem/*`,
 `Interface/AddOns/Blizzard_LegacyChallengeTracker/*`,
@@ -180,8 +190,9 @@ Rules for any script I hand over:
   flattened script silently swallows everything after it, which is worse.
 - **Verify it parses first.** Extract the block and run `./tools/lua51/bin/luac -p` over both
   the multi-line form and a flattened copy. Never hand over an unparsed script.
-- **Write output into a copyable EditBox**, not chat, past a few lines. `Debug/` will replace
-  these ad-hoc dumpers.
+- **Write output into a copyable EditBox**, not chat, past a few lines. `/legacynext dump` and
+  `/legacynext probe` now do this properly — prefer them over a new ad-hoc script, and only
+  hand over raw Lua for something the addon does not read yet.
 - Scripts and their done/outstanding state live in `docs/ingame-commands.md`. Results get
   written up in `docs/legacy-internals.md` and `CLAUDE.md` — never left only in chat.
 
