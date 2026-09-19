@@ -137,7 +137,7 @@ Running the packager dry-run early is cheap and does not need Phase 3 finished.
 | — | Project skills: `forever-api-lookup`, `beta-build-bump` | **Done** — `d9bb4a6`, `c9db19c` |
 | — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
-| 3 | `Model/` ranking and the v0 UI. Design questions settled 2026-09-19; fixtures landed, so only the reward header is blocked (**D6**). | Not started |
+| 3 | `Model/` ranking and the v0 UI. **Ready to start** — Api verified in client, fixtures landed, five decisions locked. `Model/` and `UI/` are still empty placeholders. | Ready |
 | 4 | v1 roster. Blocked on SavedVariables, **and its stated approach is known broken** — see below. | Blocked |
 
 ### Phase 4's premise needs rewriting before it starts
@@ -323,6 +323,31 @@ function; changing one is a scoring change, not a rewrite.
    with decision 2, the only entries that recursion would have fixed are zero-point Explore
    achievements that Next Up already excludes. `followMetaChains` stays in `Api`, stays off,
    and is a v1 question if a point-bearing meta challenge ever turns up — none has yet.
+
+## Phase 3 readiness — checked 2026-09-19
+
+Green. `Api` is verified against the live client on two characters, all four functions
+returning usable data. `Model/` and `UI/` are untouched 5-line placeholders, so nothing is
+half-built. Frame creation is proven — `/lgn dump`'s window is a real frame that works in the
+client.
+
+Scoring inputs, all settled and not to be relitigated without new evidence:
+
+1. Zero-point challenges excluded (Ranking decision 2)
+2. `criteriaExpected == 0` sorts last (Ranking decision 1)
+3. No meta-chain recursion (Ranking decision 3, superseded to "none")
+4. Use `need`/`have` whenever `need > 1`, not only when the progress-bar bit is set (D7)
+5. Mid-progress test values may be derived from captured shapes, labelled — see
+   `spec/fixtures/README.md`
+
+**The known weakness, stated so it is not discovered later:** every captured point-bearing
+criterion reads `have = 0`. Ordering by fewest absolute steps is testable from real data
+(0/150 Alchemy against 0/300; 0/6 dungeons against 0/17), but partial-progress ordering — the
+case the feature exists for — runs on derived values until **C3** lands.
+
+Not blocking Phase 3: **C2** (events) — the v0 UI refreshes on `ACHIEVEMENT_EARNED`,
+`CRITERIA_UPDATE` and on show, which is what Blizzard's own Legacy UI does. **D4**
+(professions) — v0 does not read professions; that is v1's roster.
 
 ## What Phase 2 built
 
