@@ -1,7 +1,8 @@
 -- Captured client data, ASSEMBLED from two earlier captures. Do not edit the rows by hand.
 --
--- source:    (a) the section-B category sweep, script C3 in docs/ingame-commands.md, output
---                recorded verbatim in docs/legacy-internals.md "The live category tree"
+-- source:    (a) the section-B category sweep, written up under "C3 — Category list scope
+--                and shape" in docs/legacy-internals.md, output recorded verbatim there under
+--                "The live category tree"
 --            (b) the categoryId / categoryName / parentCategoryId triples carried by every
 --                challenge in dump_challenges_page1_fresh.lua (D3) and dump_criteria_types.lua
 --                (D7), which Api.GetChallenges read through GetCategoryInfo

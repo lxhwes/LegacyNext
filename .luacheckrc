@@ -20,7 +20,9 @@ globals = {
 -- claim that the API exists, and Api/ still has to feature-detect it at runtime.
 --
 -- Most of these are resolved by name through _G in Api/, so luacheck never sees the reference.
--- The list stays exhaustive anyway: it is the manifest of what we depend on.
+-- The list stays exhaustive anyway: it is the manifest of what we depend on. It is a manifest,
+-- not a lint gate: every read goes through rawget or resolve, so a missing entry does not fail
+-- lint. Keep it current by hand.
 read_globals = {
 	-- Addon plumbing
 	"C_AddOns",
@@ -63,6 +65,19 @@ read_globals = {
 	"GetRealmName",
 	"GetProfessions",
 	"GetProfessionInfo",
+
+	-- UI and Debug (reached through rawget; listed so the manifest stays honest)
+	"GameTooltip",
+	"C_Timer",
+	"InCombatLockdown",
+	"UISpecialFrames",
+	"GameFontNormalLarge",
+	"GameFontHighlightSmall",
+	"GameFontNormal",
+	"GameFontHighlight",
+	"GameFontDisable",
+	"GameFontNormalSmall",
+	"debugprofilestop",
 }
 
 -- Model/ is pure Lua. No WoW global is readable there, so a stray CreateFrame fails lint as

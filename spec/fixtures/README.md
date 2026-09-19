@@ -8,7 +8,9 @@ fabricated fixture is worse than a missing one: achievement IDs, category IDs, a
 will churn through beta, and Forever's API docs already differ from live retail 12.1.0 by
 about 6k lines.
 
-Name files after what produced them, e.g. `getachievementcriteriainfo_dungeons.lua`.
+Name files after what produced them: `dump_<section>_<character>.lua` for a `/lgn dump`
+section, e.g. `dump_rewards_fresh.lua`. `categories_partial.lua` is the one file assembled
+from earlier captures rather than a single dump.
 
 ## The one carve-out — derived progress values, 2026-09-19
 

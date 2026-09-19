@@ -42,8 +42,8 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 SemVer `0.x.y` while Forever is in beta; `1.0.0` is the release that targets Forever's launch
 build on 2026-11-04. The client build is not encoded in the version string. One addon version
 is expected to outlive several beta builds, so each release entry names the build it was
-verified against instead. `LegacyNext.toc` carries `## Version: @project-version@`, which the
-packager replaces with the git tag at build time, so the tag is the version. The first upload
-is tagged `v0.1.0`.
+verified against instead. `LegacyNext.toc` should carry `## Version: @project-version@`, which
+the packager replaces with the git tag at build time, so the tag is the version. The TOC still
+reads `0.0.1`; the first release changes it. The first upload is tagged `v0.1.0`.
 
 [Unreleased]: https://github.com/lxhwes/LegacyNext/commits/main
