@@ -1,27 +1,124 @@
 # Distribution
 
-Packaging is via [BigWigsMods/packager](https://github.com/BigWigsMods/packager), configured
-in `.pkgmeta`. Nothing is wired into CI yet — CI only lints and tests.
+Packaging is [BigWigsMods/packager](https://github.com/BigWigsMods/packager) (`release.sh`),
+configured in `.pkgmeta`. CI (`.github/workflows/ci.yml`) only lints and tests; nothing
+packages or uploads yet.
 
-## Known problems, not solved
+Everything below was checked on 2026-09-19 against `release.sh` from `master`
+(`curl https://raw.githubusercontent.com/BigWigsMods/packager/master/release.sh`, 3374 lines,
+head commit `e50a250f` 2026-09-18). Anything not run by us is marked unverified.
 
-Both of these are recorded because they will bite at release time, not because anyone has
-worked them yet.
+## 1. Packager and interface 16001: not reproduced
 
-**The packager is reported to tag unknown interface numbers as retail.** Interface 16001 is
-not a number the packager knows, and the reported behavior is that it falls back to the
-retail flavor. Forever ships on the `wow_classic` product line, so a retail tag is the wrong
-flavor for upload. Unverified by us — reported by other addon authors.
+The report ("unknown interface numbers fall back to retail") was true until 2026-09-17.
+PR #202 "Add WoW Forever support", merged `7391c8de` 2026-09-17, added a `forever` game type.
+The floating `v2` tag the GitHub Action uses resolves to `e50a250f` (2026-09-18), so
+`BigWigsMods/packager@v2` includes it.
 
-**wow-build-tools will not bump 16001.** Its interface-bumping step does not recognize the
-number and leaves it alone, so any automated TOC bump has to be treated as a no-op rather
-than trusted.
+Command: `gh api repos/BigWigsMods/packager/commits/v2 --jq '.sha'` → `e50a250f`.
 
-Neither is in scope for Phase 0. Before the first real release, run the packager in dry-run
-against a tag and check what flavor it actually emits.
+What `release.sh` does with `## Interface: 16001`, by line:
 
-## Unverified in `.pkgmeta`
+- `toc_to_type()` line 198: `16???) game_type="forever"`. The `*) game_type="retail"`
+  fallback no longer applies to us.
+- Line 1355: interface → version string via `printf "%d.%d.%d"`, so `16001` → `1.60.1`.
+- `-g` (line 294) accepts `forever` or `camelot`, and a `1.6x.y` version string maps to
+  `forever` (line 309). `## Interface-Camelot:` lines and `LegacyNext_Camelot.toc` are also
+  recognised (line 79). None of this is needed for a single-flavor addon, and no `.pkgmeta`
+  key sets game type.
 
-`move-folders` lifts `LegacyNext/LegacyNext` to the package root, which is the usual idiom
-for a repo whose addon sits in a subdirectory. It has not been run. If the packager produces
-a doubled `LegacyNext/LegacyNext` path in the zip, that line is why.
+Upload mapping per site (all from the same file):
+
+| Site | Code | Result for `forever` |
+|---|---|---|
+| CurseForge | line 2838, `forever) game_id=88568` | sends `gameVersions` IDs whose `gameVersionTypeID == 88568` and `name == "1.60.1"`; falls back to the newest 88568 version if `1.60.1` is missing |
+| WoWInterface | line 2955 | `WARNING: ... "forever" is not supported, ignoring`, upload skipped |
+| Wago | line 3070 | uses `supported_forever_patches` |
+
+Interface bumping: `grep -n -i bump release.sh` returns nothing. The packager never edits the
+TOC's interface number, so the "build tools bump" concern is not a packager concern.
+
+## 2. Dry run: move-folders and ignore both work
+
+Commands, in a throwaway clone so the real checkout was untouched:
+
+```sh
+git clone /Users/alex/code/legacynext $TMPDIR/lgn-pack
+cd $TMPDIR/lgn-pack && git tag v0.0.1-drytest
+/opt/homebrew/bin/bash $TMPDIR/release.sh -d -e -r $TMPDIR/lgn-release
+unzip -l $TMPDIR/lgn-release/LegacyNext-v0.0.1-drytest-forever.zip
+```
+
+Exit 0. Header output, verbatim:
+
+```
+Packaging LegacyNext
+Current version: v0.0.1-drytest
+Build type: non-retail version-forever non-alpha non-debug
+Game version: 1.60.1
+```
+
+Later output, verbatim: `Moving LegacyNext/LegacyNext to LegacyNext` and
+`Creating archive: LegacyNext-v0.0.1-drytest-forever.zip (v0.0.1-drytest-forever)`.
+
+Zip root is `LegacyNext/LegacyNext.toc`, not `LegacyNext/LegacyNext/LegacyNext.toc`.
+Contents: `LegacyNext.toc`, `Core.lua`, `Api/Api.lua`, `Model/Model.lua`, `UI/UI.lua`,
+`Store/Store.lua`, `Debug/Debug.lua`, `LICENSE`, `README.md`, generated `CHANGELOG.md`.
+The TOC inside the zip is byte-identical to the source (`## Interface: 16001`, no rewrite).
+
+`ignore` was honoured: the output logged `Ignoring:` for every file under `spec/`, `docs/`,
+plus `CLAUDE.md` and `vendor/PINS.md`, and none of `.pkgmeta`, `.luacheckrc`, `.busted`,
+`.gitignore`, `.github` appear in the zip. `tools/` is gitignored so was never a candidate.
+
+The `-forever` zip suffix is the `{classic}` slot of `file_template` (line 152,
+`classic="-$game_type"` for any non-retail type). Expect it on every release.
+
+macOS-only wart: changelog generation printed `sed: 2: ... unused label` because
+`/usr/bin/sed` is BSD sed. `CHANGELOG.md` was still written (40 KB, readable). Unverified on
+GitHub's Ubuntu runners, which use GNU sed.
+
+`.pkgmeta` line 7 still says `UNVERIFIED`; it is verified now and the comment can go.
+
+## 3. CurseForge Forever game version: could not test, needs a token
+
+The packager reads `https://wow.curseforge.com/api/game/wow/versions` with an
+`x-api-token` header (line 2823). Without a token:
+
+```
+curl -sS -o /dev/null -w '%{http_code}' https://wow.curseforge.com/api/game/wow/versions
+401
+```
+
+No `CF_API_KEY` / `CF_API_TOKEN` is set in this environment (checked by name only), so
+whether version type `88568` exists and carries a `1.60.1` entry is unverified. The public
+site returned 403 to curl for `https://www.curseforge.com/wow/search?gameVersionTypeId=88568`.
+
+The packager maintainers hardcoded `88568` two days ago, which they would only do against a
+real CurseForge type ID. Circumstantial, not a test. Alex, in a browser, either of:
+
+1. `https://legacy.curseforge.com/wow/addons` → any project you own → Upload File → the
+   game-version picker. Look for a section named World of Warcraft Forever, Classic+, or a
+   `1.60.1` entry. If present, publishing into it is possible.
+2. With a CurseForge API token in hand, run (the token never lands on disk):
+   `curl -s -H "x-api-token: $CF_API_KEY" https://wow.curseforge.com/api/game/wow/versions | jq '.[] | select(.gameVersionTypeID == 88568)'`
+   Expect at least one entry with `"name": "1.60.1"`.
+
+WoWInterface, verified: `curl https://api.wowinterface.com/addons/compatible.json` lists
+games `Cata-Classic`, `Classic`, `Retail`, `TBC-Classic`, `WOTLK-Classic` and no `1.6x`
+interface. Nothing to publish into; the packager already skips it with a warning.
+
+Wago, verified: `curl https://addons.wago.io/api/data/game | jq '.patches.forever'` →
+`["1.60.1"]`. Wago already has the category, and the packager's version string matches it.
+
+## Related: wow-build-tools
+
+`McTalian-WoW-Addons/wow-build-tools` added Forever in `1188581a` "support the WoW Forever
+(1.60.x) client line (#243)", 2026-09-17, release v1.7.0 (`gh api
+repos/McTalian-WoW-Addons/wow-build-tools/commits`). The earlier note that it would not bump
+16001 predates that commit. We do not use it; its bump behaviour is untested by us.
+
+## Open
+
+- CurseForge type 88568 needs the browser or token check above before the first upload.
+- `BigWigsMods/packager@v2` is not wired into CI. When it is, `-g` is unnecessary; the TOC
+  alone yields `forever` / `1.60.1`.

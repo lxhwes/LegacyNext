@@ -4,7 +4,7 @@ enable-nolib-creation: no
 
 # The addon lives in a subdirectory so the repo root can hold specs, docs and the vendored
 # reference checkout. This lifts LegacyNext/ up to the package root.
-# UNVERIFIED: not yet exercised against BigWigsMods/packager. See docs/distribution.md.
+# Verified against BigWigsMods/packager on 2026-09-19 (dry run, see docs/distribution.md).
 move-folders:
   LegacyNext/LegacyNext: LegacyNext
 

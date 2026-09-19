@@ -1,87 +1,64 @@
 # LegacyNext
 
-A World of Warcraft: Forever addon. Tells you which Legacy challenge is closest to done, and
-later, which of your characters should finish it.
+Shows which of your Legacy challenges in World of Warcraft: Forever are closest to done.
+Open it and every incomplete challenge is listed nearest-first, with your reward track at the top.
 
-Forever is Blizzard's Classic+ line — beta opened 2026-09-17, launch 2026-11-04. Scope,
-constraints and the Legacy API surface are in `CLAUDE.md`. Current position is in
-`docs/status.md`.
+## What it does
 
-## Bootstrap on a new machine
+- Lists your incomplete Legacy challenges sorted by how close each one is to completion. Each
+  row shows the name, its category, the points it awards, and what is left ("3/5 dungeons",
+  "0/150 Alchemy").
+- Filters the list by the game's own Legacy categories.
+- Shows your reward track: current Legacy points, points to the next reward, and that reward's
+  name.
 
-Two directories the repo needs are **gitignored on purpose** — the vendored Blizzard source
-and the Lua toolchain. Neither is in the clone. Recreate both:
+## Opening it
 
-**1. Vendored reference source.** Read-only, never imported, pinned in `vendor/PINS.md` —
-that file is the source of truth for the SHA, check it before trusting the command below.
+Type `/lgn` or `/legacynext`. It opens a standalone window. `/lgn help` lists every command.
 
-```sh
-git clone --filter=blob:none --no-checkout --depth 1 --branch forever \
-  https://github.com/Gethe/wow-ui-source.git vendor/wow-ui-source
-cd vendor/wow-ui-source
-git sparse-checkout init --cone
-git sparse-checkout set \
-  Interface/AddOns/Blizzard_LegacySystem \
-  Interface/AddOns/Blizzard_LegacyChallengeTracker \
-  Interface/AddOns/Blizzard_APIDocumentationGenerated \
-  Interface/AddOns/Blizzard_AchievementUI
-git checkout
-```
+## What it does not do
 
-**2. Lua 5.1 toolchain.** Homebrew has no `lua@5.1` formula, so this builds PUC Lua 5.1.5
-locally with hererocks. Takes a couple of minutes.
+- No build planner. Wowhead and wowforeverbuilds.com already have calculators for the trees.
+- Nothing combat-related.
+- No Hardcore. Hardcore's Legacy challenges and perks are separate and launch later.
+- It never touches your Legacy trees. LegacyNext only reads. It never calls a purchase, reset or
+  commit API, so it cannot spend, refund or move a point.
 
-```sh
-python3 -m venv tools/venv
-tools/venv/bin/pip install hererocks
-tools/venv/bin/hererocks tools/lua51 --lua 5.1 --luarocks latest
-./tools/lua51/bin/luarocks install --no-doc busted
-./tools/lua51/bin/luarocks install --no-doc luacheck
-```
+## Installing on the Forever beta
 
-**3. Verify.**
+The beta client lives in `_classic_beta_`, so the addon folder is
 
-```sh
-./tools/lua51/bin/luacheck LegacyNext spec
-./tools/lua51/bin/busted
-```
+    World of Warcraft/_classic_beta_/Interface/AddOns/LegacyNext/
 
-Expect zero warnings and a green suite. CI does the same thing on Lua 5.1 via
-`leafo/gh-actions-lua`.
+`LegacyNext.toc` must sit directly inside that folder. If the addon is missing from the
+in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_` or
+`_classic_`. Once Forever launches the folder name will change; this file will say so.
 
-## Layout
+## Known limitations
 
-| Path | What lives there |
-|---|---|
-| `LegacyNext/` | The addon. `Api/` `Model/` `UI/` `Store/` `Debug/` — layering rules in `CLAUDE.md` |
-| `spec/` | busted tests, `fixtures/` captured from the live client, `stubs/` for `Api/` |
-| `docs/` | Research and status — see below |
-| `vendor/` | Pinned Blizzard source, gitignored except `PINS.md` |
-| `tools/` | Local Lua toolchain, gitignored |
+- This is a beta client. Blizzard's challenge, category and criteria IDs change between builds.
+  LegacyNext hardcodes none of them, but a new build can still change what the game reports.
+  Verified against build 1.60.1 (69913).
+- Nothing is saved between sessions. SavedVariables are written but never loaded back on the
+  beta (a Blizzard-side bug), so v0 keeps no data of its own.
+- 34 challenges expose no progress through the game's API: class levelling, the PvP ranks and a
+  few others. They sit under a "no progress shown" divider instead of being scored as 0%.
+- The list refreshes when you open the window and when the game reports achievement or
+  criteria progress while it is open. It waits until you leave combat before rebuilding.
 
-## Docs
+## Roadmap
 
-| File | What it's for |
-|---|---|
-| `CLAUDE.md` | Scope, hard constraints, verified client facts, conventions |
-| `docs/status.md` | Where we are, what's next, what's still unanswered |
-| `docs/legacy-internals.md` | How Blizzard's Legacy system works, with `file:line` citations |
-| `docs/ingame-commands.md` | Commands to run on the beta, and what each one answers |
-| `docs/beta-builds.md` | What changed per re-pin of the vendored source |
-| `docs/distribution.md` | Packaging, and the unsolved interface-flavour problems |
+v1 "Roster": once SavedVariables work, a snapshot of each character on login and logout (class,
+level, professions, points spent per tree, unspent points), a view of every alt, and a match
+from challenge to alt for class-levelling and profession challenges ("your level 34 Druid is 6
+levels from this").
 
-## Working on this
+## Bugs and requests
 
-The addon cannot be run outside the game and SavedVariables are broken on the beta, so
-anything needing live data comes back through a slash command — see `docs/ingame-commands.md`.
-Captured output becomes a fixture in `spec/fixtures/`; we never invent a response shape.
+Open an issue at https://github.com/lxhwes/LegacyNext/issues with your client build and the
+challenge name. Contributors: setup, tests and the in-game data workflow are in
+[docs/development.md](https://github.com/lxhwes/LegacyNext/blob/main/docs/development.md).
 
-Two commands exist for that:
+## Licence
 
-| Command | What it gives you |
-|---|---|
-| `/lgn probe` | One chat line per API: `ok`, `nil`, `missing`, `error`, `secret` or `skipped` |
-| `/lgn dump [section] [page]` | A copyable `return { ... }` literal. Sections: `all`, `summary`, `challenges`, `rewards`, `trees`, `character`, `probe` |
-
-`/lgn dump challenges` is paged 20 at a time. Every dump is pure data with no comment lines, so
-it still parses if a paste path strips the newlines.
+MIT. See [LICENSE](https://github.com/lxhwes/LegacyNext/blob/main/LICENSE).
