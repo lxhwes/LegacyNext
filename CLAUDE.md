@@ -162,8 +162,11 @@ had killed the whole reward track.
 
 Challenges are achievements:
 `GetAchievementInfo`, `GetAchievementNumCriteria`, `GetAchievementCriteriaInfo`,
-`GetAchievementCategory`, `GetCategoryNumAchievements`, `GetNumFilteredAchievements`,
-`GetFilteredAchievementID`, `C_AchievementInfo.IsValidAchievement`.
+`GetAchievementCategory`, `GetCategoryList`, `GetCategoryInfo`, `GetCategoryNumAchievements`,
+`GetNumFilteredAchievements`, `GetFilteredAchievementID`, `C_AchievementInfo.IsValidAchievement`.
+The category filter needs `GetCategoryInfo` on the **parents** too: Classes, Tradeskills and
+Player vs. Player hold no achievements of their own, so their names never reach a challenge
+record. `Api.GetCategories` is that read.
 Events: `ACHIEVEMENT_EARNED`, `CRITERIA_UPDATE`, `ACHIEVEMENT_SEARCH_UPDATED`.
 
 Trees and points are the trait system (read only):
@@ -196,9 +199,9 @@ Reference source, read-only, on the forever branch:
 |---|---|
 | `Api/` | The **only** place WoW globals are called. Every call: feature-detect (does the function exist?), `pcall`, `issecretvalue` guard (if `issecretvalue` exists). Returns plain Lua tables, or `nil` + reason. No UI code. |
 | `Model/` | Pure Lua: ranking, reward-track math, roster mapping. **No WoW globals at all.** This is where the tests live. |
-| `UI/` | Frames. Talks to `Model`, never to `Api` directly. |
+| `UI/` | Frames. Talks to `Model`, never to `Api` directly: `Core.lua` injects `ns.ReadViewInput` as its data source, and `/lgn uidump` reads through the same function. Frame templates and font objects are looked up by name with `pcall`/`rawget` and a plain-frame fallback; the citations are in `docs/ui-templates.md`. |
 | `Store/` | SavedVariables behind an interface, so the SV-bug workaround (or its removal) is a one-file change. |
-| `Debug/` | `/lgn dump`: serializes `Api` output into a copyable multiline EditBox so I can paste real client data back as test fixtures. Needed because SavedVariables are broken. |
+| `Debug/` | `/lgn dump`: serializes `Api` output into a copyable multiline EditBox so I can paste real client data back as test fixtures. Needed because SavedVariables are broken. `/lgn uidump`: the frame's content as text via the pure `Debug.RenderView`, golden-tested in `spec/golden/`. |
 
 **Adding a source file means editing `LegacyNext.toc`.** Load order is explicit and `Core.lua`
 must stay last — it registers the slash commands and reads `ns.Debug`. A file missing from the
@@ -239,9 +242,12 @@ Each doc owns one thing. The test for where something goes:
 | `docs/status.md` | Where we are, what was decided and why, what blocks what | it is true *as of now* |
 | `docs/ingame-commands.md` | The queue needing the live client | it needs Alex in the game |
 
-Also `docs/legacy-internals.md` (research with `file:line` citations) and `docs/distribution.md`
-(packaging problems awaiting release). `docs/kickoff-phases.md` is **history** — it predates
-decisions that contradict it, so never cite it as current.
+Also `docs/legacy-internals.md` (research with `file:line` citations), `docs/ui-templates.md`
+(frame templates, fonts and FontString methods verified at the pin), `docs/distribution.md`
+(what the packager dry-run showed, and the CurseForge check still open) and
+`docs/development.md` (bootstrap, toolchain and the capture commands, for contributors).
+`README.md` is the CurseForge listing, not a repo guide. `docs/kickoff-phases.md` is
+**history** — it predates decisions that contradict it, so never cite it as current.
 
 Maintaining `docs/status.md`:
 
@@ -275,9 +281,11 @@ Rules for any script I hand over:
   flattened script silently swallows everything after it, which is worse.
 - **Verify it parses first.** Extract the block and run `./tools/lua51/bin/luac -p` over both
   the multi-line form and a flattened copy. Never hand over an unparsed script.
-- **Write output into a copyable EditBox**, not chat, past a few lines. `/lgn dump` and
-  `/lgn probe` now do this properly — prefer them over a new ad-hoc script, and only hand over
-  raw Lua for something the addon does not read yet.
+- **Write output into a copyable EditBox**, not chat, past a few lines. `/lgn dump`,
+  `/lgn probe` and `/lgn uidump` now do this properly — prefer them over a new ad-hoc script,
+  and only hand over raw Lua for something the addon does not read yet. For anything about
+  the frame, ask for `/lgn uidump` before a screenshot: row content is checkable here against
+  `spec/golden/`, and only the look needs Alex's eyes.
 - **The queue table at the top of `docs/ingame-commands.md` is the one list of what needs the
   game.** Add the row the moment a question turns out to need the client, not at the end of the
   task, and give it a stable ID that is never renumbered, reused or deleted. Pending tests,

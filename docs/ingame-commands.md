@@ -20,6 +20,9 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
+| U1 | Install the Phase 3 build, `/lgn`, then `/lgn uidump` and paste it, plus one screenshot of the window | Whether the v0 frame renders at all, which templates it got (`BasicFrameTemplateWithInset`, `UIPanelScrollFrameTemplate`, Escape), whether the header and rows read right, and the cost of one read (`read took N ms`). Section U1 below | 5 min |
+| D9 | `/lgn dump categories` | A complete `Api.GetCategories` capture in client order. Replaces `spec/fixtures/categories_partial.lua` (16 of 29, doc order) and un-pends the test in `spec/api/api_spec.lua` | 1 min |
+| U2 | The WoWLua block under U2 below | Whether a one-line FontString with word wrap off draws `...` or just clips (Tier C in `docs/ui-templates.md`), `IsTruncated()` on it, and `IsProtected()` on our frame | 2 min |
 | D4 | `/lgn dump character` on a character with professions | `GetProfessions`' seven Forever slots, still unverified against a real return. Two primaries plus cooking is the useful case. Two characters so far knew none | needs an alt |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees** | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
@@ -144,6 +147,71 @@ One session, in this order:
 
 Note the section name is `character`, singular. `characters` used to dump nothing at all; it
 now tells you the valid list instead.
+
+## Section U — the v0 frame (queued 2026-09-19)
+
+**Copy the addon folder over again first.** This build adds `Model/`, `UI/`, `/lgn` as a
+window, `/lgn uidump` and a `categories` dump section.
+
+**U1 — does the window render.** Log in, then:
+
+```
+/lgn
+/lgn uidump
+```
+
+`/lgn` opens the Next Up window. Look at it, take a screenshot, press Escape (it should
+close), `/lgn` again. Then `/lgn uidump` opens the copyable window with what the frame
+rendered as text: header lines, filter bar with counts, every row, a state line, and a
+`== CLIENT ==` footer with `read took N ms` and which templates the frame got. **Paste the
+whole uidump back.** What I am reading it for:
+
+- The header should read `Legacy Track  ·  0 pts  ·  15 to next` then
+  `Next: Replica Ironforge Air Rifle` (or your current numbers). If the middle dot renders as
+  a box in the screenshot, say so; `Model.SEPARATOR` is one line to change.
+- `== FILTERS ==` should be `[All 65] | Classes 27 | Tradeskills 18 | Dungeons 3 | Raids 3 |
+  Player vs. Player 12 | Adventure 1` on an untouched account, in the client's category order.
+  A group named `Category 15568` means `GetCategories` did not return names.
+- Rows: measurable ones first with `0/150`-style figures, a `no progress shown` divider, then
+  the 34 measureless ones. Any row showing `?` means a criteria list came back short.
+- `read took N ms` is the one number nobody has: the ~900-call sweep. Under 100 ms and the
+  event refresh is fine as built; over 500 ms and refresh needs to move off `CRITERIA_UPDATE`.
+- `frame { ... }` names the templates. `frameTemplate = "plain"` or `scrollTemplate = "plain"`
+  means a fallback fired and the screenshot will look bare; still usable, but tell me.
+- Filter buttons: click a couple. `/lgn uidump classes` shows the same filtered view as text.
+
+If `/lgn` throws a Lua error, paste the first one; the client stops after 100.
+
+**U2 — truncation and protection.** One WoWLua block, run with the window open:
+
+```lua
+local out = {};
+local function w(s) out[#out+1] = s; end;
+local f = LegacyNextFrame;
+w("frame=" .. tostring(f ~= nil));
+if f then local p, e = f:IsProtected(); w("IsProtected=" .. tostring(p) .. "," .. tostring(e)); end;
+local fs = UIParent:CreateFontString(nil, "OVERLAY", "GameFontHighlight");
+fs:SetPoint("CENTER", 0, 200);
+fs:SetWidth(120);
+fs:SetWordWrap(false);
+fs:SetText("Reach exalted reputation with the Frostwolf Clan");
+w("truncated=" .. tostring(fs:IsTruncated()));
+w("stringWidth=" .. tostring(fs:GetStringWidth()));
+w("unbounded=" .. tostring(fs:GetUnboundedStringWidth()));
+local x = C_XMLUtil and C_XMLUtil.GetTemplateInfo;
+w("WowScrollBoxList=" .. tostring(x and x("WowScrollBoxList") ~= nil));
+w("MinimalScrollBar=" .. tostring(x and x("MinimalScrollBar") ~= nil));
+w("BasicFrameTemplateWithInset=" .. tostring(x and x("BasicFrameTemplateWithInset") ~= nil));
+print(table.concat(out, " | "));
+```
+
+It prints one chat line and leaves a 120-pixel-wide test string near the top of the screen
+(`/reload` clears it). Tell me the chat line, and whether the string on screen ends in `...`
+or is simply cut off mid-word. That decides whether rows need a tooltip-only fallback for
+long names or get an ellipsis for free. `IsProtected` should read `false,false`.
+
+**D9 — categories.** `/lgn dump categories`, paste it. Goes straight into
+`spec/fixtures/`, replacing the assembled partial one.
 
 ## How to run these
 

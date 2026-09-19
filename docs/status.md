@@ -1,19 +1,92 @@
 # Status
 
-Last updated 2026-09-19.
+Last updated 2026-09-19 (evening).
 
-**Where we are: Phase 2 is done and verified in the client. Phase 3 is ready to start.**
+**Where we are: Phase 3 is built and green here. 3a is done. 3b is written but has never been
+drawn by the client — U1 is the next thing that happens. 3c is done except the CurseForge
+check, the icon and the TOC version line. Phase 4 has not started.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
 rather than an assumption: `issecretvalue` exists and the guard is active.
 
-Five fixtures in `spec/fixtures/`, covering the challenge shape, all eight `criteriaType`
-values, the full reward track, tree spend and character state. `Model/` and `UI/` are untouched
-placeholders.
+`Model/` ranks, groups and summarises against the fixtures (30 tests, run under an environment
+that errors on any non-stdlib global). `UI/` renders the settled layout through a widget
+double (4 tests). `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and
+matches `spec/golden/uidump_combined.txt`. 72 tests, 1 pending on **D9**.
 
-Open in the queue: **D4** (professions), **C1–C4** (need a played character), **D8** (Explore
-subzone criteria, low value). None block Phase 3. See `docs/ingame-commands.md`.
+Open in the queue, in order: **U1** (open the frame, paste uidump), **D9** (categories dump),
+**U2** (truncation), then **D4**, **C1–C4**, **D8** as before. See `docs/ingame-commands.md`.
+
+## Phase 3 built — 2026-09-19
+
+Everything below is tested here and unseen in the client. That distinction is the whole reason
+U1 exists.
+
+**3a, `Model/`.** One scoring block at the top of `Model.lua` holds the five locked decisions
+and is the only place closeness is defined. `Progress` normalises criteria (quantity when
+`need > 1`, boolean step otherwise, mean of fractions per challenge), `Rank` excludes completed
+and zero-point challenges, `Compare` orders measurable-first, fraction remaining, steps
+remaining, client order. `Groups` and `Filter` handle `parentCategoryId == -1` as top level
+and drop empty groups by count. `RewardSummary` recomputes the next threshold from the sparse
+list. `BuildView` produces the whole view: header lines, filter bar, rows with a divider, and
+three distinct non-ok states (`error`, `empty`, `done`).
+
+One consequence worth stating so it is not reported as a bug: **single-step challenges sort
+first among untouched entries.** `Explorer` (one type-8 criterion) and `Field of Honor: Week 4`
+(one type-27 quest step) read `0/1`, and one step is fewer than 150. That is decision 3
+(no recursion) meeting decision 4 (steps as the tiebreak). If it reads wrong in the client,
+the fix is a scoring change in `Model.Compare`, not a rewrite.
+
+**New Api read: `Api.GetCategories`.** A challenge only knows its parent's id; Classes,
+Tradeskills and Player vs. Player hold no achievements of their own, so their names never
+reach the challenge list. 58 calls, guarded like the rest, with a `categories` dump section.
+Its fixture, `categories_partial.lua`, is assembled from the two earlier captures (16 of 29
+categories, doc order, every row verbatim) and labelled as such; **D9** replaces it.
+
+**The five open 3b decisions, settled:**
+
+| | Decision | Settled as |
+|---|---|---|
+| Scroll | ScrollBox vs `UIPanelScrollFrameTemplate` | **`UIPanelScrollFrameTemplate`**, via `pcall`, falling back to a bare `ScrollFrame` with wheel scrolling by hand. ScrollBox is Tier A on the branch (`docs/ui-templates.md`) but unproven in game, and 65 text rows in a pool do not need a data provider. Revisit only if U1 shows a problem |
+| Truncation | Long names in a ~40-char row | `SetWordWrap(false)` + `SetMaxLines(1)` on a fixed-width name string, tooltip on hover with the full name, description and every criterion. Whether the client draws `...` is Tier C: **U2** |
+| States | Empty vs error | Three: `error` ("Could not read your challenges: <reason>"), `empty` ("No Legacy challenges found"), `done` ("Nothing left to earn", with a per-category variant). Header failures are separate and never blank the list |
+| Refresh | Throttle policy | On show; `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE` registered only while shown; coalesced to one rebuild per second via `C_Timer.After` (feature-detected); deferred to `PLAYER_REGEN_ENABLED` when `InCombatLockdown()`. The frame itself is not protected, the 900-call sweep is the reason |
+| Escape | `UISpecialFrames` | Inserted when the table exists. The template's own close button is rewired to `frame:Hide()` because `UIPanelCloseButton_OnClick` routes through `HideUIPanel`, which refuses in combat (`UIParentPanelManager.lua:854-861`) |
+
+Frame chrome is `BasicFrameTemplateWithInset` with a plain-frame fallback. `UI/` never touches
+`Api/`: `Core.lua` injects `ns.ReadViewInput` as the data source, and `/lgn uidump` reads
+through the same function, so the two cannot disagree on content.
+
+**3c, from the three agents:**
+
+- **Packaging: the reported problem is gone.** BigWigsMods/packager merged Forever support on
+  2026-09-17 (`toc_to_type` maps `16???` to `forever`, `16001` becomes `1.60.1`). A real
+  dry-run against a throwaway tag produced `LegacyNext-v0.0.1-drytest-forever.zip` with the
+  TOC at the zip root, so `move-folders` works and the `.pkgmeta` comment now says so.
+  CurseForge's Forever version type (`88568`) could not be checked without a token; WoWInterface
+  has no Forever category and the packager skips it; Wago lists `1.60.1`. Detail in
+  `docs/distribution.md`.
+- **Listing.** `README.md` is now the CurseForge listing; the developer bootstrap moved to
+  `docs/development.md`. `CHANGELOG.md` exists with an `[Unreleased]` section. Version scheme:
+  SemVer `0.x.y` through beta, `1.0.0` at launch, `## Version: @project-version@` in the TOC
+  and `v0.1.0` as the first tag. **The TOC line is Alex's edit, not made.** `Core.lua` no
+  longer prefixes the version with `v`, so a `v0.1.0` tag prints `v0.1.0 loaded.`
+- **UI templates.** Every symbol `UI/` uses is Tier A at the pin, cited in
+  `docs/ui-templates.md`. Two Tier C items became **U2**. The vendored sparse checkout was
+  widened (12 more directories, same SHA) and `vendor/PINS.md` records it.
+
+**Not done, and why:** the icon (needs an image file and a `## IconTexture` line, nothing to
+research); the TOC version line (Alex's); CI packaging (wire `BigWigsMods/packager@v2` in once
+the CurseForge check passes, no `-g` flag needed).
+
+**Tooling notes for Alex:** `precommit.sh` and `check_script.sh` both use `mktemp -d`, which
+on macOS ignores `TMPDIR` and fails under the Claude sandbox (`Operation not permitted`). The
+gate was run with the sandbox off for this session's commits: 0 failures, one pre-existing
+warning (`LARGE_DUMP = 60000`, not an ID), all four in-game script blocks parsed. `mktemp -d
+-t lgn` would fix both scripts; they live under `.claude/skills/`, which the sandbox refuses
+to write, so the fix is yours. `verify_citations.py` only matches `.lua` citations;
+`docs/ui-templates.md` carries 28 `.xml` ones that a bump will not re-check.
 
 ## D6 and D7 — the reward track works, and the criteria model was wrong, 2026-09-19
 
@@ -100,28 +173,31 @@ that are currently known to be false or unverified.
 
 **Blocking, build:**
 
-- [ ] `Model/` ranking, tested against `spec/fixtures/`
-- [ ] The v0 frame: reward track header, ranked list, category filter
-- [ ] Reward track header actually renders — needs **D6**, dead until the mixin fix ships
+- [x] `Model/` ranking, tested against `spec/fixtures/` — 2026-09-19
+- [x] The v0 frame: reward track header, ranked list, category filter — written 2026-09-19
+- [ ] The v0 frame **seen in the client** — **U1**
+- [x] Reward track header actually renders — D6 closed 2026-09-19, header built on it
 
-**Blocking, release mechanics** (all unsolved, all in `docs/distribution.md`):
+**Blocking, release mechanics** (`docs/distribution.md`):
 
-- [ ] Packager dry-run against a tag — it is reported to mis-tag interface 16001 as retail,
-      and Forever ships on `wow_classic`. Wrong flavor means a broken upload
-- [ ] `.pkgmeta` `move-folders` has never been run; a doubled `LegacyNext/LegacyNext` path in
-      the zip is the symptom
-- [ ] Confirm authors can publish to CurseForge's Forever category at all — a version filter
-      was seen in search, but publishing was never verified
+- [x] Packager dry-run against a tag — done 2026-09-19; the packager gained Forever support on
+      2026-09-17 and emits `forever` / `1.60.1` from the TOC alone
+- [x] `.pkgmeta` `move-folders` — verified by the same dry run, TOC at the zip root
+- [ ] Confirm CurseForge's Forever version type (`88568`) exists — Alex, in a browser or with
+      an API token; steps in `docs/distribution.md`
+- [ ] `## Version: @project-version@` in the TOC, first tag `v0.1.0` — Alex's edit
+- [ ] Icon: `LegacyNext/Media/icon` and the `## IconTexture` line
 
 **Should be true, not blocking:**
 
-- [ ] **D7** — challenge pages 2–6, so ranking is tested against 111 rather than 20
-- [ ] **C2** — whether refresh can be event-driven, or stays read-on-show
+- [ ] **D9** — categories capture in client order, replacing the assembled partial fixture
+- [ ] **U2** — whether long names get `...` or need the tooltip alone
+- [ ] **C2** — whether the achievement events fire; the frame registers them regardless
 - [ ] Competition recheck immediately before release
 
-The release mechanics are the ones to be nervous about: every item is a reported problem nobody
-has reproduced, and they all land at once, on the day, when there is no time to fix them.
-Running the packager dry-run early is cheap and does not need Phase 3 finished.
+Two of the three release-mechanics fears were reported problems nobody had reproduced, and
+both turned out to be fixed upstream two days before we checked. The lesson stands either
+way: the dry run cost twenty minutes and closed two blockers.
 
 ## Phases
 
@@ -132,9 +208,9 @@ Running the packager dry-run early is cheap and does not need Phase 3 finished.
 | — | Project skills: `forever-api-lookup`, `beta-build-bump` | **Done** — `d9bb4a6`, `c9db19c` |
 | — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
-| 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Ready** |
-| 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | Ready, after 3a |
-| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Not started |
+| 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
+| 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Built**, unseen in the client — **U1** |
+| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except CurseForge check, icon, TOC version line |
 | 4 | v1 roster. Blocked on SavedVariables, **and its stated approach is known broken** — see below. | Blocked |
 
 Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
@@ -152,6 +228,12 @@ Proposed: **`/lgn uidump`** — serialize what the frame *would* render as text.
 truncation points, computed widths, the filter's category list, which empty state is showing.
 That splits "is the content right" (answerable here, against fixtures) from "does it look
 right" (only Alex). It reuses `Debug.Serialize`, so it is cheap.
+
+**Built 2026-09-19.** `Debug.RenderView` is pure and golden-tested against
+`spec/golden/uidump_combined.txt`; `/lgn uidump [category]` runs the same `ns.ReadViewInput`
+the frame uses and appends a `== CLIENT ==` footer with the read time and the templates the
+frame got. Computed pixel widths are not in it (no font metrics here); it reports the longest
+name and every name over 30 characters instead.
 
 ### Layout — Alex, 2026-09-19
 
@@ -183,7 +265,9 @@ reads as 0%, which is exactly what Ranking decision 1 exists to prevent. The div
 Note the third row: `Master of Alterac Valley 0/42000` is why the type-243 quantity rule
 matters. Under a checklist reading it would print `0/1` and sit near the top.
 
-### Still unmade
+### ~~Still unmade~~ Settled 2026-09-19 — see "The five open 3b decisions, settled" above
+
+Kept as written on the morning of 2026-09-19 so the reasoning that went into each is legible.
 
 | | Decision | Notes |
 |---|---|---|
@@ -198,7 +282,8 @@ matters. Under a checklist reading it would print `0/1` and sit near the top.
 One `GetChallenges` sweep is roughly **900 client calls** — 111 `GetAchievementInfo`, 111
 `GetAchievementNumCriteria`, 674 `GetAchievementCriteriaInfo`, plus points lookups (counted
 from the D7 dump's own tally). Acceptable on show. Unknown as a login hitch, and unknown under
-a `CRITERIA_UPDATE` burst. Needs a queue row once the frame exists.
+a `CRITERIA_UPDATE` burst. ~~Needs a queue row once the frame exists.~~ **U1** carries it: the
+uidump footer prints `read took N ms`. Nothing runs at login; the first read is on first show.
 
 ## Phase 3c — release prep, previously absent
 
@@ -207,16 +292,16 @@ Checked 2026-09-19; these do not exist yet:
 - [x] **`LICENSE`** — MIT, Alex Howes, 2026. Added 2026-09-19. Was the one hard blocker on
       publishing at all.
 - [ ] **Icon.** `## IconTexture` is commented out in `LegacyNext.toc` and `LegacyNext/Media/`
-      does not exist.
-- [ ] **`CHANGELOG.md`** — none.
-- [ ] **Version scheme.** Still `0.0.1`. Decide what ships.
-- [ ] **README as a listing.** `README.md` exists but is written for the repo, not for a user
-      browsing CurseForge.
-- [ ] Packager dry-run, `.pkgmeta` `move-folders`, CurseForge Forever category — all three in
-      "What must be true to ship v0" and all three still unreproduced.
+      does not exist. Still true.
+- [x] **`CHANGELOG.md`** — added 2026-09-19, Keep a Changelog, `[Unreleased]` populated.
+- [x] **Version scheme.** Decided 2026-09-19: SemVer `0.x.y` in beta, `1.0.0` at launch, tag
+      is the version via `@project-version@`. The TOC line itself is still `0.0.1` — Alex's.
+- [x] **README as a listing.** Rewritten 2026-09-19; the repo content moved to
+      `docs/development.md`.
+- [x] Packager dry-run and `.pkgmeta` `move-folders` — both verified 2026-09-19.
+- [ ] CurseForge Forever version type — needs a browser or a token.
 
-None of this needs Phase 3a or 3b finished. The packager dry-run especially is cheap now and
-expensive on release day.
+None of this needed Phase 3a or 3b finished, and the dry run was as cheap as predicted.
 
 ### Phase 4's premise needs rewriting before it starts
 
@@ -295,12 +380,15 @@ What blocks what, as of 2026-09-19:
 
 | Blocked | On |
 |---|---|
+| Calling 3b done; every look-and-feel question | U1 |
+| Un-pending the `GetCategories` fixture test; filter bar in client order | D9 |
+| Whether long names ellipsise or only clip | U2 |
 | `Api.GetCharacterInfo`'s profession slots (v1, not v0) | D4 |
 | Real mid-progress ranking tests — derived values carry Phase 3a until then | C3 |
-| Whether `UI/` refreshes on events or stays read-on-show | C2 |
-| Whether a ~900-call sweep is a visible hitch | needs the frame first |
+| Whether the registered events fire at all (the frame still refreshes on show) | C2 |
+| ~~Whether a ~900-call sweep is a visible hitch~~ | folded into U1 |
 
-D5, D6 and D7 closed 2026-09-19.
+D5, D6 and D7 closed 2026-09-19. U1, U2 and D9 opened 2026-09-19.
 
 ## What the first in-game run found — 2026-09-19
 
@@ -466,8 +554,13 @@ returns and never names a slot.
   depends on a workaround. Blizzard's own Challenge Tracker uses
   `SavedVariablesPerCharacter`, so if its unviewed dots survive a relog the bug is narrower
   than it looks. Cheap thing to watch.
-- **The packager tags unknown interface numbers as retail**, and wow-build-tools won't bump
-  16001. Not solved, not in scope yet — `docs/distribution.md`.
-- **`.pkgmeta`'s `move-folders`** has never been run against the real packager.
+- ~~**The packager tags unknown interface numbers as retail**, and wow-build-tools won't bump
+  16001.~~ Both fixed upstream on 2026-09-17 and verified by dry run 2026-09-19 —
+  `docs/distribution.md`. What remains is the CurseForge version type, unverified.
+- ~~**`.pkgmeta`'s `move-folders`** has never been run against the real packager.~~ Run
+  2026-09-19; TOC at the zip root.
+- **The v0 frame has never been drawn.** Every template it uses is cited at the pin and
+  feature-detected with a fallback, and the render path is exercised through a widget double,
+  but a widget double cannot tell a frame from a blank. U1 is the first look.
 - **IDs churn during beta.** Nothing in `LegacyNext/` may hardcode an achievement, category or
   criteria ID. The ones recorded in docs are shape, not contract.
