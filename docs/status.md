@@ -2,23 +2,18 @@
 
 Last updated 2026-09-19.
 
-**Where we are: Phase 2 ran in the client. D1–D3 pass, one guard bug found and fixed.**
+**Where we are: Phase 2 is done and verified in the client. Phase 3 is ready to start.**
 
-`/lgn probe` and `/lgn dump summary` both work. The summary reproduces the section B sweep
-exactly — 111 challenges, 65 points, 18 progress-bar, 59 checklist, 34 no-criteria — from a
-completely different code path, so enumeration is confirmed twice over.
+`Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
+paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
+rather than an assumption: `issecretvalue` exists and the guard is active.
 
-**No secrets on our surface.** The one `secret` in the tally was our own guard misfiring; see
-below. Midnight's restrictions do not reach the Legacy APIs on build 1.60.1 (69913).
+Five fixtures in `spec/fixtures/`, covering the challenge shape, all eight `criteriaType`
+values, the full reward track, tree spend and character state. `Model/` and `UI/` are untouched
+placeholders.
 
-Every probe line is accounted for. The `nil` is `GetProfessions` on a level 1 Shaman who knows
-none — the call succeeded and tallied `ok`, and only its first *value* was nil, which is the
-absence-versus-failure distinction working in the field. The `skipped` is `GetProfessionInfo`,
-correctly declining to invent a failure for a probe it had no index for.
-
-`trees` and `challenges 1` landed as fixtures the same day. Still open: **D6** (`rewards`, dead
-until the mixin fix ships), **D4** (professions — this character knew none) and **D7**
-(challenge pages 2–6). See the queue in `docs/ingame-commands.md`.
+Open in the queue: **D4** (professions), **C1–C4** (need a played character), **D8** (Explore
+subzone criteria, low value). None block Phase 3. See `docs/ingame-commands.md`.
 
 ## D6 and D7 — the reward track works, and the criteria model was wrong, 2026-09-19
 
@@ -137,8 +132,64 @@ Running the packager dry-run early is cheap and does not need Phase 3 finished.
 | — | Project skills: `forever-api-lookup`, `beta-build-bump` | **Done** — `d9bb4a6`, `c9db19c` |
 | — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
-| 3 | `Model/` ranking and the v0 UI. **Ready to start** — Api verified in client, fixtures landed, five decisions locked. `Model/` and `UI/` are still empty placeholders. | Ready |
+| 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Ready** |
+| 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | Ready, after 3a |
+| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Not started |
 | 4 | v1 roster. Blocked on SavedVariables, **and its stated approach is known broken** — see below. | Blocked |
+
+Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
+that I can finish and prove alone, `UI/` cannot be verified without Alex looking at it, and
+release prep needs neither. Bundling them gave Phase 3 no honest definition of done.
+
+## Phase 3b — the v0 UI, and the loop for building it
+
+**The real problem is not the frame, it is that I cannot see it.** The dump/probe pipeline made
+data questions cost one round trip each. Nothing equivalent exists for "is this readable, does
+the long PvP description overflow, is the row too narrow". Without a loop, every UI change
+costs a screenshot and a guess.
+
+Proposed: **`/lgn uidump`** — serialize what the frame *would* render as text. Row strings,
+truncation points, computed widths, the filter's category list, which empty state is showing.
+That splits "is the content right" (answerable here, against fixtures) from "does it look
+right" (only Alex). It reuses `Debug.Serialize`, so it is cheap.
+
+### Design decisions still unmade
+
+| | Decision | Notes |
+|---|---|---|
+| Layout | Frame size, header/list/filter arrangement | Alex's call — see the options raised 2026-09-19 |
+| Row | What a challenge row shows, and in what order | Name, category, points, progress. Long descriptions overflow |
+| Progress | How three criteria shapes render in one row | Bar `0/150`, checklist `2/6`, and the 34 with nothing to show |
+| Scroll | `WowScrollBoxList` vs `UIPanelScrollFrameTemplate` | Blizzard's Legacy UI uses ScrollBox (`Blizzard_LegacyChallengeCategoryList.xml`), but only the older template is **proven in-game** by the dump window. Feature-detect, fall back |
+| Filter | Dropdown, tabs, or a row of buttons | Six real groups plus "all" |
+| States | Empty vs error, kept distinct | `Api` returns `nil` + reason precisely so the UI can say "nothing left to earn" and "could not read your challenges" differently. Wasted if the frame flattens them |
+| Refresh | Throttle policy | `CRITERIA_UPDATE` fires in bursts. Queue past `PLAYER_REGEN_ENABLED`; never rebuild in combat |
+| Escape | `UISpecialFrames` | One line, makes the frame feel native |
+
+### Performance, unverified
+
+One `GetChallenges` sweep is roughly **900 client calls** — 111 `GetAchievementInfo`, 111
+`GetAchievementNumCriteria`, 674 `GetAchievementCriteriaInfo`, plus points lookups (counted
+from the D7 dump's own tally). Acceptable on show. Unknown as a login hitch, and unknown under
+a `CRITERIA_UPDATE` burst. Needs a queue row once the frame exists.
+
+## Phase 3c — release prep, previously absent
+
+Checked 2026-09-19; these do not exist yet:
+
+- [ ] **`LICENSE` — there is no license file at all.** CurseForge requires one to publish, so
+      this blocks release outright. Alex's call which.
+- [ ] **Icon.** `## IconTexture` is commented out in `LegacyNext.toc` and `LegacyNext/Media/`
+      does not exist.
+- [ ] **`CHANGELOG.md`** — none.
+- [ ] **Version scheme.** Still `0.0.1`. Decide what ships.
+- [ ] **README as a listing.** `README.md` exists but is written for the repo, not for a user
+      browsing CurseForge.
+- [ ] Packager dry-run, `.pkgmeta` `move-folders`, CurseForge Forever category — all three in
+      "What must be true to ship v0" and all three still unreproduced.
+
+None of this needs Phase 3a or 3b finished. The packager dry-run especially is cheap now and
+expensive on release day.
 
 ### Phase 4's premise needs rewriting before it starts
 
@@ -200,8 +251,10 @@ These came out of research and should not be relitigated without new evidence.
   no criteria at all, which the two-shape reading would have flattened into 0%. Progress-bar
   criteria (`criteriaFlags` bit 1) give a fraction, checklists give a remaining count, and
   `criteriaExpected == 0` is its own case that sorts last — see Ranking decisions.
-  Separately, `criteriaType` is a third axis and is open-ended: 7, 8 and 43 seen so far, so
-  never switch exhaustively on it.
+  Separately, `criteriaType` is a third axis and is open-ended: **eight values seen** — 0, 7,
+  8, 27, 43, 78, 165, 243 — so never switch exhaustively on it. And type 243 proves a criterion
+  can carry `need`/`have` with the progress-bar bit clear, so closeness must read quantities
+  whenever `need > 1`.
 - **Generated API docs are a floor, not a contract.** The live reward struct carries five
   fields that appear in no doc file. Feature-detect fields.
 
@@ -215,11 +268,12 @@ What blocks what, as of 2026-09-19:
 
 | Blocked | On |
 |---|---|
-| The reward track header, a v0 feature currently dead | D6 |
-| Confirming the mixin fix landed | D5 |
-| `Api.GetCharacterInfo`'s profession slots | D4 |
-| Mid-progress ranking tests (every captured criterion reads 0) | C3 |
-| Whether `UI/` can refresh on events or must re-read on show | C2 |
+| `Api.GetCharacterInfo`'s profession slots (v1, not v0) | D4 |
+| Real mid-progress ranking tests — derived values carry Phase 3a until then | C3 |
+| Whether `UI/` refreshes on events or stays read-on-show | C2 |
+| Whether a ~900-call sweep is a visible hitch | needs the frame first |
+
+D5, D6 and D7 closed 2026-09-19.
 
 ## What the first in-game run found — 2026-09-19
 
