@@ -65,6 +65,14 @@ read_globals = {
 	"GetProfessionInfo",
 }
 
+-- Model/ is pure Lua. No WoW global is readable there, so a stray CreateFrame fails lint as
+-- well as the strict-environment test in spec/model.
+files["LegacyNext/Model/"] = {
+	std = "lua51",
+	new_globals = {},
+	new_read_globals = {},
+}
+
 files["spec/"] = {
 	std = "lua51+busted",
 }
