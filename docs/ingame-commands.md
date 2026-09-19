@@ -29,7 +29,7 @@ Open, roughly in the order worth doing:
 | C1 | Points spent in **two different trees** | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
 | C3 | A criterion sitting part-done | The mid-progress ranking fixture. Every captured criterion so far reads 0 | needs play |
 | C4 | A completed challenge | `wasEarnedByMe` true, and whether completed entries sort before incomplete | needs play |
-| C2 | `/etrace` on the four events below | Whether event-driven refresh is possible at all, or we stay read-on-show | needs play |
+| C2 | `/etrace` on the four events below | Which of the four fire. The frame already registers `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE` and refreshes on show regardless; this decides whether the trait and faction events are worth adding | needs play |
 
 Closed — kept so a citation still resolves:
 
@@ -62,8 +62,11 @@ select screen, log in.
 **D1 — does it load.** On login you should see one line in chat:
 
 ```
-LegacyNext: v0.0.1 loaded.
+LegacyNext: 0.0.1 loaded. /lgn to open, /lgn help for commands.
 ```
+
+(The Phase 3 build dropped the `v` prefix and added the hint; the D1 run saw
+`LegacyNext: v0.0.1 loaded.`)
 
 If nothing appears, check the addon is enabled and not marked out of date. Tell me the exact
 error text if the client throws one — the client stops reporting Lua errors after 100, so grab
@@ -171,7 +174,9 @@ whole uidump back.** What I am reading it for:
   `Next: Replica Ironforge Air Rifle` (or your current numbers). If the middle dot renders as
   a box in the screenshot, say so; `Model.SEPARATOR` is one line to change.
 - `== FILTERS ==` should be `[All 65] | Classes 27 | Tradeskills 18 | Dungeons 3 | Raids 3 |
-  Player vs. Player 12 | Adventure 1` on an untouched account, in the client's category order.
+  Player vs. Player 12 | Adventure 2` on an untouched account, in the client's category order
+  (Adventure holds two point-bearing challenges of its own; the 46 Explore entries are
+  zero-point and excluded).
   A group named `Category 15568` means `GetCategories` did not return names.
 - Rows: measurable ones first with `0/150`-style figures, a `no progress shown` divider, then
   the 34 measureless ones. Any row showing `?` means a criteria list came back short.
@@ -231,7 +236,7 @@ semicolon-terminated and there are no `--` comments, so they parse as one long l
 you edit them, keep both properties — a `--` comment in a flattened script swallows everything
 after it, and a missing semicolon produces `malformed number near '2802local'`.
 
-Script 1 is a rough prototype of what `Debug/` will do properly.
+Script 1 was the prototype for `Debug/`, which has since shipped as `/lgn dump`.
 
 ---
 
@@ -354,7 +359,9 @@ and our refresh strategy depends on this.
 ## If script 1 errors
 
 The EditBox block uses `UIPanelScrollFrameTemplate`, `ChatFontNormal` and `SetColorTexture`.
-All three are retail-normal and none are verified on Forever. If one is missing, replace
+All three were verified on Forever 2026-09-19: the `/lgn dump` window is built on exactly
+them and produced every committed fixture. The fallback stays because a build bump can remove
+any of them. If one is missing, replace
 everything from `if not LNDump then` to the end with:
 
 ```lua
