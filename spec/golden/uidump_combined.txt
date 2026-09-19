@@ -1,0 +1,29 @@
+LegacyNext uidump  fixtures: page1 + criteria types + categories_partial + rewards_fresh
+== HEADER (ok) ==
+Legacy Track  ·  0 pts  ·  15 to next
+Next: Replica Ironforge Air Rifle
+== FILTERS ==
+[All 16] | Classes 3 | Tradeskills 3 | Dungeons 1 | Raids 1 | Player vs. Player 7 | Adventure 1
+== ROWS (17) ==
+  1  Field of Honor: Week 4              0/1   1pt
+  2  Explorer                            0/1   1pt
+  3  Journeyman Alchemist              0/150   1pt
+  4  Expert Alchemist                  0/225   1pt
+  5  Artisan Alchemist                 0/300   1pt
+  6  Master of Alterac Valley        0/42000   1pt
+     ----- no progress shown -----
+  7  Novice Druid                              1pt
+  8  Experienced Druid                         1pt
+  9  Master Druid                              1pt
+ 10  Rank 3                                    1pt
+ 11  Rank 7                                    1pt
+ 12  Rank 10                                   1pt
+ 13  Rank 13                                   1pt
+ 14  Rank 14                                   1pt
+ 15  Novice Spelunker                      ?   1pt
+ 16  Conquerer of the Wilds                ?   1pt
+== STATE ==
+state=ok
+total=26 ranked=16 measurable=6 measureless=10 completed=0 zeroPoint=10 partialRead=2 pointsUnknown=0
+longest name=24 chars "Master of Alterac Valley"
+names over 30 chars: 0

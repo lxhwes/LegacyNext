@@ -11,6 +11,14 @@ local CHALLENGE_PAGE_SIZE = 20
 -- refusal, just a nudge towards a section dump.
 local LARGE_DUMP = 60000
 
+local function say(message)
+	if ns.say then
+		ns.say(message)
+	else
+		print(message)
+	end
+end
+
 --------------------------------------------------------------------------------------------
 -- Serialization
 --------------------------------------------------------------------------------------------
@@ -205,7 +213,9 @@ local function challengePage(challenges, page)
 	}
 end
 
-Debug.sections = { "all", "summary", "challenges", "rewards", "trees", "character", "probe" }
+Debug.sections = {
+	"all", "summary", "challenges", "categories", "rewards", "trees", "character", "probe",
+}
 
 function Debug.IsSection(name)
 	for _, known in ipairs(Debug.sections) do
@@ -243,6 +253,11 @@ function Debug.Build(section, page)
 		else
 			dump.challenges = withReason(nil, reason)
 		end
+	end
+
+	if section == "categories" or section == "all" then
+		local categories, reason = Api.GetCategories()
+		dump.categories = withReason(categories, reason)
 	end
 
 	if section == "rewards" or section == "all" then
@@ -303,6 +318,150 @@ function Debug.Build(section, page)
 	dump.failures = Api.GetFailures()
 
 	return "return " .. Debug.Serialize(dump) .. "\n"
+end
+
+--------------------------------------------------------------------------------------------
+-- uidump: the v0 view as text
+--------------------------------------------------------------------------------------------
+
+-- The frame is roughly this many characters wide at its default size. An estimate for the
+-- overflow report only; the real truncation happens in the FontString.
+Debug.ROW_CHARS = 44
+Debug.NAME_CHARS = 30
+
+local function pad(text, width)
+	text = tostring(text or "")
+	if #text >= width then
+		return text
+	end
+	return text .. string.rep(" ", width - #text)
+end
+
+local function lpad(text, width)
+	text = tostring(text or "")
+	if #text >= width then
+		return text
+	end
+	return string.rep(" ", width - #text) .. text
+end
+
+-- Pure: renders a Model.BuildView result to the text /lgn uidump shows, so row content can be
+-- checked here against fixtures and only the look needs the client. No WoW globals.
+function Debug.RenderView(view, label)
+	local out = {}
+	local function w(line) out[#out + 1] = line end
+
+	w("LegacyNext uidump" .. (label and ("  " .. label) or ""))
+	w("== HEADER (" .. view.header.state .. ") ==")
+	for _, line in ipairs(view.header.lines or {}) do
+		w(line)
+	end
+
+	w("== FILTERS ==")
+	local parts = {}
+	for _, filter in ipairs(view.filters or {}) do
+		local text = filter.name .. " " .. tostring(filter.count)
+		if filter.selected then
+			text = "[" .. text .. "]"
+		end
+		parts[#parts + 1] = text
+	end
+	w(table.concat(parts, " | "))
+
+	w("== ROWS (" .. #(view.rows or {}) .. ") ==")
+	local longest, longestName, overflow = 0, "", {}
+	local rowNumber = 0
+	for _, row in ipairs(view.rows or {}) do
+		if row.kind == "divider" then
+			w("     ----- " .. row.text .. " -----")
+		else
+			rowNumber = rowNumber + 1
+			local name = row.name or ""
+			if #name > longest then
+				longest, longestName = #name, name
+			end
+			if #name > Debug.NAME_CHARS then
+				overflow[#overflow + 1] = name
+			end
+			w(lpad(rowNumber, 3) .. "  " .. pad(name, Debug.NAME_CHARS) .. lpad(row.progressText, 9)
+				.. "  " .. lpad(row.pointsText, 4))
+		end
+	end
+
+	w("== STATE ==")
+	w("state=" .. tostring(view.state) .. (view.message and ("  " .. view.message) or ""))
+	local stats = view.stats
+	if stats then
+		w(("total=%d ranked=%d measurable=%d measureless=%d completed=%d zeroPoint=%d partialRead=%d pointsUnknown=%d")
+			:format(stats.total, stats.ranked, stats.measurable, stats.measureless, stats.completed,
+				stats.zeroPoint, stats.partialRead, stats.pointsUnknown))
+	end
+	if rowNumber > 0 then
+		w(("longest name=%d chars %q"):format(longest, longestName))
+		w(("names over %d chars: %d"):format(Debug.NAME_CHARS, #overflow))
+		for _, name in ipairs(overflow) do
+			w("  " .. name)
+		end
+	end
+
+	return table.concat(out, "\n") .. "\n"
+end
+
+-- Reads Api once, builds the view through Model, renders it. `filter` is a group name typed
+-- on the command line ("classes"), matched case-insensitively against the filter labels.
+function Debug.BuildUIDump(filterName)
+	local Model = ns.Model
+
+	-- The same read the frame makes, so uidump and the window cannot disagree on content.
+	-- Timed, because a ~900-call sweep is the one cost nobody has measured (status.md).
+	local clock = rawget(_G, "debugprofilestop")
+	local started = type(clock) == "function" and clock() or nil
+	local input = ns.ReadViewInput()
+	local elapsed = started and (clock() - started) or nil
+
+	local filterId
+	if filterName and filterName ~= "" then
+		local probe = Model.BuildView(input)
+		for _, filter in ipairs(probe.filters or {}) do
+			if filter.id and string.lower(filter.name) == string.lower(filterName) then
+				filterId = filter.id
+			end
+		end
+	end
+
+	input.filter = filterId
+	local view = Model.BuildView(input)
+
+	local info = clientInfo()
+	local label = tostring(info.buildString or "?") .. "  filter=" .. (filterName or "all")
+	if filterName and filterName ~= "" and not filterId then
+		label = label .. " (unknown, showing all)"
+	end
+
+	local text = Debug.RenderView(view, label)
+
+	-- Footer: what the read cost and what the frame decided about its templates, so U1
+	-- answers the performance and template questions in the same paste.
+	local footer = {}
+	if elapsed then
+		footer[#footer + 1] = ("read took %.0f ms"):format(elapsed)
+	end
+	if ns.UI and ns.UI.Describe then
+		footer[#footer + 1] = "frame " .. Debug.Serialize(ns.UI.Describe()):gsub("%s+", " ")
+	end
+	if #footer > 0 then
+		text = text .. "== CLIENT ==\n" .. table.concat(footer, "\n") .. "\n"
+	end
+	return text
+end
+
+function Debug.UIDump(filterName)
+	local ok, text = pcall(Debug.BuildUIDump, filterName)
+	if not ok then
+		say("uidump failed: " .. tostring(text))
+		return
+	end
+	Debug.Show(text, "uidump")
 end
 
 --------------------------------------------------------------------------------------------
@@ -379,14 +538,6 @@ function Debug.Show(text, label)
 	frame.edit:HighlightText()
 	frame.edit:SetFocus()
 	return frame
-end
-
-local function say(message)
-	if ns.say then
-		ns.say(message)
-	else
-		print(message)
-	end
 end
 
 function Debug.Dump(section, page)
