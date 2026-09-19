@@ -73,6 +73,15 @@ Expect zero warnings and a green suite. CI does the same thing on Lua 5.1 via
 ## Working on this
 
 The addon cannot be run outside the game and SavedVariables are broken on the beta, so
-anything needing live data becomes a slash command to run by hand — see
-`docs/ingame-commands.md`. Captured output becomes a fixture in `spec/fixtures/`; we never
-invent a response shape.
+anything needing live data comes back through a slash command — see `docs/ingame-commands.md`.
+Captured output becomes a fixture in `spec/fixtures/`; we never invent a response shape.
+
+Two commands exist for that:
+
+| Command | What it gives you |
+|---|---|
+| `/lgn probe` | One chat line per API: `ok`, `nil`, `missing`, `error`, `secret` or `skipped` |
+| `/lgn dump [section] [page]` | A copyable `return { ... }` literal. Sections: `all`, `summary`, `challenges`, `rewards`, `trees`, `character`, `probe` |
+
+`/lgn dump challenges` is paged 20 at a time. Every dump is pure data with no comment lines, so
+it still parses if a paste path strips the newlines.

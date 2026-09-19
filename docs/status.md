@@ -2,10 +2,10 @@
 
 Last updated 2026-09-18.
 
-**Where we are: Phase 1 complete. Phase 2 not started.**
+**Where we are: Phase 2 written, not yet run in game.**
 
-Everything v0 needs from the client is verified except the criteria fixtures, which are
-blocked on running two slash commands in game.
+`Api/` and `Debug/` are implemented and green on lint and tests, but no line of either has
+executed inside the client. Section D in `docs/ingame-commands.md` is the first run.
 
 ## Phases
 
@@ -14,8 +14,9 @@ blocked on running two slash commands in game.
 | 0 | Scaffold — repo layout, TOC, hello-world addon, Lua 5.1 toolchain, CI, packaging notes, vendor pin | **Done** — `b66486e` |
 | 1 | Read-only research into Blizzard's Legacy system, answering Q1–Q12 | **Done** — `0ad6e6c` plus in-game verification |
 | — | Project skills: `forever-api-lookup`, `beta-build-bump` | **Done** — `d9bb4a6`, `c9db19c` |
-| — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the Phase 2 authoring loop | **Done** |
-| 2 | Not yet defined. See "What Phase 2 probably starts with" below. | Not started |
+| — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
+| 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Written**, unrun in game — section D |
+| 3 | Not yet defined. `Model/` ranking is the obvious candidate, blocked on the three design questions below. | Not started |
 
 ## Research questions
 
@@ -69,7 +70,12 @@ Commands and what each answers are in `docs/ingame-commands.md`.
 with criteria counts and point values, both criteria shapes, a full `GetAchievementInfo` row,
 and all four reward entries. Written up in `docs/legacy-internals.md`. Phase 2 is unblocked.
 
-**Section C, needs a played character, does not block Phase 2:**
+**Section D — first run of the addon. Runs on any character, blocks everything.** Install,
+`/lgn probe`, `/lgn dump summary`. The probe is the one that matters: it says per API whether
+we get `ok`, `nil`, `missing`, `error` or `secret`, and a single `secret` would be the most
+consequential finding of the phase.
+
+**Section C, needs a played character. Mostly absorbed by `/lgn dump` once D passes:**
 
 - C1 — confirm the shared pool with points spent in two trees, and what `maxQuantity` really is
 - C2 — which of `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED`,
@@ -93,15 +99,35 @@ both are Alex's call rather than mine.
    hundreds of subzones deep through `criteriaType` 8 `assetID` links. Recursing gives honest
    closeness and costs a lot of API calls; not recursing means one entry in the list is a lie.
 
-## What Phase 2 probably starts with
+## What Phase 2 built
 
-Not agreed yet — Alex sets the phase. Two candidates:
+| File | What it does |
+|---|---|
+| `LegacyNext/Api/Api.lua` | The guard layer plus `GetChallenges`, `GetRewardTrack`, `GetTreeSpend`, `GetCharacterInfo`, `Probe` |
+| `LegacyNext/Debug/Debug.lua` | `Serialize` (pure), `Build`, the copyable window, `Dump`, `Probe` |
+| `LegacyNext/Core.lua` | Slash routing for `/lgn probe` and `/lgn dump [section] [page]` |
+| `spec/api/api_spec.lua` | Guard-layer behaviour: flags, secrets, cycles, the failure tally |
+| `spec/debug/debug_spec.lua` | Serializer round-trips, pipe and newline escaping, stable ordering |
 
-1. **`Debug/` first.** The `/legacynext dump` copyable EditBox. SavedVariables are broken, so
-   this is the only fixture pipeline we have, and every future in-game question gets cheaper
-   once it exists. Inverts the usual order of tool-before-feature, but we build it either way.
-2. **`Api/` + `Model/` for the challenge list.** Everything it needs is verified. Would have to
-   start against hand-typed fixtures from section B rather than dumped ones.
+Decisions taken while building it:
+
+- **Every WoW call goes through one `Api.Call`**, which feature-detects, `pcall`s, guards for
+  secrets and tallies the outcome. It returns a packed table with an `n` field rather than
+  varargs, so "the client returned nil" stays distinguishable from "the call failed".
+- **Returned tables are deep-copied** before Api hands them out. The client may reuse its
+  tables, and a secret can sit in a field while the table itself reads non-secret.
+- **No `bit` dependency.** Single-bit flag tests are arithmetic, so the guard layer loads under
+  plain Lua 5.1 and the tests can reach it.
+- **Dumps are pure data, no comment lines.** A dump that loses its newlines on the way back
+  still parses; a `--` header would swallow the file.
+- **Two feature flags, both off:** `eventDrivenRefresh` (Q12 unresolved — Api is read-on-demand)
+  and `followMetaChains` (Q4 unresolved — Api reports `assetId` and stops).
+- **`maxQuantity` is reported raw and used for nothing.** The cap comes from
+  `GetMaxAvailableTraitCurrency`, as decided in Phase 1.
+
+Verified during the phase: `GetProfessions` returns **seven** values on Forever, not Mainline's
+six, per `Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:16`. Api iterates the
+returns and never names a slot.
 
 ## Known risks
 

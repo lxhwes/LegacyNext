@@ -15,6 +15,21 @@ So the job here is to get the evidence into the repo without editing it, and to 
 — a paste that unblocks three pending tests and only gets used for one wasted two thirds of a
 round trip.
 
+## First: which shape is it?
+
+Two forms arrive, and they need opposite handling. `references/dump-format.md` has the detail;
+the decision is quick:
+
+- **A Lua literal** (`return { meta = ... }`) — from `/lgn dump`. Save it, add a provenance
+  header, confirm it loads. **Do not run it through the converter**: it is already exact Lua,
+  and parsing it back out of text is pure loss. Its `meta` block already carries the build and
+  section; what it cannot know is the character state, so that still comes from Alex.
+- **Semicolon rows** (`== SECTION ==`, `col;col`) — from the ad-hoc WoWLua scripts in sections
+  B and C. That is what `dump_to_fixture.py` is for.
+
+`/lgn dump` and `/lgn probe` are now the preferred capture path (CLAUDE.md, In-game workflow);
+a new ad-hoc script is only for something the addon does not read yet.
+
 ## Order of work
 
 1. **Preserve before you interpret.** Save the paste verbatim first. Every later step can be
@@ -26,7 +41,7 @@ round trip.
    client fact. Mark the queue entry in `docs/ingame-commands.md` done with the date, and
    update `docs/status.md`. A finding left in chat is a finding we pay for twice.
 
-## Generating the fixture
+## Generating the fixture, from semicolon rows
 
 ```sh
 .claude/skills/fixture-intake/scripts/dump_to_fixture.py paste.txt \
@@ -65,9 +80,9 @@ Then **check the generated file against the raw block at the bottom of it** and 
 loads (`./tools/lua51/bin/busted`, or `luac -p` on the fixture). The raw block exists so that
 a transcription mistake stays findable; it only does that job if somebody looks.
 
-`references/dump-format.md` is the contract: what the in-game scripts emit, what the parser
-accepts, and therefore what `Debug/` must produce when it replaces the ad-hoc dumpers. Read it
-before changing either side, because drift between them silently makes captured data unusable.
+`references/dump-format.md` is the contract for both shapes — what `Debug/` emits, what the
+ad-hoc scripts emit, and what the parser accepts. Read it before changing any of the three,
+because drift between them silently makes captured data unusable.
 
 ## Data already in the docs
 

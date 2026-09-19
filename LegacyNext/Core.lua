@@ -36,6 +36,30 @@ end)
 SLASH_LEGACYNEXT1 = "/legacynext"
 SLASH_LEGACYNEXT2 = "/lgn"
 
-SlashCmdList["LEGACYNEXT"] = function()
-	say("ok")
+local function usage()
+	say("commands:")
+	print("  /lgn probe               one line per API: ok / nil / missing / error / secret")
+	print("  /lgn dump                everything Api returns, as a Lua literal")
+	print("  /lgn dump <section>      one of: " .. table.concat(ns.Debug.sections, ", "))
+	print("  /lgn dump challenges 2   page 2 of the challenge list")
+end
+
+SlashCmdList["LEGACYNEXT"] = function(input)
+	local command, rest = string.match(input or "", "^%s*(%S*)%s*(.-)%s*$")
+	command = string.lower(command or "")
+
+	if command == "probe" then
+		ns.Debug.Probe()
+	elseif command == "dump" then
+		local section, page = string.match(rest, "^(%S*)%s*(%S*)$")
+		if section == "" then
+			section = nil
+		end
+		ns.Debug.Dump(section, tonumber(page))
+	elseif command == "" or command == "help" then
+		usage()
+	else
+		say("unknown command '" .. command .. "'")
+		usage()
+	end
 end

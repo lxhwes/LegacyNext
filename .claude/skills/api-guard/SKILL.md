@@ -11,6 +11,11 @@ makes `Api/` the place where a beta client's churn is absorbed, and the place wh
 is most expensive: Alex cannot run the game, so a bad read does not fail as a red test. It
 fails as an empty frame, weeks later, with no error to paste.
 
+`LegacyNext/Api/Api.lua` is written and green, so most of what follows is already embodied
+there. Read the neighbouring function before adding one: matching the layer's existing shape
+matters more than matching this document, and where the two disagree, **the code wins and this
+skill is what needs fixing**.
+
 Verify the symbol first. `forever-api-lookup` is the prerequisite, not a parallel option —
 this skill assumes you already have a signature, a `file:line`, and an evidence tier for
 everything you are about to call. If you do not, stop and go get them; the guard below
@@ -24,37 +29,28 @@ protects against the client changing, not against a signature you guessed.
 -- doc:  <file>:<line>        <- fill both from api_lookup.sh output, never from memory
 -- used: <file>:<line>
 -- pin:  <sha> (<version.txt>)
-function ns.Api.GetSpendablePoints()
-	local currencyID = ns.Api.GetConst("LEGACY_POINTS_TRAIT_CURRENCY_ID", 4225)
-	if not currencyID then
-		return nil, "LEGACY_POINTS_TRAIT_CURRENCY_ID unavailable"
+function Api.GetSpendablePoints()
+	local currencyId = Api.GetConstant("LEGACY_POINTS_TRAIT_CURRENCY_ID")
+	if not currencyId then
+		return nil, "no currency id"
 	end
 
-	local fn = C_Traits and C_Traits.GetMaxAvailableTraitCurrency
-	if type(fn) ~= "function" then
-		return nil, "C_Traits.GetMaxAvailableTraitCurrency missing"
+	local result = call("C_Traits.GetMaxAvailableTraitCurrency", currencyId, true)
+	local cap = result and result[1]
+	if type(cap) ~= "number" then
+		return nil, "GetMaxAvailableTraitCurrency unavailable"
 	end
 
-	local ok, value = pcall(fn, currencyID, true)
-	if not ok then
-		return nil, "C_Traits.GetMaxAvailableTraitCurrency errored"
-	end
-
-	if ns.Api.isSecret(value) then
-		return nil, "C_Traits.GetMaxAvailableTraitCurrency returned a secret value"
-	end
-
-	if type(value) ~= "number" then
-		return nil, "C_Traits.GetMaxAvailableTraitCurrency returned a " .. type(value)
-	end
-
-	return value
+	return cap
 end
 ```
 
-The citation placeholders are placeholders on purpose: an example carrying real-looking line
+`call` is the shared guard in `Api.lua` and does four of the five gates below for you —
+resolve, feature-detect, `pcall`, secret-check — then deep-copies any table before handing it
+up. Read it at `LegacyNext/Api/Api.lua:191` rather than writing a second one beside it. The
+citation placeholders are placeholders on purpose: an example carrying real-looking line
 numbers gets copied, and a copied citation that was never verified is exactly the failure the
-pin stamp exists to catch. `forever-api-lookup` prints the real ones.
+pin stamp exists to catch.
 
 Five gates, each earning its place:
 
@@ -86,10 +82,10 @@ them and the UI's empty state shows them. Name the symbol that failed, because a
 saying "C_Traits.GetTreeCurrencyInfo missing" ends an investigation that "could not load
 points" would start.
 
-Shared helpers (`ns.Api.isSecret`, `ns.Api.GetConst`, and the `pcall`-plus-guard wrapper that
-most reads want) belong in `Api/` once, not copied per function. `references/patterns.md` has
-the five call shapes this codebase actually needs — scalar read, struct read, list
-enumeration, multi-return global, constant with fallback — plus those helpers. Read it before
+The helpers already exist — `call`, `resolve`, `isSecret`, `Api.GetConstant`, plus the failure
+tally that lets `/lgn probe` name which symbol broke. `references/patterns.md` covers what each
+guarantees and which of the five shapes fits which read: scalar, struct with defensive fields,
+list enumeration, multi-return bare global, constant with a labelled source. Read it before
 writing the second function of a task.
 
 ## Nil is three different things, and the UI needs to tell them apart

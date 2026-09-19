@@ -36,8 +36,16 @@ character", so put a question in the right section or it waits on the wrong prec
 The client ships tools that beat a script, and reaching for Lua when one of them fits spends
 Alex's attention on nothing. Pick by what you actually need:
 
+**Before anything below: the addon may already do it.** `/lgn dump [section]` and `/lgn probe`
+are written and are the preferred capture path (CLAUDE.md, In-game workflow) — they emit a Lua
+literal that needs no parsing, into a copyable window, with client metadata attached. Hand over
+raw Lua only for something the addon does not read yet. A new ad-hoc script that duplicates a
+`Debug/` section spends a round trip to get worse data.
+
 | Need | Use | Not |
 |---|---|---|
+| Anything `Api/` already reads | `/lgn dump <section>` | A fresh sweep script |
+| Which of our API calls work on this client | `/lgn probe` | A `pcall` harness |
 | Which events fire, and their payloads | `/etrace`, filtered to the event names | An event-probe script. One was written here and then retired — `/etrace` does it better. |
 | One ID off something on screen | idTip — hover it, read the tooltip | A sweep |
 | Whether a symbol exists at runtime | `/api` browser | A `pcall` harness |

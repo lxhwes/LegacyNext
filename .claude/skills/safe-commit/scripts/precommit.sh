@@ -20,6 +20,9 @@ STAGED=0
 fails=0
 warns=0
 
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
 section() { printf '\n== %s ==\n' "$1"; }
 fail() { echo "FAIL $*"; fails=$((fails + 1)); }
 warn() { echo "WARN $*"; warns=$((warns + 1)); }
@@ -71,49 +74,84 @@ while IFS= read -r line; do [ -n "$line" ] && ADDON+=("$line"); done < <(addon_f
 if [ "${#ADDON[@]}" -eq 0 ]; then
 	echo "no changed .lua under LegacyNext/ — pattern checks skipped"
 else
+	# Match against code, not comments. This project documents its own constraints in prose
+	# right next to the code that honours them ("Never SetAchievementSearchString: that is
+	# global client state"), so a grep over raw lines flags the comment explaining the rule as
+	# a violation of it. A gate that cries wolf on correct code is one people learn to ignore.
+	#
+	# Line numbers survive because the comment text is blanked in place rather than deleted.
+	# A `--` inside a string literal is blanked too; that is a known and accepted imprecision
+	# in a heuristic whose job is to raise a human's attention, not to parse Lua.
+	STRIPPED=()
+	for file in "${ADDON[@]}"; do
+		out="$TMP/$(echo "$file" | tr '/' '_')"
+		sed 's/--.*$//' "$file" > "$out"
+		echo "$file" > "$out.name"
+		STRIPPED+=("$out")
+	done
+
+	# Report a hit against its real path and line rather than the temp copy's.
+	report() {
+		local pattern="$1" label="$2" severity="$3" hit=0
+		for stripped in "${STRIPPED[@]}"; do
+			local name
+			name="$(cat "$stripped.name")"
+			local matches
+			matches="$(grep -nE "$pattern" "$stripped" || true)"
+			if [ -n "$matches" ]; then
+				hit=1
+				echo "$matches" | sed "s|^|        $name:|"
+			fi
+		done
+		if [ "$hit" -eq 1 ]; then
+			if [ "$severity" = "fail" ]; then fail "$label"; else warn "$label"; fi
+		fi
+	}
+
 	# Read-only trait access, always. Blizzard's own UI calls these; we do not.
-	if grep -nE 'ResetTree|PurchaseRank|RefundRank|CommitConfig|StageTrait|RemoveTrait|RollbackConfig' "${ADDON[@]}"; then
-		fail "write/mutating trait API in LegacyNext/ (CLAUDE.md: read-only, always)"
-	fi
+	report 'ResetTree|PurchaseRank|RefundRank|CommitConfig|StageTrait|RemoveTrait|RollbackConfig' \
+		"write/mutating trait API in LegacyNext/ (CLAUDE.md: read-only, always)" fail
 
 	# Global state shared with Blizzard's Achievement UI, not a private filter.
-	if grep -nE 'SetAchievementSearchString|GetNumFilteredAchievements|GetFilteredAchievementID' "${ADDON[@]}"; then
-		fail "filtered-achievement API in LegacyNext/ — enumerate categories directly instead"
-	fi
+	report 'SetAchievementSearchString|GetNumFilteredAchievements|GetFilteredAchievementID' \
+		"filtered-achievement API in LegacyNext/ — enumerate categories directly instead" fail
 
 	# Blizzard_LegacySystem is load-on-demand and every C API we need works without it.
-	if grep -n 'LoadAddOn' "${ADDON[@]}"; then
-		fail "LoadAddOn in LegacyNext/ (docs/status.md: decided against)"
-	fi
+	report 'LoadAddOn' "LoadAddOn in LegacyNext/ (docs/status.md: decided against)" fail
 
-	# Feature-detect everything: this client reports Mainline on interface 16001, so both of
-	# these tests give the wrong answer here.
-	if grep -nE 'WOW_PROJECT_ID|GetBuildInfo\(\)|interface[[:space:]]*[<>=]' "${ADDON[@]}"; then
-		fail "client/interface gating in LegacyNext/ — feature-detect the function instead"
-	fi
+	# Feature-detect everything: this client reports Mainline on interface 16001, so branching
+	# on either of these gives the wrong answer. Reading WOW_PROJECT_ID to *report* it in a
+	# dump is fine and the addon really does that — only a comparison is gating, so the match
+	# requires the value to be under test rather than merely read.
+	report '(WOW_PROJECT_ID|GetBuildInfo\(\))[^\n]*(==|~=|>=|<=|<|>)|(if|elseif|and|or)[^\n]*(WOW_PROJECT_ID|GetBuildInfo\(\))|interface[[:space:]]*[<>=]' \
+		"client/interface gating in LegacyNext/ — feature-detect the function instead" fail
 
-	# Heuristic, not proof: IDs churn through beta, so a bare 4+ digit literal in addon code
-	# is usually a hardcoded achievement, category or criteria ID. Lines that name a constant
-	# or a fallback are the legitimate case.
-	suspects="$(grep -nE '(^|[^[:alnum:]_.])[0-9]{4,}' "${ADDON[@]}" \
-		| grep -viE 'fallback|LegacyConsts|LEGACY_|Interface:|version' || true)"
-	if [ -n "$suspects" ]; then
-		warn "numeric literal(s) that may be a hardcoded ID — confirm each is not an achievement, category or criteria ID:"
-		echo "$suspects" | sed 's/^/        /'
-	fi
+	# Heuristic, not proof: IDs churn through beta, so a bare 4+ digit literal in addon code is
+	# usually a hardcoded achievement, category or criteria ID. Constants, fallbacks and the
+	# prose around them are the legitimate case.
+	for stripped in "${STRIPPED[@]}"; do
+		name="$(cat "$stripped.name")"
+		suspects="$(grep -nE '(^|[^[:alnum:]_.])[0-9]{4,}' "$stripped" \
+			| grep -viE 'fallback|LegacyConsts|LEGACY_|ACHIEVEMENT_FLAGS|Interface:|version' || true)"
+		if [ -n "$suspects" ]; then
+			warn "$name: numeric literal(s) that may be a hardcoded ID — confirm each is not an achievement, category or criteria ID:"
+			echo "$suspects" | sed "s|^|        $name:|"
+		fi
+	done
 
 	# A WoW global reached from Model/ is the architecture violation that costs the test suite,
 	# since Model/ specs run with no WoW environment at all.
-	for file in "${ADDON[@]}"; do
-		case "$file" in
+	for stripped in "${STRIPPED[@]}"; do
+		name="$(cat "$stripped.name")"
+		case "$name" in
 			LegacyNext/Model/*)
-				if grep -nE '(^|[^[:alnum:]_.])(C_[A-Za-z]+|CreateFrame|GetAchievement|GetCategory|UIParent|Constants)' "$file"; then
-					fail "$file: WoW global in Model/ (Model/ must be pure Lua)"
+				if grep -nE '(^|[^[:alnum:]_.])(C_[A-Za-z]+|CreateFrame|GetAchievement|GetCategory|UIParent|Constants)' "$stripped" | sed "s|^|        $name:|"; then
+					fail "$name: WoW global in Model/ (Model/ must be pure Lua)"
 				fi
 				;;
 			LegacyNext/UI/*)
-				if grep -nE 'ns\.Api\.' "$file"; then
-					warn "$file: UI/ reaching into Api/ — UI talks to Model, never to Api directly"
+				if grep -nE 'ns\.Api\.' "$stripped" | sed "s|^|        $name:|"; then
+					warn "$name: UI/ reaching into Api/ — UI talks to Model, never to Api directly"
 				fi
 				;;
 		esac
