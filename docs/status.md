@@ -153,15 +153,42 @@ truncation points, computed widths, the filter's category list, which empty stat
 That splits "is the content right" (answerable here, against fixtures) from "does it look
 right" (only Alex). It reuses `Debug.Serialize`, so it is cheap.
 
-### Design decisions still unmade
+### Layout — Alex, 2026-09-19
+
+Single column: reward track header, category filter bar, scrolling list.
+
+```
+┌────────────────────────────────────────┐
+│ Legacy Track  ·  0 pts  ·  15 to next  │
+│ Next: Replica Ironforge Air Rifle      │
+├────────────────────────────────────────┤
+│ [All] Class Prof PvP Rep Dung Raid     │
+├────────────────────────────────────────┤
+│ Journeyman Alchemist        0/150  1pt │
+│ Novice Spelunker              0/6  1pt │
+│ Master of Alterac Valley  0/42000  1pt │
+│ Conquerer of the Deeps        0/8  1pt │
+│ Expert Alchemist            0/225  1pt │
+│ ─────────── no progress shown ──────── │
+│ Novice Druid                       1pt │
+│ Rank 3                             1pt │
+└────────────────────────────────────────┘
+```
+
+**Rows are text only.** One line each, right-aligned figure, no status-bar textures. The 34
+measureless challenges sit under a divider rather than showing an empty bar — an empty bar
+reads as 0%, which is exactly what Ranking decision 1 exists to prevent. The divider makes
+"the API tells us nothing here" visible instead of implied.
+
+Note the third row: `Master of Alterac Valley 0/42000` is why the type-243 quantity rule
+matters. Under a checklist reading it would print `0/1` and sit near the top.
+
+### Still unmade
 
 | | Decision | Notes |
 |---|---|---|
-| Layout | Frame size, header/list/filter arrangement | Alex's call — see the options raised 2026-09-19 |
-| Row | What a challenge row shows, and in what order | Name, category, points, progress. Long descriptions overflow |
-| Progress | How three criteria shapes render in one row | Bar `0/150`, checklist `2/6`, and the 34 with nothing to show |
-| Scroll | `WowScrollBoxList` vs `UIPanelScrollFrameTemplate` | Blizzard's Legacy UI uses ScrollBox (`Blizzard_LegacyChallengeCategoryList.xml`), but only the older template is **proven in-game** by the dump window. Feature-detect, fall back |
-| Filter | Dropdown, tabs, or a row of buttons | Six real groups plus "all" |
+| Scroll | `WowScrollBoxList` vs `UIPanelScrollFrameTemplate` | Blizzard's Legacy UI uses ScrollBox (`Blizzard_LegacyChallengeCategoryList.xml`), but only the older template is **proven in-game** by our dump window. Feature-detect, fall back |
+| Truncation | Long names in a ~40-char row | "Master of Darkspear Islands", "Conquerer of the Wilds" fit; criterion text like "Reach exalted reputation with the Frostwolf Clan" does not. Tooltip on hover is the usual answer |
 | States | Empty vs error, kept distinct | `Api` returns `nil` + reason precisely so the UI can say "nothing left to earn" and "could not read your challenges" differently. Wasted if the frame flattens them |
 | Refresh | Throttle policy | `CRITERIA_UPDATE` fires in bursts. Queue past `PLAYER_REGEN_ENABLED`; never rebuild in combat |
 | Escape | `UISpecialFrames` | One line, makes the frame feel native |
@@ -177,8 +204,8 @@ a `CRITERIA_UPDATE` burst. Needs a queue row once the frame exists.
 
 Checked 2026-09-19; these do not exist yet:
 
-- [ ] **`LICENSE` — there is no license file at all.** CurseForge requires one to publish, so
-      this blocks release outright. Alex's call which.
+- [x] **`LICENSE`** — MIT, Alex Howes, 2026. Added 2026-09-19. Was the one hard blocker on
+      publishing at all.
 - [ ] **Icon.** `## IconTexture` is commented out in `LegacyNext.toc` and `LegacyNext/Media/`
       does not exist.
 - [ ] **`CHANGELOG.md`** — none.
