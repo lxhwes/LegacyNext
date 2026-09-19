@@ -6,15 +6,16 @@ Open it and every incomplete challenge is listed nearest-first, with your reward
 ## What it does
 
 - Lists your incomplete Legacy challenges sorted by how close each one is to completion. Each
-  row shows the name, its category, the points it awards, and what is left ("3/5 dungeons",
-  "0/150 Alchemy").
+  row shows the name, what is left ("3/6", "0/150") and the points it awards. Hover a row for
+  its category, description and every criterion.
 - Filters the list by the game's own Legacy categories.
 - Shows your reward track: current Legacy points, points to the next reward, and that reward's
   name.
 
 ## Opening it
 
-Type `/lgn` or `/legacynext`. It opens a standalone window. `/lgn help` lists every command.
+Type `/lgn` or `/legacynext`. It opens a standalone window; Escape closes it. `/lgn help`
+lists every command.
 
 ## What it does not do
 
