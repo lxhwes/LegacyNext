@@ -20,6 +20,53 @@ correctly declining to invent a failure for a probe it had no index for.
 until the mixin fix ships), **D4** (professions — this character knew none) and **D7**
 (challenge pages 2–6). See the queue in `docs/ingame-commands.md`.
 
+## Milestones
+
+| Date | What | Notes |
+|---|---|---|
+| 2026-09-17 | Forever beta live | Build 1.60.1 (69913), the one everything here is verified against |
+| **2026-11-04** | **Forever launches** | ~6½ weeks out as of 2026-09-19 |
+| — | Hardcore Legacy | Later, no date. Out of scope regardless |
+
+The deadline that actually binds is **launch**, not beta: an addon that lands after players
+have already picked a Legacy tracker is competing uphill. As of 2026-09-18 no in-game Legacy
+tracker existed, which is the whole opportunity — recheck before release, since that is a claim
+with a shelf life.
+
+Beta builds will churn the IDs and may churn the APIs. `beta-build-bump` exists for that; run
+it whenever the forever branch moves, and re-run **D5** after any bump, since "no secrets on
+our surface" is a per-build finding.
+
+## What must be true to ship v0
+
+Not a schedule — a checklist. Nothing here is guesswork about the UI; it is the set of things
+that are currently known to be false or unverified.
+
+**Blocking, build:**
+
+- [ ] `Model/` ranking, tested against `spec/fixtures/`
+- [ ] The v0 frame: reward track header, ranked list, category filter
+- [ ] Reward track header actually renders — needs **D6**, dead until the mixin fix ships
+
+**Blocking, release mechanics** (all unsolved, all in `docs/distribution.md`):
+
+- [ ] Packager dry-run against a tag — it is reported to mis-tag interface 16001 as retail,
+      and Forever ships on `wow_classic`. Wrong flavor means a broken upload
+- [ ] `.pkgmeta` `move-folders` has never been run; a doubled `LegacyNext/LegacyNext` path in
+      the zip is the symptom
+- [ ] Confirm authors can publish to CurseForge's Forever category at all — a version filter
+      was seen in search, but publishing was never verified
+
+**Should be true, not blocking:**
+
+- [ ] **D7** — challenge pages 2–6, so ranking is tested against 111 rather than 20
+- [ ] **C2** — whether refresh can be event-driven, or stays read-on-show
+- [ ] Competition recheck immediately before release
+
+The release mechanics are the ones to be nervous about: every item is a reported problem nobody
+has reproduced, and they all land at once, on the day, when there is no time to fix them.
+Running the packager dry-run early is cheap and does not need Phase 3 finished.
+
 ## Phases
 
 | Phase | What | State |
@@ -29,7 +76,25 @@ until the mixin fix ships), **D4** (professions — this character knew none) an
 | — | Project skills: `forever-api-lookup`, `beta-build-bump` | **Done** — `d9bb4a6`, `c9db19c` |
 | — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
-| 3 | `Model/` ranking and the v0 UI. Design questions settled 2026-09-19; blocked only on section D fixtures. | Not started |
+| 3 | `Model/` ranking and the v0 UI. Design questions settled 2026-09-19; fixtures landed, so only the reward header is blocked (**D6**). | Not started |
+| 4 | v1 roster. Blocked on SavedVariables, **and its stated approach is known broken** — see below. | Blocked |
+
+### Phase 4's premise needs rewriting before it starts
+
+The bootstrap doc specifies candidate-alt mapping "driven by criteriaType/assetId from
+fixtures, **NOT** by parsing challenge names", and says to stop and report if the fixtures
+don't expose a usable criteria type. They don't, for half the target:
+
+- **Profession challenges work.** `criteriaType` 7 carries the skill line in `assetID` and the
+  threshold in `reqQuantity` — `Journeyman Alchemist` is `assetId = 2937, need = 150`. Mapping
+  an alt's profession skill against that is exactly what was intended.
+- **Class-leveling challenges cannot work that way.** `Novice Druid` has
+  `criteriaExpected == 0`. The level 25 exists only in `description` prose. There is no
+  criteria row, no `assetID`, nothing to key on.
+
+So the honest options are to parse the description for a level (the thing the brief forbids,
+and it breaks on localisation), to ship profession mapping only, or to drop the class half.
+**Alex's call, not taken yet.** It does not block Phase 3.
 
 ## Research questions
 
