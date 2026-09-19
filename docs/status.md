@@ -176,6 +176,9 @@ that are currently known to be false or unverified.
 - [ ] Confirm CurseForge's Forever version type (`88568`) exists — Alex, in a browser or with
       an API token; steps in `docs/distribution.md`
 - [ ] `## Version: @project-version@` in the TOC, first tag `v0.1.0` — Alex's edit
+- [ ] **Repo public.** The README header now carries the CI badge and the icon as absolute
+      `github.com` / `raw.githubusercontent.com` URLs. Both 404 while `lxhwes/LegacyNext` is
+      private, on GitHub and in the CurseForge listing alike. Alex's
 - [x] Icon: `LegacyNext/Media/icon.tga` and the `## IconTexture` line — 2026-09-19, concept A
       from `docs/icon-design.md`; seen in the AddOns list is **U3**
 
@@ -289,7 +292,11 @@ Checked 2026-09-19; these do not exist yet:
 - [x] **Version scheme.** Decided 2026-09-19: SemVer `0.x.y` in beta, `1.0.0` at launch, tag
       is the version via `@project-version@`. The TOC line itself is still `0.0.1` — Alex's.
 - [x] **README as a listing.** Rewritten 2026-09-19; the repo content moved to
-      `docs/development.md`.
+      `docs/development.md`. Given a visual header later the same day: centred icon
+      (`docs/icon-drafts/almost-full-256.png` at 120 px), six badges in the icon's navy/gold
+      palette, the layout mock from Phase 3b, and a command table. Two caveats — the header is
+      raw HTML, so how CurseForge's editor treats it is unchecked until the listing exists, and
+      every image URL is absolute, so it needs the repo public (see the checklist above).
 - [x] Packager dry-run and `.pkgmeta` `move-folders` — both verified 2026-09-19.
 - [ ] CurseForge Forever version type — needs a browser or a token.
 
