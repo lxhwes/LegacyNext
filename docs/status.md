@@ -135,8 +135,12 @@ These came out of research and should not be relitigated without new evidence.
   API returns.
 - **Reward names come from `reward.name or reward.toastDescription`.** `name` is missing on
   some entries. No item lookup needed, so no async cache path.
-- **Ranking handles two criteria shapes.** Progress-bar criteria (`criteriaFlags` bit 1) give a
-  fraction; the rest are boolean checklists where remaining is a count.
+- ~~**Ranking handles two criteria shapes.**~~ **Three.** The B sweep found 34 challenges with
+  no criteria at all, which the two-shape reading would have flattened into 0%. Progress-bar
+  criteria (`criteriaFlags` bit 1) give a fraction, checklists give a remaining count, and
+  `criteriaExpected == 0` is its own case that sorts last — see Ranking decisions.
+  Separately, `criteriaType` is a third axis and is open-ended: 7, 8 and 43 seen so far, so
+  never switch exhaustively on it.
 - **Generated API docs are a floor, not a contract.** The live reward struct carries five
   fields that appear in no doc file. Feature-detect fields.
 

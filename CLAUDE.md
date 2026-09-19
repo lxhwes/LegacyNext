@@ -200,6 +200,39 @@ tools/venv/bin/hererocks tools/lua51 --lua 5.1 --luarocks latest`, then
 
 Vendored Blizzard source is pinned in `vendor/PINS.md` — read-only reference, never imported.
 
+## Project docs
+
+Read `docs/status.md` first in a new session, and again before proposing any phase of work — it
+is the only document that says where the project actually is, and it carries decisions that are
+settled and should not be reopened without new evidence.
+
+Each doc owns one thing. The test for where something goes:
+
+| Doc | Owns | Belongs here if… |
+|---|---|---|
+| `CLAUDE.md` | Client facts, constraints, architecture | it is still true after v1 ships |
+| `docs/status.md` | Where we are, what was decided and why, what blocks what | it is true *as of now* |
+| `docs/ingame-commands.md` | The queue needing the live client | it needs Alex in the game |
+
+Also `docs/legacy-internals.md` (research with `file:line` citations) and `docs/distribution.md`
+(packaging problems awaiting release). `docs/kickoff-phases.md` is **history** — it predates
+decisions that contradict it, so never cite it as current.
+
+Maintaining `docs/status.md`:
+
+- **Update it in the same change as the work**, and move the `Last updated` date at the top. A
+  multi-step task is not done until status is current — that includes the "Where we are" banner,
+  which is the line most likely to be quietly false.
+- **Supersede, never silently edit.** A reversed decision gets struck through with the evidence
+  that reversed it; ranking decision 3 is the worked example. Deleting it loses the why, and the
+  why is what stops the same argument being had twice.
+- **Never re-list the queue.** Name the IDs that block something and stop. Both copies existed
+  once and drifted within a day.
+- **A client fact goes in `CLAUDE.md`**, with `status.md` keeping only the story of how it was
+  found. A number recorded in two places is a number that can disagree with itself.
+- **Dated findings sections are append-only.** Do not tidy them into the present tense — "what
+  we believed on 2026-09-19" is what makes a later contradiction legible instead of confusing.
+
 ## In-game workflow
 
 Alex runs everything in game and pastes output back, so **round trips are the scarcest
