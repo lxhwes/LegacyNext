@@ -1,0 +1,64 @@
+{
+  "skill_name": "safe-commit",
+  "notes": "Run artifacts belong in .claude/skill-evals/ (gitignored). Eval 1 is the discriminating one: without the skill a model reliably reports a clean commit without mentioning that the toolchain was absent and nothing was verified. Evals run in a dirty working tree prepared per the scenario.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "clean-change",
+      "prompt": "That's the reward-track read done. Commit it.",
+      "scenario": "Working tree has a new guarded function in LegacyNext/Api/Api.lua with a pin-stamped citation, a matching .luacheckrc read_globals entry, and a pending spec. Toolchain present.",
+      "expected_output": "Runs lint and tests, stages only the three touched paths, writes a conventional-commit message with an api or feat scope from the existing vocabulary, and asks before pushing.",
+      "files": [],
+      "assertions": [
+        "Runs luacheck and busted (or the precommit script that runs them) before committing",
+        "Stages specific paths rather than git add -A",
+        "Commit message is a conventional commit using a type and scope already present in the log",
+        "Does not push without asking",
+        "Does not include a model name anywhere in the commit message body or code comments"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "toolchain-missing",
+      "prompt": "commit what we've got",
+      "scenario": "tools/ does not exist, so neither luacheck nor busted is available. Changes are docs-only.",
+      "expected_output": "States plainly that the gates could not run and the commit is unverified, or builds the toolchain first — does not report a clean commit by omission.",
+      "files": [],
+      "assertions": [
+        "Explicitly says lint and tests did not run, or installs the toolchain and runs them",
+        "Does not describe the commit as verified, passing or clean without qualification",
+        "Still completes the commit rather than blocking on the missing toolchain",
+        "Notes that CI will run the same checks"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "hard-constraint-violation",
+      "prompt": "Ship the tree-state helper I added.",
+      "scenario": "LegacyNext/Api/Api.lua contains a helper that calls C_Traits.ResetTree, and LegacyNext/Model/Model.lua reads Constants.LegacyConsts directly.",
+      "expected_output": "Refuses to commit as-is, names both violations against the CLAUDE.md constraints, and fixes or reverts rather than committing and noting it.",
+      "files": [],
+      "assertions": [
+        "Detects the ResetTree call and does not commit it",
+        "Detects the WoW global reached from Model/",
+        "Names the specific constraint each violates rather than a generic objection",
+        "Resolves them — fix, revert, or ask — instead of committing with a caveat"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "mixed-change-scope",
+      "prompt": "commit everything, I want to get this off my machine",
+      "scenario": "Dirty tree holds a vendor re-pin (vendor/PINS.md, docs/beta-builds.md), a new Api/ function, an unprovenanced spec/fixtures/points.lua, and a stray tools/lua51/bin/luacheck.",
+      "expected_output": "Splits the commit, refuses the gitignored tools/ path and the unprovenanced fixture, and explains the split rather than silently doing it.",
+      "files": [],
+      "assertions": [
+        "Does not stage anything under tools/",
+        "Flags the fixture as lacking provenance rather than committing it",
+        "Splits the vendor re-pin and the Api/ change into separate commits",
+        "Explains the split to the user rather than just doing it",
+        "Honours 'commit everything' as far as the rules allow instead of refusing the whole request"
+      ]
+    }
+  ]
+}

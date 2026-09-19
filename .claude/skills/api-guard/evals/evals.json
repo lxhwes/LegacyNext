@@ -1,0 +1,70 @@
+{
+  "skill_name": "api-guard",
+  "notes": "Run artifacts belong in .claude/skill-evals/ (gitignored). Eval 1 is the discriminating one: without the skill, a model reliably collapses 'API missing' and 'nothing found' into a bare nil, and reliably treats the 34 no-criteria challenges as 0%. Eval 3 tests that the layer boundary holds under a request phrased as UI work.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "scalar-and-constant-read",
+      "prompt": "Add the Api/ reads the reward-track readout needs: the account's earned point count, the spendable-per-character cap, and the four reward thresholds.",
+      "expected_output": "Three guarded Api/ functions with pin-stamped citations, constants read from Constants.LegacyConsts with labelled fallbacks, .luacheckrc read_globals updated, and the sparse GetRenownLevels list handled as sparse.",
+      "files": [],
+      "assertions": [
+        "Every new function feature-detects the target function with a type check before calling it",
+        "Every call is wrapped in pcall",
+        "Every result passes through an issecretvalue guard that is itself conditional on that global existing",
+        "Constant IDs are read from Constants.LegacyConsts at runtime, with any literal clearly marked as a fallback",
+        "Uses C_Traits.GetMaxAvailableTraitCurrency for the cap rather than TreeCurrencyInfo.maxQuantity",
+        "Treats the GetRenownLevels result as a sparse list of thresholds, not one entry per level",
+        "Each function returns plain data or nil plus a reason string naming the symbol that failed",
+        "Adds any new WoW global to .luacheckrc read_globals",
+        "Citation comments include a pin stamp",
+        "Calls no write, purchase, commit or staging API"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "criteria-three-shapes",
+      "prompt": "Api/ needs to give Model/ the criteria progress for a challenge so it can render '3/5 dungeons' and rank by closeness. Write it.",
+      "expected_output": "A guarded criteria read that distinguishes progress-bar, checklist and no-criteria challenges as three cases, returns the criteriaType 8 link without following it, and returns an empty result distinguishably from a failure.",
+      "files": [],
+      "assertions": [
+        "Handles the no-criteria case as a distinct state rather than reporting it as 0 of 0 or 0%",
+        "Distinguishes progress-bar criteria from checklist criteria",
+        "Returns nil plus a reason for failure and an empty/explicit result for 'worked, no criteria' — the two are not collapsed into a bare nil",
+        "Does not recurse into criteriaType 8 child achievements inside Api/, or states explicitly that the chain decision belongs to Model/",
+        "Takes an explicit number of returns from GetAchievementCriteriaInfo rather than relying on the length of a packed table",
+        "Does not assert field meanings for returns beyond those a citation covers",
+        "Cites a Mainline call site, not a Blizzard_AchievementUI/Cata/ path",
+        "Adds a spec/stubs entry or an explicitly pending test rather than an invented fixture"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "forbidden-api-request",
+      "prompt": "While we're in Api/ can you add a helper that clears a character's Legacy tree so I can test respec flows? Just wrap C_Traits.ResetTree.",
+      "expected_output": "Declines to add the wrapper, cites the read-only constraint, and offers the read-only alternative rather than working around it.",
+      "files": [],
+      "assertions": [
+        "Does not add a wrapper around C_Traits.ResetTree or any purchase/commit API",
+        "Names the read-only constraint as the reason rather than a vague refusal",
+        "Offers something useful instead — a read-only inspection of current tree state, or asking Alex before proceeding",
+        "Does not add ResetTree to .luacheckrc read_globals"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "layer-boundary-under-ui-request",
+      "prompt": "The Next Up frame should show the five closest challenges with a category filter. Build it.",
+      "expected_output": "Splits the work across layers: Api/ enumerates once and returns a snapshot, Model/ ranks with no WoW globals, UI/ reads Model only. No Api call from a draw path.",
+      "files": [],
+      "assertions": [
+        "UI/ code does not call Api/ directly",
+        "Model/ code contains no WoW globals at all",
+        "Enumeration happens once per refresh and returns a snapshot the caller holds, rather than per-frame or per-draw",
+        "Uses GetCategoryList plus GetCategoryNumAchievements plus GetAchievementInfo, not the filtered-achievement API",
+        "Drops empty categories by count rather than by matching a category name",
+        "Hardcodes no achievement, category or criteria ID"
+      ]
+    }
+  ]
+}

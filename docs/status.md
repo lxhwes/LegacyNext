@@ -14,6 +14,7 @@ blocked on running two slash commands in game.
 | 0 | Scaffold — repo layout, TOC, hello-world addon, Lua 5.1 toolchain, CI, packaging notes, vendor pin | **Done** — `b66486e` |
 | 1 | Read-only research into Blizzard's Legacy system, answering Q1–Q12 | **Done** — `0ad6e6c` plus in-game verification |
 | — | Project skills: `forever-api-lookup`, `beta-build-bump` | **Done** — `d9bb4a6`, `c9db19c` |
+| — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the Phase 2 authoring loop | **Done** |
 | 2 | Not yet defined. See "What Phase 2 probably starts with" below. | Not started |
 
 ## Research questions
