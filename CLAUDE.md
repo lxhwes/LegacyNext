@@ -222,9 +222,13 @@ Rules for any script I hand over:
   hand over raw Lua for something the addon does not read yet.
 - **The queue table at the top of `docs/ingame-commands.md` is the one list of what needs the
   game.** Add the row the moment a question turns out to need the client, not at the end of the
-  task, and give it a stable ID that is never renumbered or reused. Pending tests, commit
-  messages and `docs/status.md` cite that ID — the row is what connects a blocked test to the
-  session that unblocks it.
+  task, and give it a stable ID that is never renumbered, reused or deleted. Pending tests,
+  commit messages and `docs/status.md` cite that ID — the row is what connects a blocked test
+  to the session that unblocks it.
+- **Close the row in the same change that consumes its data**, moving it to the Closed table
+  with the date and where the result landed. A half-answered row stays open and says what is
+  still missing. Never report work finished with the queue stale — a row closed a pass later is
+  a row Alex gets asked for twice.
 - Scripts live in the same file under their ID. Results get written up in
   `docs/legacy-internals.md` and `CLAUDE.md` — never left only in chat.
 - **Surface the open queue rows without being asked.** Alex will not go looking. Name the ID,

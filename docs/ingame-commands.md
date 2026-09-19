@@ -2,9 +2,19 @@
 
 ## Queue
 
-The one list of what needs the client. **IDs are stable — never renumber, never reuse.** A row
-goes in the moment a question turns out to need the game, so pending tests, commit messages and
-`docs/status.md` can cite the ID rather than describing the blockage again.
+The one list of what needs the client. **IDs are stable — never renumber, never reuse, never
+delete.** A row goes in the moment a question turns out to need the game, and moves to Closed
+in the same change that consumes its data — so a `pending` test, a commit message or a
+`docs/status.md` row can cite an ID and still have it resolve a year later.
+
+Keeping it current is part of the task, not cleanup afterwards:
+
+- **Opening.** The row exists before the code that needs it, not after.
+- **Closing.** Same commit as the fixture, test or doc the data fed. A row closed in a later
+  pass is a row that gets asked for twice.
+- **Partial answers.** A paste that answers half a row leaves it open, with what is still
+  missing written into it. Do not close on "close enough".
+- **Never report work finished with this table stale.**
 
 Open, roughly in the order worth doing:
 
@@ -19,8 +29,15 @@ Open, roughly in the order worth doing:
 | C4 | A completed challenge | `wasEarnedByMe` true, and whether completed entries sort before incomplete | needs play |
 | C2 | `/etrace` on the four events below | Whether event-driven refresh is possible at all, or we stay read-on-show | needs play |
 
-Done: **A**, **B** (2026-09-18) — constants, category tree, the 111-challenge sweep.
-**D1–D3** (2026-09-19) — addon loads, probe clean, summary and fixtures captured.
+Closed — kept so a citation still resolves:
+
+| ID | Closed | Answered | Result landed in |
+|---|---|---|---|
+| A | 2026-09-18 | Constants, tree names, account flag, trait config, point caps | `CLAUDE.md`, `docs/legacy-internals.md` |
+| B | 2026-09-18 | The 29-category tree and the full 111-challenge sweep with criteria shapes and point values | `docs/legacy-internals.md` |
+| D1 | 2026-09-19 | The addon loads and prints its version | `docs/status.md` |
+| D2 | 2026-09-19 | Probe: no secrets on our surface, `issecretvalue` active, all constants runtime. Found the mixin bug | `CLAUDE.md`, `docs/status.md` |
+| D3 | 2026-09-19 | `summary`, `trees` and `challenges 1` — reproduced the B sweep from a second code path | `spec/fixtures/dump_trees_fresh.lua`, `spec/fixtures/dump_challenges_page1_fresh.lua` |
 
 See `docs/status.md` for what each finding changed.
 
