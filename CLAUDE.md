@@ -92,9 +92,11 @@ that changes how code gets written.
 - The filter API (`GetNumFilteredAchievements` / `GetFilteredAchievementID`) reads 0 at login
   and 111 after any `SetAchievementSearchString("")`. It is global state shared with
   Blizzard's Achievement UI — we never call it, and never read it as a source of truth.
-- All three trees share **one** `configID` — 2938022 on a fresh character
-  [verified in game 2026-09-19]. The 16-point cap is a single pool spent across all three, not
-  16 per tree.
+- All three trees share **one** `configID`, and **it is per-character, not a constant**
+  [2026-09-19]: 2938022 on one fresh character, 4040613 on another. Always read it via
+  `C_Traits.GetConfigIDByTreeID`; never hardcode it, never cache it across characters, and
+  treat the values in `spec/fixtures/` as that character's, not the client's. The 16-point cap
+  is a single pool spent across all three trees, not 16 per tree.
 - **Class challenges carry no machine-readable level threshold** [2026-09-19].
   `Novice / Experienced / Master Druid` (61502–61504) are levels 25/45/60, but
   `criteriaExpected == 0` and the number appears only in `description` prose. Profession

@@ -6,6 +6,10 @@
 -- pin:       70ef1b2 (1.60.1.69913)
 -- character: fresh level 1 Shaman, no professions, zero Legacy points earned or spent
 --
+-- NOTE: configId 2938022 is THIS CHARACTER'S, not the client's. A second fresh character read
+-- 4040613 on the same build [2026-09-19]. Assert the three trees share one configId; never
+-- assert the number.
+--
 -- Captured on the build where Api's copy guard rejected any table holding a function, so
 -- GetMajorFactionData failed and the reward track was unavailable. That bug affected only
 -- what reached the dump, never what the client said, and no reward-track read feeds this

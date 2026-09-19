@@ -20,6 +20,28 @@ correctly declining to invent a failure for a probe it had no index for.
 until the mixin fix ships), **D4** (professions — this character knew none) and **D7**
 (challenge pages 2–6). See the queue in `docs/ingame-commands.md`.
 
+## D5 — the mixin fix confirmed, 2026-09-19
+
+Second character (level 1 Mage), fixed build installed. `ok=28 partial=1 nil=1 skipped=1` —
+the `error` is gone and `GetMajorFactionData` now reads:
+
+```
+partial C_MajorFactions.GetMajorFactionData table, 19 entries; dropped
+  return1.factionFontColor.color.{GetHSL, GetRGBA, IsRGBEqualTo, SetRGB, GetRGB, OnLoad,
+  GenerateHexColorMarkup, WrapTextInColorCode, GenerateHexColor, IsEqualTo,
+  GenerateHexColorNoAlpha, SetRGBA, GetRGBAsBytes, GetRGBAAsBytes}
+```
+
+All 14 dropped paths are ColorMixin methods, exactly where the documentation said the mixin
+would be attached, and the struct comes back with 19 usable fields. The diagnosis and the fix
+both hold.
+
+**New finding, and it corrects a client fact:** `C_Traits.GetConfigIDByTreeID` returned
+**4040613** on this character against **2938022** on the Shaman. The configID is
+**per-character**, not a client constant — `CLAUDE.md` had recorded the Shaman's value as
+though it were the value. Corrected there, and the trees fixture now carries a note that its
+number is that character's. Nothing in `LegacyNext/` hardcoded it, so no code changed.
+
 ## Milestones
 
 | Date | What | Notes |

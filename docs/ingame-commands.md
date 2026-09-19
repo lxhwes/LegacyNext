@@ -20,8 +20,7 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
-| D5 | Reinstall the addon, `/lgn probe` | Confirms the mixin fix reports `partial` and names the dropped method. If it still says `error`, I need the new detail string | 1 min |
-| D6 | `/lgn dump rewards` on the fixed build | The reward track header — a **v0 feature that is currently dead** | 1 min |
+| D6 | `/lgn dump rewards` on the fixed build | The reward track header — a **v0 feature that is currently dead**. The fixed addon is now installed, so this is the one row standing between us and a working header | 1 min |
 | D4 | `/lgn dump character` on a character with professions | `GetProfessions`' seven Forever slots, still unverified against a real return. Two primaries plus cooking is the useful case | needs an alt |
 | D7 | `/lgn dump challenges 2` … `6` | Ranking tests against all 111 rather than the 20 in page 1. Not blocking — page 1 covers every shape | 5 min |
 | C1 | Points spent in **two different trees** | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
@@ -38,6 +37,7 @@ Closed — kept so a citation still resolves:
 | D1 | 2026-09-19 | The addon loads and prints its version | `docs/status.md` |
 | D2 | 2026-09-19 | Probe: no secrets on our surface, `issecretvalue` active, all constants runtime. Found the mixin bug | `CLAUDE.md`, `docs/status.md` |
 | D3 | 2026-09-19 | `summary`, `trees` and `challenges 1` — reproduced the B sweep from a second code path | `spec/fixtures/dump_trees_fresh.lua`, `spec/fixtures/dump_challenges_page1_fresh.lua` |
+| D5 | 2026-09-19 | Mixin fix confirmed on a second character: `partial`, 19 fields recovered, all 14 ColorMixin methods named. Also found `configID` is per-character (2938022 vs 4040613) | `CLAUDE.md`, `docs/status.md` |
 
 See `docs/status.md` for what each finding changed.
 
