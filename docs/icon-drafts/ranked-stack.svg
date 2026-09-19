@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- LegacyNext icon, concept B "Ranked stack". Hand-authored; edit here, then re-render. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- backplate -->
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="#1B2740"/>
+  <!-- the list: first row lit, the rest waiting -->
+  <rect x="76" y="50" width="140" height="42" rx="21" fill="#F2B33D"/>
+  <rect x="76" y="107" width="104" height="42" rx="21" fill="#4A5878"/>
+  <rect x="76" y="164" width="68" height="42" rx="21" fill="#4A5878"/>
+  <!-- "next" marker on the first row -->
+  <polygon points="34,50 66,71 34,92" fill="#FFD98A"/>
+</svg>

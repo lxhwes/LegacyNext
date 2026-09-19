@@ -4,7 +4,7 @@
 ## Version: 0.0.1
 ## SavedVariables: LegacyNextDB
 ## SavedVariablesPerCharacter: LegacyNextCharDB
-# ## IconTexture: Interface\AddOns\LegacyNext\Media\icon
+## IconTexture: Interface\AddOns\LegacyNext\Media\icon
 
 Store\Store.lua
 Api\Api.lua
