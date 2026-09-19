@@ -188,10 +188,10 @@ different things. Never name the slots; iterate every return.
 rankModifier, specializationIndex, specializationOffset, skillLineName`
 (`Blizzard_ProfessionsFrame.lua:55`).
 
-Reference source, read-only, on the forever branch:
-`Interface/AddOns/Blizzard_LegacySystem/*`,
-`Interface/AddOns/Blizzard_LegacyChallengeTracker/*`,
-`Interface/AddOns/Blizzard_APIDocumentationGenerated/*`.
+Reference source, read-only, on the forever branch: the directories `vendor/PINS.md` lists
+(the Legacy addons, the generated API docs, `Blizzard_AchievementUI`, and the UI template,
+font and panel directories added 2026-09-19). PINS.md is the list; `ls
+vendor/wow-ui-source/Interface/AddOns` is the check.
 
 ## Architecture
 
@@ -219,8 +219,10 @@ formula, so the interpreter is PUC Lua 5.1.5 rather than the system LuaJIT.
 ```
 
 Both gate CI (`.github/workflows/ci.yml`) on push and PR. **A new WoW global called from `Api/`
-needs a `read_globals` entry in `.luacheckrc` or lint fails** — and note what that entry means:
-it asserts the symbol exists, and does not excuse the runtime feature-detect.
+gets a `read_globals` entry in `.luacheckrc`** — by convention, not because lint would fail
+without it: every read goes through `rawget`/`resolve`, so luacheck never sees the symbol. The
+list is the manifest of what we depend on, and an entry there does not excuse the runtime
+feature-detect.
 
 Rebuild: `python3 -m venv tools/venv && tools/venv/bin/pip install hererocks &&
 tools/venv/bin/hererocks tools/lua51 --lua 5.1 --luarocks latest`, then
@@ -244,8 +246,9 @@ Each doc owns one thing. The test for where something goes:
 
 Also `docs/legacy-internals.md` (research with `file:line` citations), `docs/ui-templates.md`
 (frame templates, fonts and FontString methods verified at the pin), `docs/distribution.md`
-(what the packager dry-run showed, and the CurseForge check still open) and
-`docs/development.md` (bootstrap, toolchain and the capture commands, for contributors).
+(what the packager dry-run showed, and the CurseForge check still open), `docs/icon-design.md`
+(the icon decision and how to re-render it) and `docs/development.md` (bootstrap, toolchain and
+the capture commands, for contributors).
 `README.md` is the CurseForge listing, not a repo guide. `docs/kickoff-phases.md` is
 **history** — it predates decisions that contradict it, so never cite it as current.
 
@@ -309,5 +312,8 @@ Rules for any script I hand over:
 - Lua 5.1 semantics.
 - No external libs in v0 — no Ace3, no LibStub — unless I approve first.
 - luacheck clean. busted tests for `Model/`, fixtures in `spec/fixtures/`.
-- `Api/` has a stub layer in `spec/stubs/`, driven by captured fixtures, never invented data.
+- `Api/` specs stub WoW globals inline (`spec/api/api_spec.lua`) with trivial values; they test
+  the guard, not client shapes. `spec/stubs/` is reserved for a fixture-driven stub environment
+  and holds only its README today. Any stub that lands there is driven by captured fixtures,
+  never invented data.
 - Small commits, conventional-commit messages. Never push without asking.
