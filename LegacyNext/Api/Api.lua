@@ -61,7 +61,7 @@ local stats = {}
 local function record(name, outcome, detail)
 	local entry = stats[name]
 	if not entry then
-		entry = { calls = 0, ok = 0, missing = 0, errors = 0, secret = 0 }
+		entry = { calls = 0, ok = 0, missing = 0, errors = 0, secret = 0, partial = 0 }
 		stats[name] = entry
 	end
 
@@ -84,7 +84,9 @@ function Api.GetFailures()
 			missing = entry.missing,
 			errors = entry.errors,
 			secret = entry.secret,
+			partial = entry.partial,
 			lastDetail = entry.lastDetail,
+			lastDropped = entry.lastDropped,
 		}
 	end
 	return out
@@ -139,7 +141,15 @@ Api.Resolve = resolve
 
 -- Api hands out plain tables it owns, never a client-owned one: the client may reuse or mutate
 -- its tables, and a secret can sit in a field while the table itself reads non-secret.
-local function plainCopy(value, depth, seen)
+--
+-- An unusable *field* is dropped and named; an unusable *value* still fails the read. The
+-- distinction exists because Blizzard mixes methods into returned structs -- MajorFactionData's
+-- factionFontColor is a DBColorExport whose `color` carries ColorMixin
+-- (MajorFactionsDocumentation.lua:281, UIColorSharedDocumentation.lua:11) -- and rejecting the
+-- whole struct over a colour object we would never read costs us every scalar beside it.
+-- A secret is the exception: it fails the table outright, because a guard that discards the
+-- one thing it exists to detect is worse than no guard.
+local function plainCopy(value, depth, seen, dropped, path)
 	if isSecret(value) then
 		return nil, "secret"
 	end
@@ -162,27 +172,36 @@ local function plainCopy(value, depth, seen)
 
 	local out = {}
 	for key, item in pairs(value) do
-		local copiedKey, keyReason = plainCopy(key, depth + 1, seen)
-		if copiedKey == nil then
-			seen[value] = nil
-			return nil, keyReason or "bad key"
+		local fieldPath = path .. "." .. tostring(key)
+
+		local copiedKey, keyReason = plainCopy(key, depth + 1, seen, dropped, fieldPath)
+		local copiedItem, itemReason
+		if copiedKey ~= nil then
+			copiedItem, itemReason = plainCopy(item, depth + 1, seen, dropped, fieldPath)
 		end
 
-		local copiedItem, itemReason = plainCopy(item, depth + 1, seen)
-		if copiedItem == nil then
-			seen[value] = nil
-			return nil, itemReason or "bad value"
+		if copiedKey == nil or copiedItem == nil then
+			local reason = keyReason or itemReason or "unusable"
+			if reason == "secret" then
+				seen[value] = nil
+				return nil, "secret"
+			end
+			dropped[#dropped + 1] = fieldPath .. " (" .. reason .. ")"
+		else
+			out[copiedKey] = copiedItem
 		end
-
-		out[copiedKey] = copiedItem
 	end
 
 	seen[value] = nil
 	return out
 end
 
+-- Third return is the list of dropped field paths: empty means the copy is complete, and a
+-- caller that needs a field can check rather than discovering the hole downstream.
 function Api.PlainCopy(value)
-	return plainCopy(value, 1, {})
+	local dropped = {}
+	local copy, reason = plainCopy(value, 1, {}, dropped, "")
+	return copy, reason, dropped
 end
 
 -- Every WoW global call in the addon goes through here. Returns a packed result table with an
@@ -203,12 +222,18 @@ local function call(path, ...)
 	end
 
 	local out = { n = raw.n - 1 }
+	local dropped = {}
 	for index = 2, raw.n do
 		local value = raw[index]
 		if type(value) == "table" then
-			local copied, reason = plainCopy(value, 1, {})
+			local copied, reason = plainCopy(value, 1, {}, dropped, "return" .. (index - 1))
 			if copied == nil then
-				record(path, "secret", reason)
+				-- Only a secret is recorded as one. Cyclic and too-deep are our copy policy
+				-- refusing a shape, not the client withholding a value, and filing them under
+				-- the one status that means "Midnight restrictions reached us" turns the probe
+				-- into a false alarm.
+				local outcome = reason == "secret" and "secret" or "errors"
+				record(path, outcome, reason)
 				return nil, reason
 			end
 			value = copied
@@ -219,8 +244,16 @@ local function call(path, ...)
 		out[index - 1] = value
 	end
 
-	record(path, "ok")
-	return out
+	-- A partial copy is still a successful read, so it counts as ok and carries a separate
+	-- marker rather than a status of its own: the tally answers "is this symbol broken", and
+	-- a dropped colour object is not a broken symbol.
+	local entry = record(path, "ok")
+	if dropped[1] then
+		entry.partial = (entry.partial or 0) + 1
+		entry.lastDropped = table.concat(dropped, ", ")
+	end
+
+	return out, nil, dropped
 end
 
 Api.Call = call
@@ -664,7 +697,7 @@ end
 --------------------------------------------------------------------------------------------
 
 local function status(path, ...)
-	local result, reason = call(path, ...)
+	local result, reason, dropped = call(path, ...)
 	if not result then
 		if reason == "missing" then
 			return { name = path, status = "missing" }
@@ -688,6 +721,16 @@ local function status(path, ...)
 		detail = "table, " .. count .. " entries"
 	else
 		detail = tostring(first)
+	end
+
+	-- Say so on the probe line itself. A dropped field that only shows up in the dump's tally
+	-- is a field nobody notices is gone until the UI renders a blank.
+	if dropped and dropped[1] then
+		return {
+			name = path,
+			status = "partial",
+			detail = detail .. "; dropped " .. table.concat(dropped, ", "),
+		}
 	end
 
 	return { name = path, status = "ok", detail = detail }

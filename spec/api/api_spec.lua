@@ -82,15 +82,53 @@ describe("Api", function()
 			assert.same(source, copy)
 		end)
 
-		it("refuses a cyclic table", function()
+		it("drops a cyclic field and keeps the rest of the table", function()
 			local Api = loadApi().Api
-			local source = {}
+			local source = { name = "Legacy Track" }
 			source.self = source
 
-			local copy, reason = Api.PlainCopy(source)
+			local copy, reason, dropped = Api.PlainCopy(source)
+
+			assert.is_nil(reason)
+			assert.equals("Legacy Track", copy.name)
+			assert.is_nil(copy.self)
+			assert.equals(1, #dropped)
+			assert.truthy(dropped[1]:find("cyclic", 1, true))
+		end)
+
+		-- The real case: MajorFactionData.factionFontColor is a DBColorExport whose `color`
+		-- carries ColorMixin, so the client hands us methods two levels down inside a struct
+		-- of otherwise ordinary scalars.
+		it("drops a mixed-in method without losing the scalars beside it", function()
+			local Api = loadApi().Api
+			local source = {
+				name = "Legacy Track",
+				maxLevel = 90,
+				factionFontColor = {
+					baseTag = "legacy",
+					color = { r = 1, g = 1, b = 1, GetRGB = function() return 1, 1, 1 end },
+				},
+			}
+
+			local copy, reason, dropped = Api.PlainCopy(source)
+
+			assert.is_nil(reason)
+			assert.equals("Legacy Track", copy.name)
+			assert.equals(90, copy.maxLevel)
+			assert.equals(1, copy.factionFontColor.color.r)
+			assert.is_nil(copy.factionFontColor.color.GetRGB)
+			assert.equals(1, #dropped)
+			assert.truthy(dropped[1]:find("GetRGB", 1, true))
+			assert.truthy(dropped[1]:find("unsupported type function", 1, true))
+		end)
+
+		it("still refuses a function handed back as the value itself", function()
+			local Api = loadApi().Api
+
+			local copy, reason = Api.PlainCopy(function() end)
 
 			assert.is_nil(copy)
-			assert.equals("cyclic", reason)
+			assert.equals("unsupported type function", reason)
 		end)
 
 		it("refuses a value the secret guard flags", function()
@@ -150,6 +188,42 @@ describe("Api", function()
 
 			assert.are_not_equal(owned, result[1])
 			assert.equals(1, result[1].value)
+		end)
+
+		-- The first in-game run filed GetMajorFactionData under `secret` because its struct
+		-- carries a mixin. `secret` is the one status that means Midnight's restrictions
+		-- reached our surface, so it has to stay rare enough to be believed.
+		it("counts a dropped field as a successful read, never as a secret", function()
+			local Api = loadApi().Api
+			inject("LegacyNextMixin", function()
+				return { name = "Legacy Track", color = { GetRGB = function() end } }
+			end)
+
+			local result, reason, dropped = Api.Call("LegacyNextMixin")
+
+			assert.is_nil(reason)
+			assert.equals("Legacy Track", result[1].name)
+			assert.equals(1, #dropped)
+
+			local failures = Api.GetFailures()["LegacyNextMixin"]
+			assert.equals(1, failures.ok)
+			assert.equals(0, failures.secret)
+			assert.equals(0, failures.errors)
+			assert.equals(1, failures.partial)
+			assert.is_truthy(failures.lastDropped:match("GetRGB"))
+		end)
+
+		it("still tallies a genuine secret as one", function()
+			local Api = loadApi().Api
+			local secret = {}
+			inject("issecretvalue", function(value) return value == secret end)
+			inject("LegacyNextSecret", function() return { field = secret } end)
+
+			local result, reason = Api.Call("LegacyNextSecret")
+
+			assert.is_nil(result)
+			assert.equals("secret", reason)
+			assert.equals(1, Api.GetFailures()["LegacyNextSecret"].secret)
 		end)
 
 		it("does not let the tally be mutated through the snapshot", function()
