@@ -26,6 +26,27 @@ version.txt
 
 All four directories were present at this commit.
 
+Widened on 2026-09-19, same SHA, for the UI template research in `docs/ui-templates.md`
+(22 MB total afterwards):
+
+```
+Interface/AddOns/Blizzard_SharedXML
+Interface/AddOns/Blizzard_SharedXMLBase
+Interface/AddOns/Blizzard_SharedXMLGame
+Interface/AddOns/Blizzard_FrameXML
+Interface/AddOns/Blizzard_FrameXMLBase
+Interface/AddOns/Blizzard_FrameXMLUtil
+Interface/AddOns/Blizzard_Fonts_Shared
+Interface/AddOns/Blizzard_UIParent
+Interface/AddOns/Blizzard_UIParentPanelManager
+Interface/AddOns/Blizzard_UIParentUtil
+Interface/AddOns/Blizzard_UIPanelTemplates
+Interface/AddOns/Blizzard_GameTooltip
+```
+
+Add them with `git sparse-checkout add <path>...` after the recreate step below; the
+citations in `docs/ui-templates.md` and `LegacyNext/UI/UI.lua` resolve only with them present.
+
 `docs/legacy-internals.md` cites four files outside this set (`Blizzard_MicroMenu`,
 `Blizzard_SharedTalentUI`, `Blizzard_FrameXML`, `Blizzard_FrameXMLBase`). They were read by
 running `git sparse-checkout set Interface` at this same SHA — 53 MB, 4405 files — and then
