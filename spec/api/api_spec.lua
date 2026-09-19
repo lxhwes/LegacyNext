@@ -327,4 +327,39 @@ describe("Api", function()
 			assert.same({}, challenge.criteria)
 		end)
 	end)
+
+	describe("GetCategories", function()
+		it("returns nil plus the symbol that failed", function()
+			local Api = loadApi().Api
+
+			local categories, reason = Api.GetCategories()
+
+			assert.is_nil(categories)
+			assert.equals("GetCategoryList unavailable", reason)
+		end)
+
+		it("keeps empty categories and reports parent -1 untouched", function()
+			local Api = loadApi().Api
+			inject("GetCategoryList", function() return { 15425, 15568 } end)
+			inject("GetCategoryInfo", function(id)
+				if id == 15425 then return "Do Not Display", -1 end
+				return "Classes", -1
+			end)
+			inject("GetCategoryNumAchievements", function() return 0, 0, 0 end)
+
+			local categories = Api.GetCategories()
+
+			-- Dropping the empty one is Model's job, by count. Api reports what the client said.
+			assert.equals(2, #categories)
+			assert.equals("Do Not Display", categories[1].name)
+			assert.equals(-1, categories[1].parentId)
+			assert.equals(0, categories[2].numAchievements)
+		end)
+
+		pending("matches a captured /lgn dump categories fixture -- queue row D9", function()
+			-- spec/fixtures/categories_partial.lua is assembled from two earlier captures and
+			-- carries 16 of the 29 categories in doc order, not client order. D9 replaces it
+			-- with a full capture, and this test then asserts the whole list round-trips.
+		end)
+	end)
 end)

@@ -315,6 +315,51 @@ local function globalString(name)
 end
 
 --------------------------------------------------------------------------------------------
+-- Categories
+--------------------------------------------------------------------------------------------
+
+--- Every Legacy category with its name, parent and own achievement count, in client order.
+-- GetCategoryList() -> { categoryID, ... }          used: Blizzard_LegacyChallenges.lua:79
+-- GetCategoryInfo(categoryID) -> name, parentID       used: Blizzard_LegacyChallenges.lua:108
+-- GetCategoryNumAchievements(categoryID) -> numAchievements, numComplete, numIncomplete
+--                                                      used: Blizzard_LegacyChallenges.lua:45
+-- parentID == -1 is top level                          Blizzard_LegacyChallengeTracker.lua:6
+-- pin:  70ef1b2 (1.60.1.69913)
+--
+-- Model needs this because a challenge only knows its parent's id: Classes, Tradeskills and
+-- Player vs. Player hold no achievements of their own, so their names never reach the
+-- challenge list. Empty categories are kept here -- dropping them is Model's job, by count.
+function Api.GetCategories()
+	local listResult = call("GetCategoryList")
+	if not listResult then
+		return nil, "GetCategoryList unavailable"
+	end
+
+	local ids = listResult[1]
+	if type(ids) ~= "table" then
+		return nil, "GetCategoryList returned no list"
+	end
+
+	local categories = {}
+	for _, categoryId in ipairs(ids) do
+		if type(categoryId) == "number" then
+			local infoResult = call("GetCategoryInfo", categoryId)
+			local countResult = call("GetCategoryNumAchievements", categoryId)
+			categories[#categories + 1] = {
+				id = categoryId,
+				name = infoResult and infoResult[1],
+				parentId = infoResult and infoResult[2],
+				numAchievements = countResult and countResult[1],
+				numComplete = countResult and countResult[2],
+				numIncomplete = countResult and countResult[3],
+			}
+		end
+	end
+
+	return categories
+end
+
+--------------------------------------------------------------------------------------------
 -- Challenges
 --------------------------------------------------------------------------------------------
 
