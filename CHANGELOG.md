@@ -32,6 +32,7 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
   `trees`, `character`, `probe`.
 - `/lgn uidump [category]`: the window's contents as text, for checking what would render
   without a screenshot.
+- Addon icon in the AddOns list (`Media/icon.tga`, original art; see `docs/icon-design.md`).
 - Escape closes the window. It refreshes on open, on `ACHIEVEMENT_EARNED` and
   `CRITERIA_UPDATE` while open (coalesced to one rebuild per second), and defers a rebuild
   until combat ends.

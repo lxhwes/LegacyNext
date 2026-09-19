@@ -42,10 +42,13 @@ Interface/AddOns/Blizzard_UIParentPanelManager
 Interface/AddOns/Blizzard_UIParentUtil
 Interface/AddOns/Blizzard_UIPanelTemplates
 Interface/AddOns/Blizzard_GameTooltip
+Interface/AddOns/Blizzard_AddOnList
 ```
 
-Add them with `git sparse-checkout add <path>...` after the recreate step below; the
-citations in `docs/ui-templates.md` and `LegacyNext/UI/UI.lua` resolve only with them present.
+`Blizzard_AddOnList` was added later the same day for the icon research in
+`docs/icon-design.md`. Add them with `git sparse-checkout add <path>...` after the recreate
+step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
+`LegacyNext/UI/UI.lua` resolve only with them present.
 
 `docs/legacy-internals.md` cites four files outside this set (`Blizzard_MicroMenu`,
 `Blizzard_SharedTalentUI`, `Blizzard_FrameXML`, `Blizzard_FrameXMLBase`). They were read by

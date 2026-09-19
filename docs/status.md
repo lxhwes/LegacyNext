@@ -4,7 +4,7 @@ Last updated 2026-09-19 (evening).
 
 **Where we are: Phase 3 is built and green here. 3a is done. 3b is written but has never been
 drawn by the client — U1 is the next thing that happens. 3c is done except the CurseForge
-check, the icon and the TOC version line. Phase 4 has not started.**
+check and the TOC version line. Phase 4 has not started.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
@@ -15,8 +15,9 @@ that errors on any non-stdlib global). `UI/` renders the settled layout through 
 double (4 tests). `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and
 matches `spec/golden/uidump_combined.txt`. 72 tests, 1 pending on **D9**.
 
-Open in the queue, in order: **U1** (open the frame, paste uidump), **D9** (categories dump),
-**U2** (truncation), then **D4**, **C1–C4**, **D8** as before. See `docs/ingame-commands.md`.
+Open in the queue, in order: **U1** (open the frame, paste uidump), **U3** (icon in the AddOns
+list), **D9** (categories dump), **U2** (truncation), then **D4**, **C1–C4**, **D8** as before.
+See `docs/ingame-commands.md`.
 
 ## Phase 3 built — 2026-09-19
 
@@ -76,9 +77,9 @@ through the same function, so the two cannot disagree on content.
   `docs/ui-templates.md`. Two Tier C items became **U2**. The vendored sparse checkout was
   widened (12 more directories, same SHA) and `vendor/PINS.md` records it.
 
-**Not done, and why:** the icon (needs an image file and a `## IconTexture` line, nothing to
-research); the TOC version line (Alex's); CI packaging (wire `BigWigsMods/packager@v2` in once
-the CurseForge check passes, no `-g` flag needed).
+**Not done, and why:** ~~the icon~~ (done later the same day, see 3c below); the TOC version
+line (Alex's); CI packaging (wire `BigWigsMods/packager@v2` in once the CurseForge check
+passes, no `-g` flag needed).
 
 **Tooling notes for Alex:** `precommit.sh` and `check_script.sh` both use `mktemp -d`, which
 on macOS ignores `TMPDIR` and fails under the Claude sandbox (`Operation not permitted`). The
@@ -186,7 +187,8 @@ that are currently known to be false or unverified.
 - [ ] Confirm CurseForge's Forever version type (`88568`) exists — Alex, in a browser or with
       an API token; steps in `docs/distribution.md`
 - [ ] `## Version: @project-version@` in the TOC, first tag `v0.1.0` — Alex's edit
-- [ ] Icon: `LegacyNext/Media/icon` and the `## IconTexture` line
+- [x] Icon: `LegacyNext/Media/icon.tga` and the `## IconTexture` line — 2026-09-19, concept A
+      from `docs/icon-design.md`; seen in the AddOns list is **U3**
 
 **Should be true, not blocking:**
 
@@ -210,7 +212,7 @@ way: the dry run cost twenty minutes and closed two blockers.
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
 | 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
 | 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Built**, unseen in the client — **U1** |
-| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except CurseForge check, icon, TOC version line |
+| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except CurseForge check, TOC version line |
 | 4 | v1 roster. Blocked on SavedVariables, **and its stated approach is known broken** — see below. | Blocked |
 
 Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
@@ -291,8 +293,9 @@ Checked 2026-09-19; these do not exist yet:
 
 - [x] **`LICENSE`** — MIT, Alex Howes, 2026. Added 2026-09-19. Was the one hard blocker on
       publishing at all.
-- [ ] **Icon.** `## IconTexture` is commented out in `LegacyNext.toc` and `LegacyNext/Media/`
-      does not exist. Still true.
+- [x] **Icon.** Shipped 2026-09-19: `LegacyNext/Media/icon.tga` (64x64 32-bit TGA, original
+      vector art, concept A "Almost full" from `docs/icon-design.md`), TOC line uncommented.
+      Unseen in the client — **U3**.
 - [x] **`CHANGELOG.md`** — added 2026-09-19, Keep a Changelog, `[Unreleased]` populated.
 - [x] **Version scheme.** Decided 2026-09-19: SemVer `0.x.y` in beta, `1.0.0` at launch, tag
       is the version via `@project-version@`. The TOC line itself is still `0.0.1` — Alex's.
@@ -388,7 +391,7 @@ What blocks what, as of 2026-09-19:
 | Whether the registered events fire at all (the frame still refreshes on show) | C2 |
 | ~~Whether a ~900-call sweep is a visible hitch~~ | folded into U1 |
 
-D5, D6 and D7 closed 2026-09-19. U1, U2 and D9 opened 2026-09-19.
+D5, D6 and D7 closed 2026-09-19. U1, U2, U3 and D9 opened 2026-09-19.
 
 ## What the first in-game run found — 2026-09-19
 

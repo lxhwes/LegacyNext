@@ -21,6 +21,7 @@ Open, roughly in the order worth doing:
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
 | U1 | Install the Phase 3 build, `/lgn`, then `/lgn uidump` and paste it, plus one screenshot of the window | Whether the v0 frame renders at all, which templates it got (`BasicFrameTemplateWithInset`, `UIPanelScrollFrameTemplate`, Escape), whether the header and rows read right, and the cost of one read (`read took N ms`). Section U1 below | 5 min |
+| U3 | Look at the AddOns list at character select (or Escape > AddOns) after installing this build | Whether `## IconTexture` draws our 64x64 TGA at 20 px beside the addon name instead of the question mark. Section U3 below | 30 s |
 | D9 | `/lgn dump categories` | A complete `Api.GetCategories` capture in client order. Replaces `spec/fixtures/categories_partial.lua` (16 of 29, doc order) and un-pends the test in `spec/api/api_spec.lua` | 1 min |
 | U2 | The WoWLua block under U2 below | Whether a one-line FontString with word wrap off draws `...` or just clips (Tier C in `docs/ui-templates.md`), `IsTruncated()` on it, and `IsProtected()` on our frame | 2 min |
 | D4 | `/lgn dump character` on a character with professions | `GetProfessions`' seven Forever slots, still unverified against a real return. Two primaries plus cooking is the useful case. Two characters so far knew none | needs an alt |
@@ -209,6 +210,13 @@ It prints one chat line and leaves a 120-pixel-wide test string near the top of 
 (`/reload` clears it). Tell me the chat line, and whether the string on screen ends in `...`
 or is simply cut off mid-word. That decides whether rows need a tooltip-only fallback for
 long names or get an ellipsis for free. `IsProtected` should read `false,false`.
+
+**U3 — the icon.** Nothing to type. Open the AddOns list at character select, or in game via
+Escape > AddOns. `LegacyNext` should show the gold ring icon at 20 px where every addon without
+an icon shows a question mark. If it is still the question mark, or a green square (the
+client's "texture failed to load"), say which. The file is `LegacyNext/Media/icon.tga`; the
+line is `## IconTexture: Interface\AddOns\LegacyNext\Media\icon` in the TOC. PNG support on
+this client is unverified, which is why the file is TGA (`docs/icon-design.md`).
 
 **D9 — categories.** `/lgn dump categories`, paste it. Goes straight into
 `spec/fixtures/`, replacing the assembled partial one.
