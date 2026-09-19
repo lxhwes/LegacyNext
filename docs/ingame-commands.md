@@ -20,9 +20,8 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
-| D6 | `/lgn dump rewards` on the fixed build | The reward track header — a **v0 feature that is currently dead**. The fixed addon is now installed, so this is the one row standing between us and a working header | 1 min |
-| D4 | `/lgn dump character` on a character with professions | `GetProfessions`' seven Forever slots, still unverified against a real return. Two primaries plus cooking is the useful case | needs an alt |
-| D7 | `/lgn dump challenges 2` … `6` | Ranking tests against all 111 rather than the 20 in page 1. Not blocking — page 1 covers every shape | 5 min |
+| D4 | `/lgn dump character` on a character with professions | `GetProfessions`' seven Forever slots, still unverified against a real return. Two primaries plus cooking is the useful case. Two characters so far knew none | needs an alt |
+| D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees** | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
 | C3 | A criterion sitting part-done | The mid-progress ranking fixture. Every captured criterion so far reads 0 | needs play |
 | C4 | A completed challenge | `wasEarnedByMe` true, and whether completed entries sort before incomplete | needs play |
@@ -37,7 +36,9 @@ Closed — kept so a citation still resolves:
 | D1 | 2026-09-19 | The addon loads and prints its version | `docs/status.md` |
 | D2 | 2026-09-19 | Probe: no secrets on our surface, `issecretvalue` active, all constants runtime. Found the mixin bug | `CLAUDE.md`, `docs/status.md` |
 | D3 | 2026-09-19 | `summary`, `trees` and `challenges 1` — reproduced the B sweep from a second code path | `spec/fixtures/dump_trees_fresh.lua`, `spec/fixtures/dump_challenges_page1_fresh.lua` |
-| D5 | 2026-09-19 | Mixin fix confirmed on a second character: `partial`, 19 fields recovered, all 14 ColorMixin methods named. Also found `configID` is per-character (2938022 vs 4040613) | `CLAUDE.md`, `docs/status.md` |
+| D5 | 2026-09-19 | Mixin fix confirmed on a second character: `partial`, 19 fields recovered, all 14 ColorMixin methods named. Also found `configID` is not stable | `CLAUDE.md`, `docs/status.md` |
+| D6 | 2026-09-19 | Reward track alive. Legacy Track 0/90, four thresholds (15/25/40/55), all four rewards named with items. `isCollected` true on an unreached tier, confirming it is collection state | `spec/fixtures/dump_rewards_fresh.lua` |
+| D7 | 2026-09-19 | Full `section = "all"` dump, all 111 challenges. Found **five undocumented `criteriaType` values** and the type-243 progress trap; plus the character shape and a part-done challenge | `spec/fixtures/dump_criteria_types.lua`, `dump_character_shaman.lua`, `CLAUDE.md` |
 
 See `docs/status.md` for what each finding changed.
 

@@ -68,3 +68,10 @@ read_globals = {
 files["spec/"] = {
 	std = "lua51+busted",
 }
+
+-- Fixtures are captured client data, not code. Reward descriptions run past 120 characters
+-- and reflowing them would edit the evidence, which is the one thing a fixture may not do.
+files["spec/fixtures/"] = {
+	std = "lua51",
+	max_line_length = false,
+}

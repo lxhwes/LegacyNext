@@ -20,6 +20,45 @@ correctly declining to invent a failure for a probe it had no index for.
 until the mixin fix ships), **D4** (professions — this character knew none) and **D7**
 (challenge pages 2–6). See the queue in `docs/ingame-commands.md`.
 
+## D6 and D7 — the reward track works, and the criteria model was wrong, 2026-09-19
+
+**D6: the reward track is alive.** Legacy Track, level 0 of 90, four thresholds at 15/25/40/55,
+`pointsToNext` 15. All four rewards carry a name and an item: Replica Ironforge Air Rifle,
+Spectral Bear Cub, Spectral Bear Tabard, Reins of the Spectral Bear. The v0 header has
+everything it needs. `isCollected` reads **true** on the unreached level 40 tabard, confirming
+the existing warning — it is account collection state and must never render as progress.
+
+**D7 broke a client fact, and it is the most consequential finding since the mixin bug.**
+`criteriaType` had three documented values. The full dump has **eight**: 0, 7, 8, 27, 43, 78,
+165, 243. The three we knew were simply the three that happen to appear in the first 20
+challenges. Any exhaustive switch on the type was already wrong.
+
+Worse, one of the new types breaks the progress model directly. **Type-243 reputation criteria
+carry `need = 42000` and `have = 0`, but `flags = 1024` and `isProgressBar = false`.** The
+progress-bar bit is clear, so a checklist reading calls "Master of Alterac Valley" one step
+from done when it is 0/42000 reputation. Closeness must use `need`/`have` whenever `need > 1`,
+not only when the bar bit is set. That is a scoring rule, and it lands before Phase 3 rather
+than after.
+
+Also from the same dump:
+
+- `parentCategoryId` is **-1** on top-level challenge categories (Dungeons, Raids, Adventure).
+  The category filter must read that as "no parent" rather than looking it up.
+- Type 78 puts alternatives in one criterion — "Ragefire Chasm or Hall of Thanes" — with
+  `assetId = 0`. There is no way to tell which half was done.
+- `character` returns `professions = {}`, an empty table rather than nil, and `realm` is
+  populated ("Classic Beta PvP"). That answers Phase 4's open question about whether a
+  realmless Forever setup breaks the character key. It does not.
+- One criterion on the whole account is complete — Valley of Trials in Explore Durotar — and it
+  carries `charName = "Bong"`. Partial C3 and C4 data: a challenge at 1 of 11, and `charName`
+  populated on a per-character achievement.
+
+Fixtures: `dump_rewards_fresh.lua`, `dump_criteria_types.lua`, `dump_character_shaman.lua`.
+The full 111-challenge dump was **not** committed whole — the 46 zero-point Explore
+achievements carry roughly 600 subzone criteria that Next Up excludes anyway. What was kept is
+one challenge per distinct `criteriaType` plus the only completed criterion, each copied
+verbatim and labelled as an excerpt.
+
 ## D5 — the mixin fix confirmed, 2026-09-19
 
 Second character (level 1 Mage), fixed build installed. `ok=28 partial=1 nil=1 skipped=1` —

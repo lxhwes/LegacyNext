@@ -92,11 +92,17 @@ that changes how code gets written.
 - The filter API (`GetNumFilteredAchievements` / `GetFilteredAchievementID`) reads 0 at login
   and 111 after any `SetAchievementSearchString("")`. It is global state shared with
   Blizzard's Achievement UI — we never call it, and never read it as a source of truth.
-- All three trees share **one** `configID`, and **it is per-character, not a constant**
-  [2026-09-19]: 2938022 on one fresh character, 4040613 on another. Always read it via
-  `C_Traits.GetConfigIDByTreeID`; never hardcode it, never cache it across characters, and
-  treat the values in `spec/fixtures/` as that character's, not the client's. The 16-point cap
-  is a single pool spent across all three trees, not 16 per tree.
+- All three trees share **one** `configID`, and **the number is a transient handle — not a
+  constant, not even stable per character** [2026-09-19]: 2938022, then 4040613 on a second
+  character, then **4103142 on the first character again**. Read it via
+  `C_Traits.GetConfigIDByTreeID` every time. Never hardcode it, never cache it across a
+  session, never persist it to SavedVariables, and treat the numbers in `spec/fixtures/` as
+  that capture's, not the client's. The claim that survives is structural: all three trees
+  return the *same* configID as each other within one read. The 16-point cap is a single pool
+  spent across all three, not 16 per tree.
+- **`parentCategoryId` is `-1` for top-level challenge categories** [2026-09-19] — Dungeons,
+  Raids and Adventure challenges carry it. The category filter must treat `-1` as "no parent"
+  rather than looking it up and finding nothing.
 - **Class challenges carry no machine-readable level threshold** [2026-09-19].
   `Novice / Experienced / Master Druid` (61502–61504) are levels 25/45/60, but
   `criteriaExpected == 0` and the number appears only in `description` prose. Profession
@@ -122,10 +128,17 @@ that changes how code gets written.
   real `quantity`/`reqQuantity` fraction), 59 checklist (boolean each, remaining is a count),
   and **34 with no criteria at all** (`criteriaExpected == 0`). The 34 expose no progress
   whatsoever and are binary — handle them as their own case, never as 0%.
-- **`criteriaType` is a separate, open-ended axis** [2026-09-19]: 7 = skill threshold
-  (`assetID` is a skill line, e.g. 2937 Alchemy), 8 = child achievement (`assetID` is an
-  achievement ID), 43 = area discovery (`assetID` is an area ID). Those are the three seen so
-  far, not the three that exist. Feature-detect the type; never switch exhaustively on it.
+- **`criteriaType` is a separate, open-ended axis — eight values seen** [2026-09-19, full
+  111-challenge dump]: 0 = encounter/dungeon (`assetID` is an encounter or instance ID),
+  7 = skill threshold (skill line, e.g. 2937 Alchemy), 8 = child achievement (achievement ID),
+  27 = journey/quest step (quest ID), 43 = area discovery (area ID), 78 = dungeon with
+  alternatives — "X or Y" in one criterion, `assetID` is **0**, 165 = raid encounter variant,
+  243 = reputation threshold (faction ID). A previous pass recorded only 7/8/43 and was wrong
+  within a day. Never switch exhaustively on the type.
+- **A criterion can carry real quantities without the progress-bar bit** [2026-09-19]. Type-243
+  reputation criteria read `need = 42000`, `have = 0`, `flags = 1024`, `isProgressBar = false`.
+  Scored as a checklist, "Master of Alterac Valley" looks one step from done when it is 0/42000.
+  **Closeness must use `need`/`have` whenever `need > 1`**, not only when the bar bit is set.
 - **Type 8 forms meta chains, and they are deep** [2026-09-19] — `Explorer` reaches subzone
   criteria four hops down. Chain map in `docs/legacy-internals.md`. Every chain found so far is
   zero-point.
