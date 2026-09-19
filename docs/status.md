@@ -78,24 +78,19 @@ These came out of research and should not be relitigated without new evidence.
 
 ## Outstanding — needs the game
 
-Commands and what each answers are in `docs/ingame-commands.md`.
+**The queue table at the top of `docs/ingame-commands.md` is the list.** It is not repeated
+here — it used to be, and the two copies drifted within a day. Cite the ID when something is
+blocked on a row.
 
-**Section B — done 2026-09-18.** Full sweep captured: all 29 categories, all 111 challenges
-with criteria counts and point values, both criteria shapes, a full `GetAchievementInfo` row,
-and all four reward entries. Written up in `docs/legacy-internals.md`. Phase 2 is unblocked.
+What blocks what, as of 2026-09-19:
 
-**Section D — first run of the addon. Runs on any character, blocks everything.** Install,
-`/lgn probe`, `/lgn dump summary`. The probe is the one that matters: it says per API whether
-we get `ok`, `nil`, `missing`, `error` or `secret`, and a single `secret` would be the most
-consequential finding of the phase.
-
-**Section C, needs a played character. Mostly absorbed by `/lgn dump` once D passes:**
-
-- C1 — confirm the shared pool with points spent in two trees, and what `maxQuantity` really is
-- C2 — which of `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED`,
-  `MAJOR_FACTION_RENOWN_LEVEL_CHANGED` actually fire
-- C3 — a criterion sitting part-done, for a real mid-progress fixture
-- C4 — `wasEarnedByMe` true, and whether completed entries sort before incomplete ones
+| Blocked | On |
+|---|---|
+| The reward track header, a v0 feature currently dead | D6 |
+| Confirming the mixin fix landed | D5 |
+| `Api.GetCharacterInfo`'s profession slots | D4 |
+| Mid-progress ranking tests (every captured criterion reads 0) | C3 |
+| Whether `UI/` can refresh on events or must re-read on show | C2 |
 
 ## What the first in-game run found — 2026-09-19
 

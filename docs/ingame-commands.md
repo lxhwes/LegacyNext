@@ -1,17 +1,32 @@
 # In-game work
 
-Working list for beta sessions. See `docs/status.md` for what is still outstanding and what
-it blocks.
+## Queue
 
-**Sections A and B are done (2026-09-18)** — constants, category tree, tree names, account
-flag, trait config, point caps, reward track, and the full 111-challenge sweep with criteria
-shapes and point values. All written up in `docs/legacy-internals.md`.
+The one list of what needs the client. **IDs are stable — never renumber, never reuse.** A row
+goes in the moment a question turns out to need the game, so pending tests, commit messages and
+`docs/status.md` can cite the ID rather than describing the blockage again.
 
-**Section D is the next thing to run:** the addon now has `/legacynext probe` and
-`/legacynext dump`, which replace the hand-written sweeps. Do D first — if the addon works,
-every future question is a slash command instead of a pasted script.
+Open, roughly in the order worth doing:
 
-Script 1 below is kept for re-running after a build bump. **Sections C and D are outstanding.**
+| ID | Needs | Unblocks | Cost |
+|---|---|---|---|
+| D5 | Reinstall the addon, `/lgn probe` | Confirms the mixin fix reports `partial` and names the dropped method. If it still says `error`, I need the new detail string | 1 min |
+| D6 | `/lgn dump rewards` on the fixed build | The reward track header — a **v0 feature that is currently dead** | 1 min |
+| D4 | `/lgn dump character` on a character with professions | `GetProfessions`' seven Forever slots, still unverified against a real return. Two primaries plus cooking is the useful case | needs an alt |
+| D7 | `/lgn dump challenges 2` … `6` | Ranking tests against all 111 rather than the 20 in page 1. Not blocking — page 1 covers every shape | 5 min |
+| C1 | Points spent in **two different trees** | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
+| C3 | A criterion sitting part-done | The mid-progress ranking fixture. Every captured criterion so far reads 0 | needs play |
+| C4 | A completed challenge | `wasEarnedByMe` true, and whether completed entries sort before incomplete | needs play |
+| C2 | `/etrace` on the four events below | Whether event-driven refresh is possible at all, or we stay read-on-show | needs play |
+
+Done: **A**, **B** (2026-09-18) — constants, category tree, the 111-challenge sweep.
+**D1–D3** (2026-09-19) — addon loads, probe clean, summary and fixtures captured.
+
+See `docs/status.md` for what each finding changed.
+
+Everything below is the detail behind a queue row: what to paste, and what I am reading it for.
+Prefer `/lgn dump` and `/lgn probe` over the hand-written scripts — script 1 is kept only for
+re-running after a build bump, when the addon itself is the thing in doubt.
 
 ---
 
@@ -84,35 +99,33 @@ primaries and cooking is the useful case.
 hand-written scripts — the answers fall out of `/lgn dump trees` and `/lgn dump challenges`
 once you have points spent and progress made.
 
-### D5 — the re-run, after the guard fix (2026-09-19)
+### D4–D7 — the re-run, after the guard fix (queued 2026-09-19)
 
-D1–D3 passed on 2026-09-19 and found one bug in our own copy guard, now fixed:
-`GetMajorFactionData` was being thrown away whole because of a ColorMixin field, which killed
-the reward track. **Copy the addon folder over again before this run** — the installed copy is
-the broken one.
+D1–D3 passed and found one bug in our own copy guard, now fixed: `GetMajorFactionData` was
+thrown away whole because of a ColorMixin field, which killed the reward track.
+**Copy the addon folder over again before this run** — the installed copy is the broken one.
 
-Batched so it is one session, not four:
+One session, in this order:
 
 ```
-/lgn probe
-/lgn dump rewards
-/lgn dump trees
-/lgn dump character
-/lgn dump challenges 1
+/lgn probe                     D5
+/lgn dump rewards              D6
+/lgn dump character            D4  (on a character with professions, if you have one)
+/lgn dump challenges 2         D7  (through 6)
 ```
 
-- `probe` should now read `ok=29 partial=1` or similar, with
+- **D5** should read `ok=29 partial=1` or similar, with
   `partial C_MajorFactions.GetMajorFactionData ... dropped return1.factionFontColor.color.<method>`.
   A `partial` line naming the dropped method is the fix working. Still `error` means the drop
   policy did not catch it and I need the new detail string.
-- `rewards` is the one that was dead. It should carry `name`, `maxLevel`, four thresholds and
+- **D6** is the one that was dead. It should carry `name`, `maxLevel`, four thresholds and
   reward entries.
-- **On a character with professions if you have one** — `/lgn dump character` is still the only
-  open question from D4. Forever reads seven slots from `GetProfessions` where retail reads
-  six; the level 1 Shaman knew none, so the shape is still unverified. Two primaries plus
-  cooking is the useful case.
+- **D4** needs an alt. Forever reads seven slots from `GetProfessions` where retail reads six;
+  the level 1 Shaman knew none, so the shape is unverified. Two primaries plus cooking is ideal.
+- **D7** is optional. Page 1 already covers every criteria shape; 2–6 only widen the sample.
 
-All of these go straight into `spec/fixtures/` and are what Phase 3 is waiting on.
+Note the section name is `character`, singular. `characters` used to dump nothing at all; it
+now tells you the valid list instead.
 
 ## How to run these
 

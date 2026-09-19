@@ -42,8 +42,9 @@ cross-account or guild sync, writing to trait configs.
 - **Never hardcode** achievement IDs, category IDs, or criteria. They will churn during beta.
 - **Never invent API response shapes.** If no captured fixture exists for a shape, write the
   test as `pending`.
-- I cannot run the game. Anything needing in-game verification becomes a script in
-  `docs/ingame-commands.md` — see In-game workflow — and I stop there.
+- I cannot run the game. Anything needing in-game verification becomes a queue row, and a
+  script if one is needed, in `docs/ingame-commands.md` — see In-game workflow — and I stop
+  there.
 
 ## Client facts [verified]
 
@@ -219,8 +220,13 @@ Rules for any script I hand over:
 - **Write output into a copyable EditBox**, not chat, past a few lines. `/legacynext dump` and
   `/legacynext probe` now do this properly — prefer them over a new ad-hoc script, and only
   hand over raw Lua for something the addon does not read yet.
-- Scripts and their done/outstanding state live in `docs/ingame-commands.md`. Results get
-  written up in `docs/legacy-internals.md` and `CLAUDE.md` — never left only in chat.
+- **The queue table at the top of `docs/ingame-commands.md` is the one list of what needs the
+  game.** Add the row the moment a question turns out to need the client, not at the end of the
+  task, and give it a stable ID that is never renumbered or reused. Pending tests, commit
+  messages and `docs/status.md` cite that ID — the row is what connects a blocked test to the
+  session that unblocks it.
+- Scripts live in the same file under their ID. Results get written up in
+  `docs/legacy-internals.md` and `CLAUDE.md` — never left only in chat.
 
 ## Conventions
 
