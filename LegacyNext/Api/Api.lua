@@ -285,6 +285,15 @@ end
 -- Challenges
 --------------------------------------------------------------------------------------------
 
+-- Returns the criteria list and the count the client reported for it. The second return is
+-- what makes a partial read detectable: the loop below skips any criterion whose own call
+-- failed, so #criteria can come back short of count with nothing in the list to say so, and
+-- closeness computed from a truncated list is silently wrong rather than absent. Callers
+-- compare the two; equal means complete, short means some reads failed.
+--
+-- nil        -- the count read itself failed
+-- {}, 0     -- genuinely no criteria (34 of the 111 challenges are binary)
+-- list, n   -- n criteria reported; #list of them actually read
 local function readCriteria(achievementId, progressBarMask)
 	local countResult = call("GetAchievementNumCriteria", achievementId)
 	if not countResult then
@@ -295,7 +304,7 @@ local function readCriteria(achievementId, progressBarMask)
 	if type(count) ~= "number" or count <= 0 then
 		-- Not an error. 34 of the 111 challenges genuinely have no criteria and are binary;
 		-- an empty list here is the honest answer and Model has to handle it as its own case.
-		return {}
+		return {}, 0
 	end
 
 	local criteria = {}
@@ -319,7 +328,7 @@ local function readCriteria(achievementId, progressBarMask)
 		end
 	end
 
-	return criteria
+	return criteria, count
 end
 
 -- Walks the category list directly. Never SetAchievementSearchString: that is global client
@@ -357,6 +366,8 @@ function Api.GetChallenges()
 
 				if type(achievementId) == "number" then
 					local flags = result[9]
+					local criteria, criteriaExpected =
+						readCriteria(achievementId, progressBarMask)
 					local points
 					if currencyId then
 						local pointsResult =
@@ -382,17 +393,21 @@ function Api.GetChallenges()
 						icon = result[10],
 						flags = flags,
 						isAccountWide = hasFlag(flags, accountMask),
-						criteria = readCriteria(achievementId, progressBarMask),
+						criteria = criteria,
+						-- How many the client said there were. Short of #criteria means some
+						-- criterion reads failed, so Model must not read closeness off it.
+						criteriaExpected = criteriaExpected,
 					}
 				end
 			end
 		end
 	end
 
-	if #challenges == 0 then
-		return nil, "no challenges enumerated"
-	end
-
+	-- An empty list is not an error: every read above succeeded and the categories simply
+	-- held nothing. Returning nil here made "worked, found nothing" indistinguishable from
+	-- "the reads failed", so the dump reported a bug where the honest answer is an empty
+	-- frame. The real failures already return nil with a reason further up, and a broken
+	-- symbol lands in the failure tally either way.
 	return challenges
 end
 

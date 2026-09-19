@@ -184,4 +184,73 @@ describe("Api", function()
 			assert.equals("fallback", source)
 		end)
 	end)
+
+	-- Enumeration contract, not response shapes. The stubs below return the minimum the guard
+	-- needs to walk its own branches; nothing here asserts what the client really sends, and
+	-- the real criteria fixtures still wait on a capture.
+	describe("GetChallenges", function()
+		it("returns an empty list, not a failure, when the categories hold nothing", function()
+			local Api = loadApi().Api
+			inject("GetCategoryList", function() return { 15586 } end)
+			inject("GetCategoryInfo", function() return "Tradeskills", -1 end)
+			inject("GetCategoryNumAchievements", function() return 0, 0, 0 end)
+
+			local challenges, reason = Api.GetChallenges()
+
+			-- The distinction that matters: worked-and-found-nothing must not arrive looking
+			-- like a broken read, or the UI reports a bug instead of an empty frame.
+			assert.same({}, challenges)
+			assert.is_nil(reason)
+		end)
+
+		it("still fails when the category list itself is unavailable", function()
+			local Api = loadApi().Api
+
+			local challenges, reason = Api.GetChallenges()
+
+			assert.is_nil(challenges)
+			assert.is_truthy(reason)
+		end)
+
+		it("reports the criteria count so a short read is detectable", function()
+			local Api = loadApi().Api
+			inject("GetCategoryList", function() return { 15586 } end)
+			inject("GetCategoryInfo", function() return "Tradeskills", -1 end)
+			inject("GetCategoryNumAchievements", function() return 1, 0, 1 end)
+			inject("GetAchievementInfo", function() return 62012, "Journeyman Alchemist" end)
+			inject("GetAchievementNumCriteria", function() return 2 end)
+			-- Second criterion read fails, so the list comes back one short of the count.
+			inject("GetAchievementCriteriaInfo", function(_, index)
+				if index == 2 then
+					error("unavailable")
+				end
+				return "150 Alchemy Skill"
+			end)
+
+			local challenges = Api.GetChallenges()
+			local challenge = challenges and challenges[1]
+
+			assert.is_table(challenge)
+			assert.equals(2, challenge.criteriaExpected)
+			assert.equals(1, #challenge.criteria)
+		end)
+
+		it("distinguishes a challenge that genuinely has no criteria", function()
+			local Api = loadApi().Api
+			inject("GetCategoryList", function() return { 15586 } end)
+			inject("GetCategoryInfo", function() return "Tradeskills", -1 end)
+			inject("GetCategoryNumAchievements", function() return 1, 0, 1 end)
+			inject("GetAchievementInfo", function() return 62100, "Warrior" end)
+			inject("GetAchievementNumCriteria", function() return 0 end)
+
+			local challenges = Api.GetChallenges()
+			local challenge = challenges and challenges[1]
+
+			assert.is_table(challenge)
+			-- 34 of the 111 are binary. Zero expected and an empty list is the honest answer,
+			-- and Model has to treat it as its own case rather than as 0%.
+			assert.equals(0, challenge.criteriaExpected)
+			assert.same({}, challenge.criteria)
+		end)
+	end)
 end)

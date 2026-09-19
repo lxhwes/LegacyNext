@@ -182,7 +182,9 @@ Alex rather than working around it.
 
 ## Feed the result into the code
 
-Three things come out of a lookup and all of them belong in the change:
+`api-guard` covers writing the wrapper itself — the guard, the return contract, the stub. This
+section is about what the *lookup* leaves behind. Three things come out of it and all of them
+belong in the change:
 
 **A citation comment** above the `Api/` function, so the next reader can re-verify without
 repeating the search. Keep it to the facts:
@@ -235,17 +237,18 @@ feature. Do all three:
    CLAUDE.md already uses.
 2. Write the affected test as `pending` with the reason, rather than asserting an invented
    shape. CLAUDE.md: never invent API response shapes.
-3. Add the exact one-liner to `docs/ingame-commands.md`, in the section matching what it
-   needs (Section B runs on a fresh character; Section C needs a played one), and stop
-   rather than guessing past it:
+3. Queue the command via `ingame-script`, which owns authoring and verifying anything Alex
+   pastes into the client, and stop rather than guessing past it. For a one-liner the shape is:
 
 ```
 /dump C_Traits.GetTreeCurrencyInfo(C_Traits.GetConfigIDByTreeID(1187), 1187, true)
 ```
 
-That file is the queue Alex actually works from in a beta session, so a command left only
-in chat gets lost. Two hard rules it sets: **255 characters max** (chat and macros cut off
-past that) and **one line**. Make it self-contained too — it has to be pasteable by someone
+`docs/ingame-commands.md` is the queue Alex actually works from in a beta session, so a
+command left only in chat gets lost. The 255-character, one-line limit applies to anything
+pasted into **chat or a macro**, which is what a bare `/dump` is; a WoWLua block has no such
+limit, so when a question will not fit on one line that is the signal to make it a block
+rather than to golf it. Either way it has to be self-contained — pasteable by someone
 mid-session who is not holding this context.
 
 Check the file before writing a new command. Section A is already answered, and a lot of

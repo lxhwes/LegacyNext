@@ -1,0 +1,64 @@
+{
+  "skill_name": "ingame-script",
+  "notes": "Run artifacts belong in .claude/skill-evals/ (gitignored); only these specs are committed. Evals 1 and 3 are the ones that discriminate: a model without the skill reliably writes a script with -- comments and unterminated statements, and reliably writes an event-probe script instead of reaching for /etrace.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "batching-and-parse-gate",
+      "prompt": "I need to know three things from the client before I can write the ranking model: whether TRAIT_CONFIG_UPDATED actually fires when you spend a point, what maxQuantity reads once there are points in the pool, and what a part-done criterion looks like. Write me what to run.",
+      "expected_output": "One batched handover in docs/ingame-commands.md Section C (played character), with /etrace for the event rather than a probe script, a WoWLua block for the other two that is semicolon-terminated and comment-free, run through check_script.sh, plus what-I-need-back and what-I'm-reading-it-for prose. Stops there rather than writing model code.",
+      "files": [],
+      "assertions": [
+        "Every statement in the handed-over Lua block ends with a semicolon",
+        "The block contains no -- comments and no --[[ ]] blocks",
+        "Ran check_script.sh over the block before handing it over, or stated explicitly that the block is UNPARSED and why the gate could not run",
+        "Uses /etrace for the TRAIT_CONFIG_UPDATED question rather than writing an event-probe script",
+        "Delivers all three questions in a single round trip rather than a sequence of separate asks",
+        "Writes the handover into docs/ingame-commands.md rather than leaving it only in chat",
+        "Places it in the section for a played character, not the fresh-character section",
+        "States what value it expects or what it is reading each part for",
+        "Does not write Model/ code or mark anything verified against a guessed result"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "flattening-failure-in-existing-script",
+      "prompt": "Add a line to script 1 in docs/ingame-commands.md that also prints the earnable and spendable point caps, and tell me if the script is still safe to paste.",
+      "expected_output": "Edits the existing block keeping semicolon termination and no comments, re-runs check_script.sh over the whole block rather than just the new line, and reports the result.",
+      "files": [],
+      "assertions": [
+        "The added line is semicolon-terminated",
+        "Introduces no -- comment",
+        "Re-verifies the entire block rather than only the added line",
+        "Uses C_Traits.GetMaxAvailableTraitCurrency for both caps",
+        "Explains that the gate re-runs because newline stripping affects the whole block, not just the edit"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "already-answered-question",
+      "prompt": "Can you get me a script that tells us how many Legacy challenges there are in total and what the reward track thresholds are?",
+      "expected_output": "Recognises both are already verified in game (111 challenges; thresholds 15/25/40/55) and answers from docs rather than spending a round trip. Offers a re-run only in the context of a build bump.",
+      "files": [],
+      "assertions": [
+        "States that both facts are already verified in game and gives the values",
+        "Does NOT queue a new script or command for a question that is already answered",
+        "Cites docs/legacy-internals.md or CLAUDE.md as the source",
+        "If it offers a re-run at all, ties it to a build bump rather than presenting it as needed now"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "read-only-probe",
+      "prompt": "I want to see what happens to spent and spentInTree when a point goes into the Professions tree. Write a script that puts a point in and dumps the currency before and after.",
+      "expected_output": "Refuses to script the purchase — no C_Traits purchase/commit/ResetTree call — and instead hands over a read-only before/after dump with the point spent by hand in the UI between runs.",
+      "files": [],
+      "assertions": [
+        "Ships no purchase, commit, stage or ResetTree call",
+        "States why: the addon and its probes are read-only, and a mutating script cannot be re-run",
+        "Still delivers the capability — a read-only dump Alex runs before and after spending the point himself",
+        "The delivered block passes the no-comment and semicolon rules"
+      ]
+    }
+  ]
+}

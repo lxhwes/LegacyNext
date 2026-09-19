@@ -1,0 +1,66 @@
+{
+  "skill_name": "fixture-intake",
+  "notes": "Run artifacts belong in .claude/skill-evals/ (gitignored). Eval 2 is the discriminating one: without the skill a model reliably scales a captured row into a fabricated mid-progress fixture rather than leaving the test pending. Eval 0 supplies a real paste; eval 1 supplies a paste that contradicts a recorded fact.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "paste-to-fixture-and-stub",
+      "prompt": "Ran script 1 on my fresh level 1 paladin, here's the criteria part:\n\n== CRITERIA PROGRESSBAR ach=62012 Journeyman Alchemist ==\ni;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString\n1;150 Alchemy Skill;7;false;0;150;nil;1;2937;0 / 150\n\n== CRITERIA CHECKLIST ach=62053 Explore Azeroth ==\ni;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString\n1;Eastern Kingdoms;8;false;0;1;nil;0;62353;0\n2;Kalimdor;8;false;0;1;nil;0;62355;0",
+      "expected_output": "A fixture in spec/fixtures/ carrying source, date, build and character state, with quantityString typed as a string, the raw paste preserved, a stub wired to it, and the docs/status.md and ingame-commands.md bookkeeping updated.",
+      "files": [],
+      "assertions": [
+        "Writes a fixture file under spec/fixtures/",
+        "The fixture records provenance: what produced it, the date, the build, and the character state",
+        "quantityString is stored as a string, not a number",
+        "charName is absent or nil rather than the string \"nil\"",
+        "The raw pasted text is preserved verbatim somewhere in the fixture",
+        "Does not add rows, achievements or criteria that were not in the paste",
+        "Wires a stub in spec/stubs/ that serves the fixture rather than returning invented data",
+        "Marks the relevant queue entry or status line as answered, with the date"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "capture-contradicts-record",
+      "prompt": "Here's what came back: maxAvailable(false)=70 and maxAvailable(true)=16, and the challenge sweep totalled 70 points across 70 challenges.",
+      "expected_output": "Treats the in-game number as authoritative over the recorded 65, states the contradiction plainly, updates CLAUDE.md's client facts and legacy-internals.md with the verified tag and date, and does not quietly average or explain it away.",
+      "files": [],
+      "assertions": [
+        "States explicitly that this contradicts the recorded value of 65 earnable points",
+        "Treats the in-game capture as outranking the previously recorded figure rather than dismissing it",
+        "Updates the client-fact record (CLAUDE.md and/or docs/legacy-internals.md) with the new value",
+        "Tags the updated claim as verified in game with the date",
+        "Does not silently leave both numbers in the docs without saying which is current",
+        "Considers that a build bump could explain it, or asks for the build number, rather than assuming the old value was simply wrong"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "partial-capture-stays-pending",
+      "prompt": "Here's a fresh-character capture of a progress-bar criterion at zero: 1;150 Alchemy Skill;7;false;0;150;nil;1;2937;0 / 150. Can you finish the ranking tests off this — I want the mid-progress case covered too.",
+      "expected_output": "Un-pends only what the capture covers, and leaves the mid-progress test pending with the command that unblocks it rather than fabricating a part-done row.",
+      "files": [],
+      "assertions": [
+        "Writes no fixture row that was not in the paste — in particular no invented part-done criterion",
+        "Leaves the mid-progress test pending",
+        "The pending test names what it needs and where the request is queued",
+        "Still delivers the zero-progress case as a real, passing test",
+        "Explains why the mid-progress case cannot be synthesised from the captured one"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "one-line-chat-paste",
+      "prompt": "quick one from the client: C_Traits.GetTreeCurrencyInfo(cfg, 1187, true) gave me {quantity=3, maxQuantity=0, spent=13, spentInTree=5}",
+      "expected_output": "Captures even a one-line paste with provenance, records that maxQuantity reads 0 while points exist (settling part of C1), and does not treat maxQuantity as the cap.",
+      "files": [],
+      "assertions": [
+        "Records the observation in the docs rather than only answering in chat",
+        "Notes that maxQuantity is still 0 despite points being spent, so it is not the cap",
+        "Keeps GetMaxAvailableTraitCurrency as the source for the cap",
+        "Asks for or records the character state and build, since a one-line paste carries neither",
+        "Does not build a full fixture file's worth of structure around a single unverified line without saying what is missing"
+      ]
+    }
+  ]
+}
