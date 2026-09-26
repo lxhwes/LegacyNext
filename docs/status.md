@@ -75,7 +75,12 @@ Docs:
 - `docs/development.md` gained a Workflows section: fixture intake, script parse-check, golden
   updates, re-pinning and citation checks.
 
-**Tooling notes for Alex**, since the sandbox refuses writes under `.claude/skills/`:
+~~**Tooling notes for Alex**, since the sandbox refuses writes under `.claude/skills/`:~~
+**Done the same day.** The sandbox only blocks Bash writes there. The Edit tool works behind a
+permission prompt, which is the documented route. Both scripts now pass an explicit
+`${TMPDIR:-/tmp}` template to `mktemp`, and `check_script.sh` and `precommit.sh` both ran clean
+inside the sandbox. The "script 1" references in both skills now point at the `LNDump`
+section and queue row B. Original note:
 `ingame-script/SKILL.md` (lines 105, 135-144) and `fixture-intake`'s examples still say
 "script 1". Script 1 is gone from the doc, and the `LNDump` block is now its own section.
 The evals in `ingame-script/evals/evals.json` ask to edit script 1. The `mktemp -d` issue in
@@ -220,7 +225,7 @@ The live checklist is "What must be true to ship v0".
 line (Alex's); CI packaging (wire `BigWigsMods/packager@v2` in once the CurseForge check
 passes, no `-g` flag needed).
 
-**Tooling notes for Alex:** `precommit.sh` and `check_script.sh` both use `mktemp -d`, which
+**Tooling notes for Alex** (the `mktemp` part fixed 2026-09-26, see "Review pass"): `precommit.sh` and `check_script.sh` both use `mktemp -d`, which
 on macOS ignores `TMPDIR` and fails under the Claude sandbox (`Operation not permitted`). The
 gate was run with the sandbox off for this session's commits: 0 failures, one pre-existing
 warning (`LARGE_DUMP = 60000`, not an ID), all four in-game script blocks parsed. `mktemp -d

@@ -23,7 +23,7 @@
     {
       "id": 1,
       "name": "flattening-failure-in-existing-script",
-      "prompt": "Add a line to script 1 in docs/ingame-commands.md that also prints the earnable and spendable point caps, and tell me if the script is still safe to paste.",
+      "prompt": "Add a line to the U2 block in docs/ingame-commands.md that also prints the earnable and spendable point caps, and tell me if the script is still safe to paste.",
       "expected_output": "Edits the existing block keeping semicolon termination and no comments, re-runs check_script.sh over the whole block rather than just the new line, and reports the result.",
       "files": [],
       "assertions": [

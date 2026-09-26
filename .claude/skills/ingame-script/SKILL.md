@@ -102,8 +102,8 @@ costs seconds; the same failure discovered by Alex costs a round trip and some g
 ## Writing the script
 
 **Batch ruthlessly.** Every open question that can share a character state goes in one block.
-Script 1 in `docs/ingame-commands.md` answers six questions (B1–B6) in one paste — that is
-the target shape, not an exception. If two questions need different character states, that is
+The U2 block in `docs/ingame-commands.md` answers truncation, `IsTruncated`, frame protection
+and three template checks in one paste. That is the target shape, not an exception. If two questions need different character states, that is
 two sections, not two round trips against the same state.
 
 **Enumerate rather than hardcode.** IDs churn through beta and CLAUDE.md forbids hardcoding
@@ -132,8 +132,8 @@ text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|", "!");
 Then say in the prose that `|` came back as `!`, so nobody later mistakes a real bar for an
 escape. (This is lossy on purpose — do not try to reverse it when the paste comes back.)
 
-**Output into a copyable EditBox past a few lines**, using the `LNDump` block already in
-script 1 rather than a new one. Chat truncates, wraps, and cannot be selected cleanly.
+**Output into a copyable EditBox past a few lines**, using the `LNDump` block in the
+"Copyable output" section of `docs/ingame-commands.md` rather than a new one. Chat truncates, wraps, and cannot be selected cleanly.
 
 **Give it a fallback.** `UIPanelScrollFrameTemplate`, `ChatFontNormal` and `SetColorTexture`
 are verified in game 2026-09-19 via the `/lgn dump` window, which is built on exactly those

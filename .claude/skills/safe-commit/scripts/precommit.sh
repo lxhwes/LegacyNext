@@ -20,7 +20,8 @@ STAGED=0
 fails=0
 warns=0
 
-TMP="$(mktemp -d)"
+# Explicit template: bare `mktemp -d` ignores TMPDIR on macOS.
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/lgn.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 section() { printf '\n== %s ==\n' "$1"; }

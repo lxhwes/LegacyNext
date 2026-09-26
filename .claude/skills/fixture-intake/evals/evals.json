@@ -5,7 +5,7 @@
     {
       "id": 0,
       "name": "paste-to-fixture-and-stub",
-      "prompt": "Ran script 1 on my fresh level 1 paladin, here's the criteria part:\n\n== CRITERIA PROGRESSBAR ach=62012 Journeyman Alchemist ==\ni;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString\n1;150 Alchemy Skill;7;false;0;150;nil;1;2937;0 / 150\n\n== CRITERIA CHECKLIST ach=62053 Explore Azeroth ==\ni;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString\n1;Eastern Kingdoms;8;false;0;1;nil;0;62353;0\n2;Kalimdor;8;false;0;1;nil;0;62355;0",
+      "prompt": "Ran a WoWLua sweep on my fresh level 1 paladin, here's the criteria part:\n\n== CRITERIA PROGRESSBAR ach=62012 Journeyman Alchemist ==\ni;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString\n1;150 Alchemy Skill;7;false;0;150;nil;1;2937;0 / 150\n\n== CRITERIA CHECKLIST ach=62053 Explore Azeroth ==\ni;string;type;completed;quantity;reqQuantity;charName;flags;assetID;quantityString\n1;Eastern Kingdoms;8;false;0;1;nil;0;62353;0\n2;Kalimdor;8;false;0;1;nil;0;62355;0",
       "expected_output": "A fixture in spec/fixtures/ carrying source, date, build and character state, with quantityString typed as a string, the raw paste preserved, a stub wired to it, and the docs/status.md and ingame-commands.md bookkeeping updated.",
       "files": [],
       "assertions": [

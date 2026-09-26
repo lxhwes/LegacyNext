@@ -8,7 +8,7 @@ refuses to write anything without provenance.
 
 Usage:
   dump_to_fixture.py PASTE --out spec/fixtures/NAME.lua \\
-      --source "script 1, docs/ingame-commands.md" \\
+      --source "queue row B, docs/ingame-commands.md" \\
       --date 2026-09-18 --build 1.60.1.69913 --pin 70ef1b2 \\
       --character "fresh level 1, no points spent" \\
       [--section CRITERIA_PROGRESSBAR] [--stdout]
@@ -225,7 +225,7 @@ def main():
     parser.add_argument("--out", help="fixture path, e.g. spec/fixtures/criteria_shapes.lua")
     parser.add_argument("--stdout", action="store_true", help="print instead of writing")
     parser.add_argument("--source", required=True,
-                        help='what produced it, e.g. "script 1, docs/ingame-commands.md"')
+                        help='what produced it, e.g. "C3, /lgn dump challenges 1"')
     parser.add_argument("--date", required=True, help="capture date, YYYY-MM-DD")
     parser.add_argument("--build", required=True, help='client build, e.g. 1.60.1.69913')
     parser.add_argument("--pin", help="vendor pin SHA in effect at capture")

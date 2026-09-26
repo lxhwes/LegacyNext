@@ -129,10 +129,6 @@ Record the result in `docs/beta-builds.md` and update `vendor/PINS.md` in the sa
 It resolves `.lua` citations only. The `.xml` ones in `docs/ui-templates.md` are checked by
 hand.
 
-Known wart: `check_script.sh` and `safe-commit`'s `precommit.sh` call `mktemp -d`, which on
-macOS ignores `TMPDIR` and fails inside the Claude Code sandbox. Outside the sandbox they
-work.
-
 ## Installing a development copy
 
 Copy or symlink `LegacyNext/` (the inner folder, the one holding `LegacyNext.toc`) into

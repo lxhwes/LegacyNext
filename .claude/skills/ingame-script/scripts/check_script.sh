@@ -52,7 +52,8 @@ MSG
 	exit 3
 fi
 
-TMP="$(mktemp -d)"
+# Explicit template: bare `mktemp -d` ignores TMPDIR on macOS.
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/lgn.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 # Write APIs are forbidden in the addon (CLAUDE.md, Hard constraints) and the same rule holds

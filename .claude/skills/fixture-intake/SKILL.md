@@ -47,7 +47,7 @@ a new ad-hoc script is only for something the addon does not read yet.
 ```sh
 .claude/skills/fixture-intake/scripts/dump_to_fixture.py paste.txt \
   --out spec/fixtures/criteria_shapes.lua \
-  --source "script 1, docs/ingame-commands.md" \
+  --source "queue row B, docs/ingame-commands.md" \
   --date 2026-09-18 --build 1.60.1.69913 --pin 70ef1b2 \
   --character "fresh level 1, no points spent" \
   --string-col quantityString --string-col name
@@ -93,8 +93,10 @@ document. They are legitimate evidence, and they should become fixture files.
 
 But re-stamp them rather than copying them blind: the doc is a write-up, not the paste, so
 confirm what it says about character state and build, and mark the fixture's `--source` as the
-doc rather than the script. A fixture whose provenance says "script 1" when it actually came
-out of a markdown table is a small lie that gets load-bearing later.
+doc rather than the script. A fixture whose provenance names an in-game script when it actually
+came out of a markdown table is a small lie that gets load-bearing later. Older fixtures cite
+"script 1", which was cut from `docs/ingame-commands.md` on 2026-09-26; it resolves through git
+history (`git log -p docs/ingame-commands.md`).
 
 ## Stubs, and the arity rule
 
