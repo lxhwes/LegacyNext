@@ -61,18 +61,38 @@ them; the pin does not move.
 
 ### Recreate
 
+Run from the repo root. It checks out the pinned commit, not the branch head: a plain
+`--branch forever` clone lands on whatever Blizzard pushed last, and every `file:line` citation
+in the docs would then point at a tree nobody pinned. The SHA is read from the table above, the
+same way `bump.sh` reads it, so a re-pin edits one line.
+
 ```sh
+SHA=$(grep -oE '\b[0-9a-f]{40}\b' vendor/PINS.md | head -1)
 git clone --filter=blob:none --no-checkout --depth 1 --branch forever \
   https://github.com/Gethe/wow-ui-source.git vendor/wow-ui-source
 cd vendor/wow-ui-source
+git fetch --depth 1 origin "$SHA"
 git sparse-checkout init --cone
 git sparse-checkout set \
   Interface/AddOns/Blizzard_LegacySystem \
   Interface/AddOns/Blizzard_LegacyChallengeTracker \
   Interface/AddOns/Blizzard_APIDocumentationGenerated \
-  Interface/AddOns/Blizzard_AchievementUI
-git checkout
-git sparse-checkout add <every path in the "Widened on 2026-09-19" list above>
+  Interface/AddOns/Blizzard_AchievementUI \
+  Interface/AddOns/Blizzard_SharedXML \
+  Interface/AddOns/Blizzard_SharedXMLBase \
+  Interface/AddOns/Blizzard_SharedXMLGame \
+  Interface/AddOns/Blizzard_FrameXML \
+  Interface/AddOns/Blizzard_FrameXMLBase \
+  Interface/AddOns/Blizzard_FrameXMLUtil \
+  Interface/AddOns/Blizzard_Fonts_Shared \
+  Interface/AddOns/Blizzard_UIParent \
+  Interface/AddOns/Blizzard_UIParentPanelManager \
+  Interface/AddOns/Blizzard_UIParentUtil \
+  Interface/AddOns/Blizzard_UIPanelTemplates \
+  Interface/AddOns/Blizzard_GameTooltip \
+  Interface/AddOns/Blizzard_AddOnList
+git checkout "$SHA"
+git rev-parse HEAD   # must equal $SHA
 ```
 
 The clone is shallow, so moving the pin means re-fetching rather than checking out an older

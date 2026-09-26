@@ -9,24 +9,10 @@ constraints and the Legacy API surface are in `CLAUDE.md`. Current position is i
 Two directories the repo needs are **gitignored on purpose** — the vendored Blizzard source
 and the Lua toolchain. Neither is in the clone. Recreate both:
 
-**1. Vendored reference source.** Read-only, never imported, pinned in `vendor/PINS.md` —
-that file is the source of truth for the SHA, check it before trusting the command below.
-The command below is the minimum. After it, run `git sparse-checkout add` with the full list
-in `vendor/PINS.md` (the original four plus the 2026-09-19 widening); the citations in
-`LegacyNext/UI/` and `docs/ui-templates.md` resolve only with the widened set.
-
-```sh
-git clone --filter=blob:none --no-checkout --depth 1 --branch forever \
-  https://github.com/Gethe/wow-ui-source.git vendor/wow-ui-source
-cd vendor/wow-ui-source
-git sparse-checkout init --cone
-git sparse-checkout set \
-  Interface/AddOns/Blizzard_LegacySystem \
-  Interface/AddOns/Blizzard_LegacyChallengeTracker \
-  Interface/AddOns/Blizzard_APIDocumentationGenerated \
-  Interface/AddOns/Blizzard_AchievementUI
-git checkout
-```
+**1. Vendored reference source.** Read-only, never imported. Run the "Recreate" block in
+`vendor/PINS.md` from the repo root. It is kept only there so the SHA and the directory list
+cannot drift between two copies, and it checks out the pinned commit rather than the branch
+head. It ends with `git rev-parse HEAD`, which must match the SHA in the PINS.md table.
 
 **2. Lua 5.1 toolchain.** Homebrew has no `lua@5.1` formula, so this builds PUC Lua 5.1.5
 locally with hererocks. Takes a couple of minutes.
@@ -54,7 +40,7 @@ Expect zero warnings and a green suite. CI does the same thing on Lua 5.1 via
 | Path | What lives there |
 |---|---|
 | `LegacyNext/` | The addon. `Api/` `Model/` `UI/` `Store/` `Debug/` — layering rules in `CLAUDE.md` |
-| `spec/` | busted tests, `fixtures/` captured from the live client, `stubs/` for `Api/` |
+| `spec/` | busted tests, `fixtures/` captured from the live client, `golden/` for the uidump text. `stubs/` holds only a README, reserved for a fixture-driven stub environment |
 | `docs/` | Research and status — see below |
 | `vendor/` | Pinned Blizzard source, gitignored except `PINS.md` |
 | `tools/` | Local Lua toolchain, gitignored |
@@ -89,6 +75,63 @@ Three commands exist for that:
 
 `/lgn dump challenges` is paged 20 at a time. Every dump is pure data with no comment lines, so
 it still parses if a paste path strips the newlines.
+
+## Workflows
+
+The scripts live under `.claude/skills/`, since the Claude Code skills drive them, but they
+are plain scripts and run by hand the same way.
+
+**A paste from the game becomes a fixture.** Never hand-edit the data. The script keeps the raw
+text verbatim and refuses to write without provenance:
+
+```sh
+.claude/skills/fixture-intake/scripts/dump_to_fixture.py PASTE --out spec/fixtures/NAME.lua \
+  --source "<queue ID>, docs/ingame-commands.md" --date YYYY-MM-DD \
+  --build 1.60.1.NNNNN --pin <short sha> --character "<who, what state>"
+```
+
+`/lgn dump` output is already a `return { ... }` literal. It goes into `spec/fixtures/` with a
+provenance header, following `spec/fixtures/README.md`.
+
+**An in-game script is parse-checked before Alex gets it.** This covers both the multi-line form
+and a copy with the newlines stripped:
+
+```sh
+.claude/skills/ingame-script/scripts/check_script.sh docs/ingame-commands.md
+```
+
+**The uidump output changes on purpose.** When a `Model` or `Debug.RenderView` change is meant
+to alter row content, regenerate the golden file, then read the diff before committing it:
+
+```sh
+UPDATE_GOLDEN=1 ./tools/lua51/bin/busted spec/debug/uidump_spec.lua
+git diff spec/golden/
+```
+
+A golden diff you did not intend is a bug, not a file to regenerate.
+
+**Blizzard pushes a beta build.** Check first, then apply. The check never touches the checkout:
+
+```sh
+.claude/skills/beta-build-bump/scripts/bump.sh               # writes a diff summary
+.claude/skills/beta-build-bump/scripts/bump.sh --apply <sha>
+```
+
+Record the result in `docs/beta-builds.md` and update `vendor/PINS.md` in the same commit.
+
+**Citations after a bump.** Every `path:line` in the docs is pin-relative:
+
+```sh
+.claude/skills/forever-api-lookup/scripts/verify_citations.py --expect-symbol \
+  docs/legacy-internals.md docs/ui-templates.md
+```
+
+It resolves `.lua` citations only. The `.xml` ones in `docs/ui-templates.md` are checked by
+hand.
+
+Known wart: `check_script.sh` and `safe-commit`'s `precommit.sh` call `mktemp -d`, which on
+macOS ignores `TMPDIR` and fails inside the Claude Code sandbox. Outside the sandbox they
+work.
 
 ## Installing a development copy
 
