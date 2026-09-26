@@ -56,7 +56,7 @@ data point for the formula, and it agrees.
 
 **Citations re-derived**
 
-`CITATIONS_SUSPECT` fired on three docs. Four line numbers in `docs/ui-templates.md` moved and
+`CITATIONS_SUSPECT` fired on three docs. Five line numbers in `docs/ui-templates.md` moved and
 were re-derived against the new checkout, not nudged:
 
 | Was | Now | Lands on |

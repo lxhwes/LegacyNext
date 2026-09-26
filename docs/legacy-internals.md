@@ -7,9 +7,10 @@ still resolves unchanged at the current pin, `bd2470aed543f72697a044e989285b6c83
 
 Citations are `path:line`, rooted at `vendor/wow-ui-source/Interface/AddOns/`.
 
-Four files cited here sit outside the sparse set recorded in `vendor/PINS.md`
-(`Blizzard_MicroMenu`, `Blizzard_SharedTalentUI`, `Blizzard_FrameXML`,
-`Blizzard_FrameXMLBase`). They were read by temporarily widening the sparse checkout to
+Three directories cited here sit outside the sparse set recorded in `vendor/PINS.md`:
+`Blizzard_MicroMenu`, `Blizzard_SharedTalentUI` and `Blizzard_MajorFactions`. PINS.md keeps
+the full list. `Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on it until the 2026-09-19
+widening brought them in. The three were read by temporarily widening the sparse checkout to
 `Interface` at the same SHA, then narrowing back. To re-read them:
 
 ```sh
@@ -31,7 +32,7 @@ cd vendor/wow-ui-source && git sparse-checkout set Interface   # 53 MB, 4405 fil
 | Q9 | `LEGACY_TREE_ADVENTURE_TALENTED_NODE_ID` | **Answered** |
 | Q10 | Reward track math | **Answered**, fully verified |
 | Q11 | Load-on-demand | **Answered** |
-| Q12 | Events | **Answered** |
+| Q12 | Events | **Answered from source**; which ones fire live is queue row C2 |
 
 ---
 
@@ -210,6 +211,55 @@ the achievement's own `points` field is **0** — which is what the override exi
 zero-point exploration achievements have `flags == 0`, so they are ordinary per-character
 achievements. The correlation between "awards a point" and "is account-wide" holds across all
 111, but it is an observation, not a documented invariant — do not branch on it.
+
+### Blizzard's public numbers, 2026-09-26
+
+Source: "Get to Know the World of Warcraft: Forever Legacy System",
+<https://news.blizzard.com/en-us/article/24307383/get-to-know-the-world-of-warcraft-forever-legacy-system>.
+A public article, not a client read, so nothing here re-tags a client fact. It is recorded
+because every number in it agrees with a capture, which is the cheapest confirmation available
+that the captures and the point filter are right.
+
+Per-category totals, as published, against the U1 filter bar (`spec/golden/uidump_combined.txt`):
+
+| Category | Article | Filter bar |
+|---|---|---|
+| Classes | 27 | 27 |
+| Tradeskills | 18 | 18 |
+| Player vs. Player | 12 | 12 |
+| Adventure | 2 | 2 |
+| Dungeons | 3 | 3 |
+| Raids | 3 | 3 |
+
+Blizzard counts **65 challenges**, so the 46 zero-point `Explore *` achievements are not
+"challenges" in their accounting either. The point-value filter above matches the public
+definition without ever looking at a name.
+
+**One character can earn at most 29 of the 65.** Quoted: "A single character can earn 3 points
+leveling, up to 6 points from tradeskills, 12 from PvP, 2 from Adventure, and 6 from Dungeons
+and Raids, for a total of up to 29 possible points." The remaining 36 need alts, which is v1's
+premise stated by Blizzard rather than inferred. The breakdown maps onto the category tree:
+
+- 3 leveling = one class × `Novice / Experienced / Master` (25/45/60).
+- 6 tradeskills = two primaries × three tiers. The Tradeskills category holds exactly six
+  children, all crafting — Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking,
+  Tailoring (`spec/fixtures/categories_full.lua`) — and the article's unlock wording is "150
+  in a **non-gathering** primary tradeskill". Gathering and secondary professions have no
+  challenge to map to.
+- 6 Dungeons and Raids = 3 + 3. 12 PvP and 2 Adventure are the whole category each.
+
+**Unlock.** "You gain access to the Legacy System as soon as you earn your first Legacy Point"
+— level 25, 150 in a crafting profession, or the full world map. Both captured characters were
+at zero points and every read on our surface worked (D3, D5, D6, D7, U1), so the data is
+readable before Blizzard's own window is. `Blizzard_LegacySystem` carries no unlock gate of
+its own; whatever hides the shield icon is client-side.
+
+**Churn.** "Expansions planned for each content update" — more challenges and more reward
+tiers. The sparse `GetRenownLevels` read and the no-hardcoded-IDs rule are what absorb that.
+
+**Hardcore**, still out of scope: challenges earned in Hardcore grant in every ruleset,
+non-Hardcore completions do not show in Hardcore, PvP challenges cannot be completed there,
+and Hardcore launches with 12 challenges of its own.
 
 ### Q4. What the detail pane shows for criteria
 
@@ -433,7 +483,7 @@ At zero points all three trees reported `quantity=0, maxQuantity=0, spent=0, spe
 **Open — recheck at non-zero points:** `maxQuantity` read **0**, not 16. So it is not the
 static cap, despite the UI formatting it into `LEGACY_POINTS_SEASONAL_CAP`
 (`Blizzard_LegacyTree.lua:315`) — which on a fresh character would render "cap 0". It is
-probably dynamic, tracking points earned so far. Re-run command **C6** once points exist. Until
+probably dynamic, tracking points earned so far. Queue row **C1** rechecks it once points exist. Until
 then `Model/` takes the cap from `GetMaxAvailableTraitCurrency(currencyID, true)`, not from
 `maxQuantity`.
 
@@ -458,7 +508,7 @@ Global strings are client data, not source, so `wow-ui-source` cannot tell us th
 only three hits for `LEGACY_TREE_PROGRESSION` in the whole `Interface` tree are this reference,
 the constant ID, and the doc file. Nothing named "Resourcefulness" appears in the Legacy code
 (the only `Resourcefulness` hits are the unrelated profession stat in
-`ProfessionConstantsDocumentation.lua:318` and friends). Command **C2**.
+`ProfessionConstantsDocumentation.lua:318` and friends). Settled in game by queue row A.
 
 Note that three different names refer to the same tree: the constant is
 `LEGACY_TREE_PROGRESSION_ID`, the atlas is `UI-Legacy-Tree-Progression`, and the display
@@ -775,7 +825,7 @@ Everything else is `EventRegistry` traffic, internal to the addon and only live 
 **Consequence for us:** the three achievement events cover challenge progress. For points and
 reward-track changes we will have to register `TRAIT_CONFIG_UPDATED` / `TRAIT_TREE_CHANGED`
 and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED` ourselves — Blizzard's Legacy UI gives us no
-precedent that they fire in this context. Command **C8** checks.
+precedent that they fire in this context. Queue row **C2** in `docs/ingame-commands.md` checks.
 
 ---
 
@@ -890,127 +940,22 @@ in `spec/fixtures/` have to come from a live dump.
 
 ---
 
-## In-game commands
+## In-game commands (retired 2026-09-26)
 
-Run these and paste the output back. Several are long; `/dump` output goes to the chat frame,
-so for the big ones use the `/run ... print(...)` forms which chunk the output.
+This section used to hold the Phase 1 command list, C1 to C9. **Those IDs are retired and are
+not the queue's.** The live queue in `docs/ingame-commands.md` reuses C1 to C4 for different
+questions, and two lists with clashing IDs sent citations to the wrong one. Every command
+below was answered or folded into a queue row. The table records where, so an old citation
+still resolves. The commands are gone because `/lgn dump` and `/lgn probe` replace them.
 
-### C1 — Constants available before the LoD addon loads (Q11) — **DONE 2026-09-18**
-
-```
-/dump C_AddOns.IsAddOnLoaded("Blizzard_LegacySystem")
-/dump Constants and Constants.LegacyConsts
-```
-
-Returned `false, false` and all six constants. See Q11 above.
-
-### C2 — Tree display names (Q8)
-
-```
-/dump LEGACY_TREE_PROFESSIONS, LEGACY_TREE_ADVENTURE, LEGACY_TREE_PROGRESSION
-```
-
-Settles whether 1189 is "Resourcefulness".
-
-### C3 — Category list scope and shape (Q1, Q2)
-
-```
-/run local c=GetCategoryList() print("categories:", #c)
-```
-
-Then, to see the tree:
-
-```
-/run for _,id in ipairs(GetCategoryList()) do local n,p=GetCategoryInfo(id) local a,cm,ic=GetCategoryNumAchievements(id) print(id,n,"parent="..tostring(p),a,cm,ic) end
-```
-
-If that floods chat, cap it: replace `ipairs(GetCategoryList())` with a loop over the first 30.
-What I need to know: is the count ~10 (Legacy only) or ~100 (all achievements), and are the
-public groupings top level (`parent == -1`) or nested.
-
-### C4 — Empty search string semantics (Q1)
-
-At login, before typing in any search box:
-
-```
-/dump GetNumFilteredAchievements()
-```
-
-Then, and **only** if you do not mind clearing the Achievement UI's search state:
-
-```
-/run SetAchievementSearchString("") 
-```
-
-wait a moment for `ACHIEVEMENT_SEARCH_UPDATED`, then:
-
-```
-/dump GetNumFilteredAchievements()
-```
-
-I need to know whether empty means "everything" or "nothing".
-
-### C5 — Account-wide flag (Q5)
-
-```
-/dump ACHIEVEMENT_FLAGS_ACCOUNT
-```
-
-And, for a challenge you know is account-wide, with its ID:
-
-```
-/dump select(9, GetAchievementInfo(<achievementID>))
-/dump select(13, GetAchievementInfo(<achievementID>))
-```
-
-Ninth return is `flags`, thirteenth is `wasEarnedByMe`.
-
-### C6 — Point cap: shared pool or per tree (Q7)
-
-```
-/run for _,id in ipairs({1187,1188,1189}) do local cfg=C_Traits.GetConfigIDByTreeID(id) local t=cfg and C_Traits.GetTreeCurrencyInfo(cfg,id,true) local c=t and t[1] print(id,"cfg="..tostring(cfg),"cur="..tostring(c and c.traitCurrencyID),"qty="..tostring(c and c.quantity),"max="..tostring(c and c.maxQuantity),"spent="..tostring(c and c.spent),"inTree="..tostring(c and c.spentInTree)) end
-```
-
-```
-/dump C_Traits.GetMaxAvailableTraitCurrency(4225, false)
-/dump C_Traits.GetMaxAvailableTraitCurrency(4225, true)
-```
-
-If `maxQuantity` reads 16 on all three trees while `spent` is identical across them and
-`spentInTree` differs, the cap is one shared pool. Worth running once with points spent in
-more than one tree.
-
-### C7 — Reward track shape (Q10)
-
-```
-/dump C_MajorFactions.GetCurrentRenownLevel(2802)
-/dump C_MajorFactions.GetMajorFactionData(2802)
-/dump C_MajorFactions.GetRenownLevels(2802)
-/dump C_MajorFactions.GetRenownRewardsForLevel(2802, 1)
-```
-
-Use a level you have not reached for the last one too, so I can see which of
-`itemID`/`spellID`/`mountID`/`titleMaskID` are actually populated and whether a name can be
-derived at all.
-
-### C8 — Do the update events fire (Q12)
-
-```
-/run local f=CreateFrame("Frame") for _,e in ipairs({"TRAIT_CONFIG_UPDATED","TRAIT_TREE_CHANGED","MAJOR_FACTION_RENOWN_LEVEL_CHANGED","CRITERIA_UPDATE","ACHIEVEMENT_EARNED"}) do f:RegisterEvent(e) end f:SetScript("OnEvent",function(_,e,...) print("EVT",e,...) end) print("LegacyNext event probe armed")
-```
-
-Leave it running, then spend a Legacy point and make progress on a challenge. I need to know
-which of these actually fire on Forever, and what `TRAIT_CONFIG_UPDATED` carries.
-
-### C9 — Criteria shapes for fixtures (Q4)
-
-Pick one challenge with a counted criterion ("3/5") and one with a checklist, and for each:
-
-```
-/dump GetAchievementNumCriteria(<achievementID>)
-/dump GetAchievementCriteriaInfo(<achievementID>, 1)
-/dump C_Traits.GetTraitCurrencyForAchievement(4225, <achievementID>)
-```
-
-These become the first entries in `spec/fixtures/`. Until they exist, the criteria-ranking
-tests stay `pending`.
+| Old ID | Asked | Answered by | Result |
+|---|---|---|---|
+| ~~C1~~ | Constants before the LoD addon loads (Q11) | Queue A, 2026-09-18 | Present, `IsAddOnLoaded` false. Q11 above |
+| ~~C2~~ | Tree display names (Q8) | Queue A, 2026-09-18 | 1189 is "Resourcefulness". Q8 above |
+| ~~C3~~ | Category list scope and shape (Q1, Q2) | Queue B, 2026-09-18; D9, 2026-09-19 | Legacy only, 29 categories, two levels. `spec/fixtures/categories_full.lua` |
+| ~~C4~~ | Empty search string semantics (Q1) | In game, 2026-09-18 | 0 at login, 111 after `SetAchievementSearchString("")`. We never call it. Q1 above |
+| ~~C5~~ | Account-wide flag (Q5) | Queue A, 2026-09-18; D2, 2026-09-19 | `ACHIEVEMENT_FLAGS_ACCOUNT` = 131072, live global. Q5 above |
+| ~~C6~~ | Point cap, shared pool or per tree (Q7) | Half: queue A at zero points | The recheck with points spent is **queue C1**, still open |
+| ~~C7~~ | Reward track shape (Q10) | Queue B, 2026-09-18; D6, 2026-09-19 | `spec/fixtures/dump_rewards_fresh.lua` |
+| ~~C8~~ | Do the update events fire (Q12) | Not yet | Now **queue C2**, still open |
+| ~~C9~~ | Criteria shapes for fixtures (Q4) | Queue B; D3 and D7, 2026-09-19 | `spec/fixtures/dump_challenges_page1_fresh.lua`, `dump_criteria_types.lua` |

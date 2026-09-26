@@ -9,9 +9,15 @@ Legacy is Forever's account-wide progression system. Legacy Challenges (achievem
 award Legacy Points to the **account**. Each character spends those points **independently**
 across three Legacy Trees: Professions, Adventure, Resourcefulness (public names). Launch
 numbers from Blizzard's BlizzCon deep dive: 65 points earnable, 16 spendable per character.
-Points past the cap feed a cosmetic Legacy Reward Track.
+Points past the cap feed a cosmetic Legacy Reward Track. **One character can earn at most 29**
+(3 leveling, 6 tradeskills, 12 PvP, 2 Adventure, 6 Dungeons and Raids — Blizzard's Legacy
+overview article, 2026-09-26); the other 36 need alts, which is why v1 exists. Tradeskill
+challenges cover only the six crafting professions, three tiers each; gathering and secondary
+skills have none. The system unlocks on the first point earned, but every read on our surface
+works at zero points.
 
-Hardcore has separate Legacy challenges/perks and launches later. Out of scope.
+Hardcore has separate Legacy challenges/perks and launches later. Out of scope. (Challenges
+earned there grant in every ruleset; PvP challenges cannot be done there.)
 
 ## Scope
 
