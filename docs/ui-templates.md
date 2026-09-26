@@ -1,8 +1,11 @@
 # UI templates on the Forever branch
 
-Read-only research against `vendor/wow-ui-source` at pin `70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e`
-(`1.60.1.69913`), written 2026-09-19. Paths are relative to `Interface/AddOns/`. Line numbers
-are pin-relative; re-run `.claude/skills/forever-api-lookup/scripts/verify_citations.py` after a
+Read-only research against `vendor/wow-ui-source`, written 2026-09-19 at pin
+`70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e` (`1.60.1.69913`) and re-checked 2026-09-26 at
+`bd2470aed543f72697a044e989285b6c83e63f73` (`1.60.1.70009`), which is where the line numbers
+below now point. Five of them moved in that bump; see `docs/beta-builds.md` for which.
+Paths are relative to `Interface/AddOns/`. Line numbers are pin-relative; re-run
+`.claude/skills/forever-api-lookup/scripts/verify_citations.py` after a
 bump. That script only resolves `.lua` citations, so the `.xml` lines here were checked by hand.
 
 Tiers: **A** defined in vendored source at the cited line. **B** referenced in vendored source
@@ -164,7 +167,7 @@ title lives in `self.TitleContainer.TitleText` via `TitledPanelMixin`
 Close button gotcha. `UIPanelCloseButton_OnClick` calls `HideUIPanel(parent)`
 (`Blizzard_SharedXML/Mainline/SharedUIPanelTemplates.lua:150-160`), and `HideUIPanel` returns
 early when `InCombatLockdown() and not issecure()` after showing the "action blocked" message
-(`UIParentPanelManager.lua:903-917`, `:854-861`). An addon click is insecure, so on our frame
+(`UIParentPanelManager.lua:905-921`, `:854-861`). An addon click is insecure, so on our frame
 that X does nothing in combat. Use `UIPanelCloseButtonNoScripts` and set `OnClick` to
 `parent:Hide()` ourselves. The Camelot override anchors the default close button at
 `TOPRIGHT -2, 1` (`Blizzard_SharedXML/Camelot/SharedUIPanelTemplates.lua:3-5`).
@@ -208,12 +211,12 @@ itself is `Blizzard_GameTooltip/Mainline/GameTooltip.xml:249`.
 
 Whether a plain frame needs any handling: the docs point to "no", but only by inference. The
 protection flags are per-function and per-object. `Show` and `Hide`
-(`SimpleScriptRegionAPIDocumentation.lua:747`, `:355`) and FontString `SetText` carry no
+(`SimpleScriptRegionAPIDocumentation.lua:751`, `:357`) and FontString `SetText` carry no
 `IsProtectedFunction`; `SetPoint`, `SetSize`, `SetParent`, `SetScrollChild`, `SetVerticalScroll`,
 `EnableMouseWheel` do (`SimpleScriptRegionResizingAPIDocumentation.lua:137`, `:165`;
-`SimpleScriptRegionAPIDocumentation.lua:651`, `:97`; `SimpleScrollFrameAPIDocumentation.lua:93`,
+`SimpleScriptRegionAPIDocumentation.lua:653`, `:97`; `SimpleScrollFrameAPIDocumentation.lua:93`,
 `:105`). Those flags gate on the object being protected: `IsProtected()` and
-`CanChangeProtectedState()` are per-region (`SimpleScriptRegionAPIDocumentation.lua:538`, `:10`),
+`CanChangeProtectedState()` are per-region (`SimpleScriptRegionAPIDocumentation.lua:540`, `:10`),
 and `C_RestrictedActions.CheckAllowProtectedFunctions(object, silent)` is documented as
 "permissions to call protected functions on the supplied object"
 (`RestrictedActionsDocumentation.lua:11-27`). A frame we create with no secure template or

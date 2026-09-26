@@ -5,11 +5,13 @@ the recommendation, and what is sitting in `docs/icon-drafts/` ready to ship.
 
 ## What the client does with `## IconTexture` [verified at the pin]
 
-Read from `vendor/wow-ui-source` at `70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e` (the pin in
-`vendor/PINS.md`). `Interface/AddOns/Blizzard_AddOnList` was not in the sparse checkout, so it was
-added at the same SHA with `git -C vendor/wow-ui-source sparse-checkout add
-Interface/AddOns/Blizzard_AddOnList`; `rev-parse HEAD` was unchanged before and after. That
-directory is not yet listed in `vendor/PINS.md` (this task did not own that file).
+Read from `vendor/wow-ui-source` at `70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e`, and still
+resolving unchanged at the current pin `bd2470aed543f72697a044e989285b6c83e63f73`
+(`1.60.1.70009`, checked 2026-09-26 — `AddonList.lua` changed in that bump, but only at `:660`,
+well below these citations). `Interface/AddOns/Blizzard_AddOnList` was not in the sparse
+checkout when this was written, so it was added at `70ef1b2` with `git -C vendor/wow-ui-source
+sparse-checkout add Interface/AddOns/Blizzard_AddOnList`; `rev-parse HEAD` was unchanged before
+and after. `vendor/PINS.md` lists that directory now.
 
 - Both keys are read, texture first: `C_AddOns.GetAddOnMetadata(addonIndex, "IconTexture")` and
   `(addonIndex, "IconAtlas")` at `Blizzard_AddOnList/AddonList.lua:390-391`.

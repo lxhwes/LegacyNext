@@ -1,8 +1,9 @@
 # Legacy internals
 
-Read-only research against the pinned `wow-ui-source` checkout (`forever`,
-`70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e`, `version.txt` `1.60.1.69913`). See
-`vendor/PINS.md`.
+Read-only research against the pinned `wow-ui-source` checkout (`forever`), written at
+`70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e` (`version.txt` `1.60.1.69913`). Every citation here
+still resolves unchanged at the current pin, `bd2470aed543f72697a044e989285b6c83e63f73`
+(`1.60.1.70009`), checked 2026-09-26. See `vendor/PINS.md`.
 
 Citations are `path:line`, rooted at `vendor/wow-ui-source/Interface/AddOns/`.
 

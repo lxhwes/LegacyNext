@@ -1,11 +1,11 @@
 # Status
 
-Last updated 2026-09-19 (night).
+Last updated 2026-09-26.
 
 **Where we are: Phase 3 is built, green here, and the frame has now been drawn by the client.
 3a and 3b are done — U1's uidump came back correct on the first try, with one Lua error since
 fixed. 3c is done except the CurseForge check and the TOC version line. Phase 4 has not
-started.**
+started. The vendor pin is at `1.60.1.70009`; nothing we call moved.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
@@ -19,6 +19,20 @@ matches `spec/golden/uidump_combined.txt`. 74 tests, nothing pending.
 Open in the queue, in order: **U3** (icon in the AddOns list), **U1** (screenshot only, the
 uidump half is answered), **U2** (truncation), then **D4**, **C1–C4**, **D8** as before.
 See `docs/ingame-commands.md`.
+
+## Vendor pin moved to 1.60.1.70009 — 2026-09-26
+
+First real build bump since the pin was set. `70ef1b2` → `bd2470a`. No symbol LegacyNext calls
+appears in the diff, `LegacyConstantsDocumentation.lua` did not move, no doc file was deleted,
+and `## Interface: 16001` is still what the version number computes to. `Blizzard_LegacySystem`
+changed in three files, all gamepad bindings and pixel nudges on textures. Nothing in
+`CLAUDE.md`'s client facts or constants table needed editing, and all 74 tests stay green.
+
+What it cost: five pin-relative line numbers in `docs/ui-templates.md` had shifted and were
+re-derived against the new checkout, not nudged. Full accounting in `docs/beta-builds.md`.
+
+Also settled: the `.toc` Interface formula (`major*10000 + minor*100 + patch`) now has its
+second data point and agrees. It was one observation at one pin before this.
 
 ## U1 — the frame drew, and D9 closed the last pending test, 2026-09-19 (night)
 

@@ -10,9 +10,9 @@ retail. The checkout itself is gitignored; this file is the record.
 |---|---|
 | Remote | https://github.com/Gethe/wow-ui-source.git |
 | Branch | `forever` |
-| Commit | `70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e` |
-| `version.txt` | `1.60.1.69913` |
-| Pinned on | 2026-09-18 |
+| Commit | `bd2470aed543f72697a044e989285b6c83e63f73` |
+| `version.txt` | `1.60.1.70009` |
+| Pinned on | 2026-09-26 (was `70ef1b2`, `1.60.1.69913`, 2026-09-18) |
 
 Sparse checkout (cone mode) covers only:
 
@@ -24,10 +24,10 @@ Interface/AddOns/Blizzard_AchievementUI
 version.txt
 ```
 
-All four directories were present at this commit.
+All four directories were present at this commit, and at `bd2470a`.
 
-Widened on 2026-09-19, same SHA, for the UI template research in `docs/ui-templates.md`
-(22 MB total afterwards):
+Widened on 2026-09-19 (then at `70ef1b2`) for the UI template research in
+`docs/ui-templates.md` (22 MB total afterwards):
 
 ```
 Interface/AddOns/Blizzard_SharedXML
@@ -48,7 +48,8 @@ Interface/AddOns/Blizzard_AddOnList
 `Blizzard_AddOnList` was added later the same day for the icon research in
 `docs/icon-design.md`. Add them with `git sparse-checkout add <path>...` after the recreate
 step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
-`LegacyNext/UI/UI.lua` resolve only with them present.
+`LegacyNext/UI/UI.lua` resolve only with them present. All seventeen were still present at
+`bd2470a`, checked directory by directory on 2026-09-26.
 
 Four directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
 `Blizzard_SharedTalentUI` (`docs/legacy-internals.md`), `Blizzard_MajorFactions`
