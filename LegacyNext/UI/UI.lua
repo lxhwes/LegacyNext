@@ -18,9 +18,11 @@ local FIGURE_WIDTH = 64
 local POINTS_WIDTH = 32
 local FILTER_GAP = 4
 
--- CRITERIA_UPDATE fires in bursts; one rebuild per second is plenty for a list of 65 rows,
--- and a rebuild is a ~900-call sweep.
-local REFRESH_DELAY = 1.0
+-- A rebuild is a ~900-call sweep, 21 ms on the U1 read. CRITERIA_UPDATE fires for every
+-- criterion in the game, not only Legacy ones, so it coalesces over 5 s rather than costing a
+-- spike every second while questing. ACHIEVEMENT_EARNED is rare and worth showing promptly.
+local EVENT_DELAY = { ACHIEVEMENT_EARNED = 1.0, CRITERIA_UPDATE = 5.0 }
+local DEFAULT_DELAY = 1.0
 
 local function G(name)
 	return rawget(_G, name)
@@ -434,6 +436,10 @@ local function layoutRows(frame, view)
 		frame.status:SetText(view.message or view.state)
 		frame.status:Show()
 		y = y + 40
+	elseif view.footnote then
+		frame.status:SetText(view.footnote)
+		frame.status:Show()
+		y = y + 40
 	else
 		frame.status:Hide()
 	end
@@ -453,14 +459,26 @@ function UI.Render(view)
 	layoutRows(frame, view)
 end
 
--- Reads through the data source and redraws. Never called from a draw path.
+-- Reads through the data source and redraws. Never called from a draw path. The read is
+-- pcall'd as a whole: Api guards each client call, but an unexpected shape can still throw in
+-- the code around them, and a throw here would repeat on every open until the client stops
+-- reporting errors at 100. The error becomes the view's error state instead.
 function UI.Refresh()
 	if not UI.source or not ns.Model then
 		return
 	end
-	local input = UI.source()
-	input.filter = UI.filter
-	local view = ns.Model.BuildView(input)
+	local ok, view = pcall(function()
+		local input = UI.source()
+		input.filter = UI.filter
+		return ns.Model.BuildView(input)
+	end)
+	if ok then
+		-- BuildView falls back to All when the filtered group has gone; follow it, so the
+		-- next read does not ask for the missing group again.
+		UI.filter = view.filter
+	else
+		view = ns.Model.BuildView({ challengesReason = tostring(view) })
+	end
 	UI.Render(view)
 	return view
 end
@@ -483,26 +501,40 @@ local function inCombat()
 	return type(check) == "function" and check() and true or false
 end
 
--- Coalesces a burst of events into one refresh, and holds it until combat ends: the frame
--- itself is not protected, but a ~900-call sweep is not something to run mid-fight.
-function UI.RequestRefresh()
-	if not UI.frame or not UI.frame:IsShown() then
+-- The frame is not protected, but a ~900-call sweep is not something to run mid-fight, so
+-- any read that lands in combat waits for PLAYER_REGEN_ENABLED.
+local function deferForCombat()
+	UI.frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+	UI.deferredForCombat = true
+	UI.refreshPending = true
+end
+
+-- Coalesces a burst of events into one refresh `delay` seconds out. A pending refresh is kept
+-- unless the new request wants it sooner; then the new timer supersedes it, and the old one
+-- sees a stale token and does nothing.
+function UI.RequestRefresh(delay)
+	delay = delay or DEFAULT_DELAY
+	if not UI.frame or not UI.frame:IsShown() or UI.deferredForCombat then
 		return
 	end
-	if UI.refreshPending then
+	if UI.refreshPending and UI.pendingDelay <= delay then
 		return
 	end
 	UI.refreshPending = true
+	UI.pendingDelay = delay
+	UI.refreshToken = (UI.refreshToken or 0) + 1
+	local token = UI.refreshToken
 
 	local function fire()
+		if token ~= UI.refreshToken then
+			return
+		end
 		if not UI.frame or not UI.frame:IsShown() then
 			UI.refreshPending = false
 			return
 		end
 		if inCombat() then
-			-- PLAYER_REGEN_ENABLED re-enters here with refreshPending still set.
-			UI.frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-			UI.deferredForCombat = true
+			deferForCombat()
 			return
 		end
 		UI.refreshPending = false
@@ -511,7 +543,7 @@ function UI.RequestRefresh()
 
 	local timer = G("C_Timer")
 	if type(timer) == "table" and type(timer.After) == "function" then
-		timer.After(REFRESH_DELAY, fire)
+		timer.After(delay, fire)
 	else
 		fire()
 	end
@@ -527,12 +559,29 @@ function UI.OnEvent(event)
 		end
 		return
 	end
-	UI.RequestRefresh()
+	UI.RequestRefresh(EVENT_DELAY[event])
 end
+
+-- Shown on a first open that lands in combat, until the read can run.
+local WAITING_VIEW = {
+	header = { lines = { "", "" }, state = "ok" },
+	filters = {},
+	rows = {},
+	state = "waiting",
+	message = "Reading your challenges when combat ends",
+}
 
 function UI.OnShow()
 	for _, event in ipairs(REFRESH_EVENTS) do
 		pcall(UI.frame.RegisterEvent, UI.frame, event)
+	end
+	if inCombat() then
+		-- A reopened frame keeps its last view until then; a first open says why it is blank.
+		deferForCombat()
+		if not UI.view then
+			UI.Render(WAITING_VIEW)
+		end
+		return
 	end
 	UI.Refresh()
 end
@@ -542,6 +591,7 @@ function UI.OnHide()
 		pcall(UI.frame.UnregisterEvent, UI.frame, event)
 	end
 	pcall(UI.frame.UnregisterEvent, UI.frame, "PLAYER_REGEN_ENABLED")
+	UI.refreshToken = (UI.refreshToken or 0) + 1 -- a timer still in flight does nothing
 	UI.refreshPending = false
 	UI.deferredForCombat = false
 	hideTooltip()

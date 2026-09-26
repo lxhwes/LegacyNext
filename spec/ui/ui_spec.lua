@@ -68,10 +68,29 @@ local function unloadUI()
 	_G.CreateFrame = nil
 	_G.UIParent = nil
 	_G.UISpecialFrames = nil
+	_G.C_Timer = nil
+	_G.InCombatLockdown = nil
 end
+
+-- A C_Timer double that holds callbacks until the test runs them, so ordering is explicit.
+local function fakeTimer()
+	local pending = {}
+	_G.C_Timer = {
+		After = function(delay, fn) pending[#pending + 1] = { delay = delay, fn = fn } end,
+	}
+	return pending
+end
+
 
 local function fixture(name)
 	return dofile("spec/fixtures/" .. name .. ".lua")
+end
+
+local function pageOneSource(counter)
+	return function()
+		counter.calls = counter.calls + 1
+		return { challenges = fixture("dump_challenges_page1_fresh").challenges }
+	end
 end
 
 describe("UI", function()
@@ -124,8 +143,9 @@ describe("UI", function()
 			assert.equals(row.pointsText, frame.rows[index].points.text)
 			assert.is_true(frame.rows[index].shown)
 		end
-		assert.equals(1, #frame.dividers)
-		assert.equals("no progress shown", frame.dividers[1].label.text)
+		assert.equals(2, #frame.dividers)
+		assert.equals("not started", frame.dividers[1].label.text)
+		assert.equals("no progress shown", frame.dividers[2].label.text)
 
 		-- Filter bar: All plus the three groups page 1 reaches.
 		assert.equals(4, #frame.filterBar.buttons)
@@ -181,5 +201,88 @@ describe("UI", function()
 		end
 		assert.same({ "Journeyman Alchemist", "Expert Alchemist", "Artisan Alchemist" }, shown)
 		assert.equals(tradeskills, ns.UI.view.filter)
+	end)
+	it("shows an error state instead of throwing when the data source errors", function()
+		local ns = loadUI()
+		ns.UI.SetDataSource(function() error("attempt to index a number value") end)
+
+		assert.has_no.errors(function() ns.UI.Show() end)
+		local frame = ns.UI.frame
+		assert.is_true(frame.status.shown)
+		assert.matches("^Could not read your challenges: .*attempt to index a number value", frame.status.text)
+	end)
+
+	it("forgets a filter whose group has gone", function()
+		local ns = loadUI()
+		ns.UI.SetDataSource(function()
+			return { challenges = fixture("dump_challenges_page1_fresh").challenges }
+		end)
+		ns.UI.Show()
+		ns.UI.SetFilter(123456)
+
+		assert.is_nil(ns.UI.filter)
+		assert.is_nil(ns.UI.view.filter)
+	end)
+
+	it("waits for combat to end before the first read", function()
+		local ns = loadUI()
+		local counter = { calls = 0 }
+		ns.UI.SetDataSource(pageOneSource(counter))
+		local inCombat = true
+		_G.InCombatLockdown = function() return inCombat end
+
+		ns.UI.Show()
+		assert.equals(0, counter.calls)
+		assert.is_true(ns.UI.frame.status.shown)
+		assert.matches("combat", ns.UI.frame.status.text)
+
+		inCombat = false
+		ns.UI.frame.script_OnEvent(ns.UI.frame, "PLAYER_REGEN_ENABLED")
+		assert.equals(1, counter.calls)
+		assert.equals(11, #ns.UI.frame.rows)
+	end)
+
+	it("coalesces CRITERIA_UPDATE over 5 s and lets ACHIEVEMENT_EARNED cut in at 1 s", function()
+		local ns = loadUI()
+		local pending = fakeTimer()
+		local counter = { calls = 0 }
+		ns.UI.SetDataSource(pageOneSource(counter))
+		ns.UI.Show()
+		assert.equals(1, counter.calls)
+		local onEvent = ns.UI.frame.script_OnEvent
+
+		onEvent(ns.UI.frame, "CRITERIA_UPDATE")
+		onEvent(ns.UI.frame, "CRITERIA_UPDATE")
+		assert.equals(1, #pending)
+		assert.equals(5, pending[1].delay)
+
+		onEvent(ns.UI.frame, "ACHIEVEMENT_EARNED")
+		assert.equals(2, #pending)
+		assert.equals(1, pending[2].delay)
+
+		pending[2].fn()
+		assert.equals(2, counter.calls)
+		pending[1].fn() -- superseded by the 1 s refresh, so it reads nothing
+		assert.equals(2, counter.calls)
+
+		onEvent(ns.UI.frame, "CRITERIA_UPDATE")
+		assert.equals(3, #pending)
+		pending[3].fn()
+		assert.equals(3, counter.calls)
+	end)
+
+	it("shows how many other-class rows are hidden", function()
+		local ns = loadUI()
+		ns.UI.SetDataSource(function()
+			return {
+				challenges = fixture("dump_challenges_page1_fresh").challenges,
+				categories = fixture("categories_full").categories,
+				character = fixture("dump_character_shaman").character,
+			}
+		end)
+		ns.UI.Show()
+
+		assert.is_true(ns.UI.frame.status.shown)
+		assert.equals("3 other-class challenges hidden", ns.UI.frame.status.text)
 	end)
 end)

@@ -392,9 +392,13 @@ function Debug.RenderView(view, label)
 	w("state=" .. tostring(view.state) .. (view.message and ("  " .. view.message) or ""))
 	local stats = view.stats
 	if stats then
-		w(("total=%d ranked=%d measurable=%d measureless=%d completed=%d zeroPoint=%d partialRead=%d pointsUnknown=%d")
-			:format(stats.total, stats.ranked, stats.measurable, stats.measureless, stats.completed,
-				stats.zeroPoint, stats.partialRead, stats.pointsUnknown))
+		w(("total=%d ranked=%d measurable=%d measureless=%d completed=%d zeroPoint=%d otherClass=%d"
+			.. " partialRead=%d pointsUnknown=%d"):format(stats.total, stats.ranked, stats.measurable,
+				stats.measureless, stats.completed, stats.zeroPoint, stats.otherClass or 0,
+				stats.partialRead, stats.pointsUnknown))
+	end
+	if view.footnote then
+		w("note=" .. view.footnote)
 	end
 	if rowNumber > 0 then
 		w(("longest name=%d chars %q"):format(longest, longestName))

@@ -326,6 +326,43 @@ describe("Api", function()
 			assert.equals(0, challenge.criteriaExpected)
 			assert.same({}, challenge.criteria)
 		end)
+
+		it("reuses a category list it is handed instead of reading it again", function()
+			local Api = loadApi().Api
+			-- No GetCategoryList, GetCategoryInfo or GetCategoryNumAchievements injected: a
+			-- second read of any of them would fail this test.
+			inject("GetAchievementInfo", function() return 62012, "Journeyman Alchemist" end)
+			inject("GetAchievementNumCriteria", function() return 0 end)
+
+			local challenges, reason = Api.GetChallenges({
+				{ id = 15425, name = "Do Not Display", parentId = -1, numAchievements = 0 },
+				{ id = 15587, name = "Alchemy", parentId = 15586, numAchievements = 1 },
+			})
+
+			assert.is_nil(reason)
+			assert.equals(1, #challenges)
+			assert.equals("Alchemy", challenges[1].categoryName)
+			assert.equals(15586, challenges[1].parentCategoryId)
+		end)
+	end)
+
+	describe("GetRewardTrack", function()
+		it("skips list entries that are not tables instead of throwing", function()
+			local Api = loadApi().Api
+			inject("C_MajorFactions", {
+				GetMajorFactionData = function() return { name = "Track", maxLevel = 90 } end,
+				GetCurrentRenownLevel = function() return 0 end,
+				GetRenownLevels = function() return { 7, { level = 15 } } end,
+				GetRenownRewardsForLevel = function() return { "junk", { name = "Reward" } } end,
+			})
+
+			local track
+			assert.has_no.errors(function() track = Api.GetRewardTrack() end)
+			assert.equals(1, #track.thresholds)
+			assert.equals(15, track.thresholds[1].level)
+			assert.equals(1, #track.thresholds[1].rewards)
+			assert.equals("Reward", track.thresholds[1].rewards[1].name)
+		end)
 	end)
 
 	describe("GetCategories", function()

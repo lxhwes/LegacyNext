@@ -28,10 +28,13 @@ local Model = ns.Model
 -- 4. A challenge's fraction is the MEAN of its criteria fractions, so a reputation criterion
 --    does not outweigh a dungeon criterion by 42000 to 1. The display figure is have/need for
 --    a single criterion and done/total for a list.
--- 5. Sort order: measurable before measureless; then fraction remaining ascending; then
---    absolute steps remaining ascending (0/150 before 0/300, 0/6 before 0/17); then the
---    order the client listed them in, which is category order. Points are NOT a factor:
---    every point-bearing challenge awards 1 today.
+-- 5. Three tiers, decided 2026-09-26 (docs/status.md). IN PROGRESS: measurable with a
+--    fraction above zero, sorted by fraction remaining, then criteria left, then client order.
+--    NOT STARTED: measurable but every criterion at zero. These are in client order, because
+--    zero progress carries no closeness signal. Ranking them on units remaining put Explorer
+--    (one type-8 step with the whole map beneath it) first. NO PROGRESS SHOWN: the measureless
+--    block, also in client order. Points are NOT a factor: every point-bearing challenge
+--    awards 1 today.
 --
 -- Excluded from Next Up entirely (Model.Rank): completed challenges, and challenges whose
 -- points read exactly 0 (the 46 Explore substrate achievements). A challenge whose points
@@ -98,12 +101,11 @@ function Model.Progress(challenge)
 	end
 
 	local lines = {}
-	local sumFraction, done, remaining = 0, 0, 0
+	local sumFraction, done = 0, 0
 	for index, criterion in ipairs(criteria) do
 		local line = criterionProgress(criterion)
 		lines[index] = line
 		sumFraction = sumFraction + line.have / line.need
-		remaining = remaining + (line.need - line.have)
 		if line.completed or line.have >= line.need then
 			done = done + 1
 		end
@@ -116,33 +118,47 @@ function Model.Progress(challenge)
 		have, need = done, #lines
 	end
 
+	local fraction = sumFraction / #lines
 	return {
 		measurable = true,
+		started = fraction > 0,
 		have = have,
 		need = need,
-		fraction = sumFraction / #lines,
-		remaining = remaining,
+		fraction = fraction,
+		criteriaLeft = #lines - done,
 		criteriaDone = done,
 		criteriaTotal = #lines,
 		lines = lines,
 	}
 end
 
--- Sort comparator over ranked entries ({ challenge, progress, index }). Documented above as
--- rule 5. Kept separate so a tuning change is one function.
+Model.TIER_IN_PROGRESS, Model.TIER_NOT_STARTED, Model.TIER_MEASURELESS = 1, 2, 3
+
+-- Rule 5's tier for one progress table.
+function Model.TierOf(progress)
+	if not progress.measurable then
+		return Model.TIER_MEASURELESS
+	end
+	if progress.started then
+		return Model.TIER_IN_PROGRESS
+	end
+	return Model.TIER_NOT_STARTED
+end
+
+-- Sort comparator over ranked entries ({ challenge, progress, tier, index }). Documented
+-- above as rule 5. Kept separate so a tuning change is one function.
 function Model.Compare(a, b)
-	local pa, pb = a.progress, b.progress
-	if pa.measurable ~= pb.measurable then
-		return pa.measurable
+	if a.tier ~= b.tier then
+		return a.tier < b.tier
 	end
 
-	if pa.measurable then
-		local ra, rb = 1 - pa.fraction, 1 - pb.fraction
-		if ra ~= rb then
-			return ra < rb
+	if a.tier == Model.TIER_IN_PROGRESS then
+		local pa, pb = a.progress, b.progress
+		if pa.fraction ~= pb.fraction then
+			return pa.fraction > pb.fraction
 		end
-		if pa.remaining ~= pb.remaining then
-			return pa.remaining < pb.remaining
+		if pa.criteriaLeft ~= pb.criteriaLeft then
+			return pa.criteriaLeft < pb.criteriaLeft
 		end
 	end
 
@@ -161,13 +177,16 @@ function Model.IsNextUp(challenge)
 end
 
 -- The ranked list plus a tally of what was excluded and why. Entries carry the original
--- challenge, its progress and its position in the client's list.
-function Model.Rank(challenges)
+-- challenge, its progress, its tier and its position in the client's list. `hiddenCategories`
+-- is an optional set of category ids to leave out (Model.OtherClassCategories), counted as
+-- otherClass.
+function Model.Rank(challenges, hiddenCategories)
 	local entries = {}
 	local stats = {
 		total = 0,
 		completed = 0,
 		zeroPoint = 0,
+		otherClass = 0,
 		ranked = 0,
 		measurable = 0,
 		measureless = 0,
@@ -178,9 +197,14 @@ function Model.Rank(challenges)
 	for index, challenge in ipairs(challenges or {}) do
 		stats.total = stats.total + 1
 		local keep, why = Model.IsNextUp(challenge)
+		if keep and hiddenCategories and hiddenCategories[challenge.categoryId] then
+			keep, why = false, "other class"
+		end
 		if not keep then
 			if why == "completed" then
 				stats.completed = stats.completed + 1
+			elseif why == "other class" then
+				stats.otherClass = stats.otherClass + 1
 			else
 				stats.zeroPoint = stats.zeroPoint + 1
 			end
@@ -189,6 +213,7 @@ function Model.Rank(challenges)
 			entries[#entries + 1] = {
 				challenge = challenge,
 				progress = progress,
+				tier = Model.TierOf(progress),
 				index = index,
 				groupId = Model.GroupOf(challenge),
 			}
@@ -278,6 +303,37 @@ function Model.Groups(entries, categories)
 		}
 	end
 	return groups
+end
+
+-- The categories holding other classes' challenges, as a set of ids, or nil when that cannot
+-- be worked out. Found by structure, never by a hardcoded name or id: the category named like
+-- the character's class (UnitClass's localized name, same client and same locale as the
+-- category names) marks the parent, and that parent's other children are the other classes.
+-- No match means hide nothing, since an unfamiliar locale must not cost the player rows.
+function Model.OtherClassCategories(categories, className)
+	if type(categories) ~= "table" or type(className) ~= "string" or className == "" then
+		return nil
+	end
+
+	local own
+	for _, category in ipairs(categories) do
+		if category.name == className and type(category.parentId) == "number"
+			and category.parentId ~= Model.NO_PARENT then
+			own = category
+			break
+		end
+	end
+	if not own then
+		return nil
+	end
+
+	local hidden = {}
+	for _, category in ipairs(categories) do
+		if category.parentId == own.parentId and category.id ~= own.id then
+			hidden[category.id] = true
+		end
+	end
+	return hidden
 end
 
 -- Entries in one group, or all of them when groupId is nil.
@@ -371,7 +427,8 @@ end
 --------------------------------------------------------------------------------------------
 
 Model.SEPARATOR = "  \194\183  " -- middle dot; one constant so it can change if the font lacks it
-Model.DIVIDER_TEXT = "no progress shown"
+-- Divider label above each tier, indexed by tier.
+Model.TIER_TEXT = { "in progress", "not started", "no progress shown" }
 Model.ALL_LABEL = "All"
 
 local function pointsText(points)
@@ -456,6 +513,7 @@ end
 --   challenges = list | nil,  challengesReason = string | nil,
 --   rewardTrack = table | nil, rewardTrackReason = string | nil,
 --   categories = list | nil,
+--   character = Api.GetCharacterInfo output | nil, -- for hiding other classes
 --   filter = groupId | nil,
 -- }
 function Model.BuildView(input)
@@ -484,8 +542,14 @@ function Model.BuildView(input)
 		return view
 	end
 
-	local entries, stats = Model.Rank(input.challenges)
+	local character = type(input.character) == "table" and input.character or {}
+	local hidden = Model.OtherClassCategories(input.categories, character.class)
+	local entries, stats = Model.Rank(input.challenges, hidden)
 	view.stats = stats
+	if stats.otherClass > 0 then
+		view.footnote = tostring(stats.otherClass) .. " other-class challenge"
+			.. (stats.otherClass == 1 and "" or "s") .. " hidden"
+	end
 
 	if stats.total == 0 then
 		view.state = "empty"
@@ -527,11 +591,11 @@ function Model.BuildView(input)
 		return view
 	end
 
-	local dividerPlaced = false
+	local currentTier
 	for _, entry in ipairs(visible) do
-		if not entry.progress.measurable and not dividerPlaced then
-			view.rows[#view.rows + 1] = { kind = "divider", text = Model.DIVIDER_TEXT }
-			dividerPlaced = true
+		if entry.tier ~= currentTier then
+			currentTier = entry.tier
+			view.rows[#view.rows + 1] = { kind = "divider", text = Model.TIER_TEXT[currentTier], tier = currentTier }
 		end
 		view.rows[#view.rows + 1] = {
 			kind = "challenge",
@@ -541,6 +605,7 @@ function Model.BuildView(input)
 			progressText = progressText(entry.progress),
 			pointsText = pointsText(entry.challenge.points),
 			measurable = entry.progress.measurable,
+			tier = entry.tier,
 			detail = detailLines(entry),
 			entry = entry,
 		}

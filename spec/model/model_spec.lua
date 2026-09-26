@@ -111,7 +111,8 @@ describe("Model", function()
 			assert.equals(0, progress.have)
 			assert.equals(150, progress.need)
 			assert.equals(0, progress.fraction)
-			assert.equals(150, progress.remaining)
+			assert.equals(1, progress.criteriaLeft)
+			assert.is_false(progress.started)
 		end)
 
 		it("uses need/have on a type-243 criterion whose progress-bar bit is clear", function()
@@ -121,7 +122,7 @@ describe("Model", function()
 			assert.is_true(progress.measurable)
 			assert.equals(0, progress.have)
 			assert.equals(42000, progress.need)
-			assert.equals(42000, progress.remaining)
+			assert.equals(1, progress.criteriaLeft)
 		end)
 
 		it("reads a full checklist as done/total", function()
@@ -145,6 +146,8 @@ describe("Model", function()
 			assert.equals(1, progress.have)
 			assert.equals(11, progress.need)
 			assert.equals(1, progress.criteriaDone)
+			assert.equals(10, progress.criteriaLeft)
+			assert.is_true(progress.started)
 			assert.is_true(progress.fraction > 0.09 and progress.fraction < 0.1)
 		end)
 
@@ -187,7 +190,7 @@ describe("Model", function()
 			end
 		end)
 
-		it("orders page 1 by steps remaining, then measureless in client order", function()
+		it("keeps untouched and measureless challenges in client order", function()
 			local entries, stats = Model.Rank(fixture("dump_challenges_page1_fresh").challenges)
 			assert.equals(3, stats.measurable)
 			assert.equals(8, stats.measureless)
@@ -208,6 +211,36 @@ describe("Model", function()
 				{ "Artisan Alchemist", "Journeyman Alchemist", "Expert Alchemist" },
 				{ names(entries)[1], names(entries)[2], names(entries)[3] }
 			)
+		end)
+
+		-- Superseded 2026-09-26: untouched challenges used to tiebreak on raw units remaining,
+		-- which put Explorer (one type-8 step, the whole map underneath) first on a fresh
+		-- character. Untouched now means "no closeness signal", so client order stands.
+		it("never ranks an untouched challenge as close, so Explorer is not first", function()
+			local entries = Model.Rank(combinedChallenges())
+			local notStarted = {}
+			for _, entry in ipairs(entries) do
+				assert.is_not_equal(1, entry.tier) -- nothing captured is part-done and point-bearing
+				if entry.tier == 2 then
+					notStarted[#notStarted + 1] = entry.challenge.name
+				end
+			end
+			assert.same({
+				"Journeyman Alchemist", "Expert Alchemist", "Artisan Alchemist",
+				"Master of Alterac Valley", "Field of Honor: Week 4", "Explorer",
+			}, notStarted)
+		end)
+
+		it("breaks a fraction tie in progress by client order", function()
+			local list = deepCopy(fixture("dump_challenges_page1_fresh").challenges)
+			byName(list, "Artisan Alchemist").criteria[1].have = 150 -- derived: captured 0
+			byName(list, "Journeyman Alchemist").criteria[1].have = 75 -- derived: captured 0
+
+			local entries = Model.Rank(list)
+			assert.same({ "Journeyman Alchemist", "Artisan Alchemist" }, { names(entries)[1], names(entries)[2] })
+			assert.equals(1, entries[1].tier)
+			assert.equals(1, entries[2].tier)
+			assert.equals(2, entries[3].tier)
 		end)
 
 		it("does not let 0/42000 reputation outrank 0/150 skill", function()
@@ -382,20 +415,94 @@ describe("Model", function()
 			assert.is_true(#view.rows > 0)
 		end)
 
-		it("places one divider before the first measureless row", function()
-			local view = Model.BuildView(input())
-			local dividers, seenDivider = 0, false
+		local function dividerTexts(view)
+			local out = {}
 			for _, row in ipairs(view.rows) do
 				if row.kind == "divider" then
-					dividers = dividers + 1
-					seenDivider = true
-				elseif seenDivider then
-					assert.is_false(row.measurable)
-				else
-					assert.is_true(row.measurable)
+					out[#out + 1] = row.text
 				end
 			end
-			assert.equals(1, dividers)
+			return out
+		end
+
+		it("labels each tier present with its own divider, opening with not started when fresh", function()
+			local view = Model.BuildView(input())
+			assert.same({ Model.TIER_TEXT[2], Model.TIER_TEXT[3] }, dividerTexts(view))
+			assert.equals("divider", view.rows[1].kind)
+
+			local tier = 0
+			for _, row in ipairs(view.rows) do
+				if row.kind == "divider" then
+					tier = tier + 1
+				elseif tier == 1 then
+					assert.is_true(row.measurable)
+				else
+					assert.is_false(row.measurable)
+				end
+			end
+		end)
+
+		it("adds an in progress tier above the rest once anything is part-done", function()
+			local challenges = combinedChallenges()
+			byName(challenges, "Expert Alchemist").criteria[1].have = 10 -- derived: captured 0
+			local view = Model.BuildView(input({ challenges = challenges }))
+			assert.same({ Model.TIER_TEXT[1], Model.TIER_TEXT[2], Model.TIER_TEXT[3] }, dividerTexts(view))
+			assert.equals("Expert Alchemist", view.rows[2].name)
+			assert.equals("10/225", view.rows[2].progressText)
+		end)
+
+		describe("other-class challenges", function()
+			local shaman = fixture("dump_character_shaman").character
+
+			it("hides the other classes' rows for the current character and says how many", function()
+				local view = Model.BuildView(input({ character = shaman }))
+				for _, row in ipairs(view.rows) do
+					assert.is_not_equal("Druid", row.category)
+				end
+				assert.equals(3, view.stats.otherClass)
+				assert.equals("3 other-class challenges hidden", view.footnote)
+				assert.equals(13, view.filters[1].count)
+				for _, filter in ipairs(view.filters) do
+					assert.is_not_equal("Classes", filter.name) -- only Druid rows on these fixtures
+				end
+			end)
+
+			it("keeps the character's own class", function()
+				local druid = deepCopy(shaman)
+				druid.class = "Druid" -- derived: captured Shaman, varied to own the Druid rows
+				local view = Model.BuildView(input({ character = druid }))
+				assert.equals(0, view.stats.otherClass)
+				assert.is_nil(view.footnote)
+				assert.equals(16, view.filters[1].count)
+			end)
+
+			it("hides nothing when the class name matches no category", function()
+				local other = deepCopy(shaman)
+				other.class = "Chamane" -- derived: a locale the category names are not in
+				local view = Model.BuildView(input({ character = other }))
+				assert.equals(0, view.stats.otherClass)
+				assert.equals(16, view.filters[1].count)
+			end)
+
+			it("hides nothing without a character or a category list", function()
+				assert.equals(16, Model.BuildView(input()).filters[1].count)
+				assert.equals(16, Model.BuildView(input({ character = shaman, categories = false })).filters[1].count)
+			end)
+
+			it("finds the sibling classes by structure, not by the parent's name", function()
+				local categories = fixture("categories_full").categories
+				local hidden = Model.OtherClassCategories(categories, "Shaman")
+				local shamanCategory = byName(categories, "Shaman")
+				local expected = 0
+				for _, category in ipairs(categories) do
+					if category.parentId == shamanCategory.parentId and category.id ~= shamanCategory.id then
+						expected = expected + 1
+						assert.is_true(hidden[category.id])
+					end
+				end
+				assert.is_nil(hidden[shamanCategory.id])
+				assert.is_true(expected >= 8)
+			end)
 		end)
 
 		it("formats row text", function()

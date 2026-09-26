@@ -16,9 +16,14 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
   remaining. `/lgn help` lists the commands.
 - Category filter over the game's own Legacy categories.
 - Reward track header: current Legacy points, points to the next reward, and that reward's name.
-- Challenge ranking (`Model/`). Closeness reads criterion quantities whenever `need > 1`, so a
-  0/42000 reputation criterion is not scored as one step from done. Zero-point challenges are
-  excluded. Challenges with no measurable criteria sort last, under a divider, rather than at 0%.
+- Challenge ranking (`Model/`) in three tiers, each under its own divider: in progress (sorted
+  by closeness), not started (the game's category order), and no progress shown. Closeness
+  reads criterion quantities whenever `need > 1`, so a 0/42000 reputation criterion is not
+  scored as one step from done. Zero-point challenges are excluded. Challenges with no
+  measurable criteria sit in the last tier rather than at 0%.
+- Other classes' challenges are hidden for the current character, with a line saying how many.
+  They are matched by structure against the character's class name, and nothing is hidden if
+  that fails to match.
 - Reward-track summary (`Model/`): current level, next threshold and reward name from the
   sparse renown level list.
 - Guarded client read layer (`Api/`). Every call is feature-detected, `pcall`ed and checked with
@@ -33,9 +38,10 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 - `/lgn uidump [category]`: the window's contents as text, for checking what would render
   without a screenshot.
 - Addon icon in the AddOns list (`Media/icon.tga`, original art; see `docs/icon-design.md`).
-- Escape closes the window. It refreshes on open, on `ACHIEVEMENT_EARNED` and
-  `CRITERIA_UPDATE` while open (coalesced to one rebuild per second), and defers a rebuild
-  until combat ends.
+- Escape closes the window. It refreshes on open, on `ACHIEVEMENT_EARNED` within a second and
+  on `CRITERIA_UPDATE` at most every five seconds while open, and defers any rebuild,
+  including the first on open, until combat ends. A read that throws shows as the window's
+  error state instead of a Lua error.
 
 ## Versioning
 

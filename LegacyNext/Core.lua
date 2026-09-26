@@ -28,15 +28,19 @@ ns.say = say
 -- Model, shared by the frame and by /lgn uidump so the two cannot disagree.
 function ns.ReadViewInput()
 	local Api = ns.Api
-	local challenges, challengesReason = Api.GetChallenges()
-	local rewardTrack, rewardTrackReason = Api.GetRewardTrack()
+	-- Categories first, then handed to GetChallenges so the list is read once.
 	local categories = Api.GetCategories()
+	local challenges, challengesReason = Api.GetChallenges(categories)
+	local rewardTrack, rewardTrackReason = Api.GetRewardTrack()
+	-- For hiding other classes' challenges. A failed read hides nothing.
+	local character = Api.GetCharacterInfo()
 	return {
 		challenges = challenges,
 		challengesReason = challengesReason,
 		rewardTrack = rewardTrack,
 		rewardTrackReason = rewardTrackReason,
 		categories = categories,
+		character = character,
 	}
 end
 

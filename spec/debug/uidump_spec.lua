@@ -25,6 +25,14 @@ local function combinedChallenges()
 	return list
 end
 
+-- UPDATE_GOLDEN=1 rewrites the golden file from the current output instead of comparing.
+-- For a deliberate change to row content only: read `git diff spec/golden/` before committing.
+local function writeFile(path, text)
+	local handle = assert(io.open(path, "w"))
+	handle:write(text)
+	handle:close()
+end
+
 local function readFile(path)
 	local handle = assert(io.open(path, "r"))
 	local text = handle:read("*a")
@@ -52,11 +60,29 @@ describe("Debug.RenderView", function()
 			challenges = combinedChallenges(),
 			rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
 			categories = fixture("categories_full").categories,
+			character = fixture("dump_character_shaman").character,
 		})
 		local text = ns.Debug.RenderView(view,
-			"fixtures: page1 + criteria types + categories_full + rewards_fresh")
+			"fixtures: page1 + criteria types + categories_full + rewards_fresh + character_shaman")
 
-		assertSameText(readFile("spec/golden/uidump_combined.txt"), text)
+		local golden = "spec/golden/uidump_combined.txt"
+		if os.getenv("UPDATE_GOLDEN") == "1" then
+			writeFile(golden, text)
+		end
+		assertSameText(readFile(golden), text)
+	end)
+
+	it("says how many other-class rows were hidden", function()
+		local ns = loadStack()
+		local view = ns.Model.BuildView({
+			challenges = combinedChallenges(),
+			categories = fixture("categories_full").categories,
+			character = fixture("dump_character_shaman").character,
+		})
+		local text = ns.Debug.RenderView(view)
+
+		assert.matches("note=3 other%-class challenges hidden", text)
+		assert.matches("otherClass=3", text)
 	end)
 
 	it("renders the error state without a row block", function()

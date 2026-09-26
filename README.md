@@ -16,13 +16,17 @@
 </p>
 
 Shows which of your Legacy challenges in World of Warcraft: Forever are closest to done.
-Open it and every incomplete challenge is listed nearest-first, with your reward track at the top.
+Open it and the challenges you have started are listed closest-first, with your reward track
+at the top.
 
 ## What it does
 
-- Lists your incomplete Legacy challenges sorted by how close each one is to completion. Each
-  row shows the name, what is left ("3/6", "0/150") and the points it awards. Hover a row for
-  its category, description and every criterion.
+- Lists your incomplete Legacy challenges in three groups: started ones sorted by how close
+  each is to completion, then ones you have not started, then the ones the game reports no
+  progress for. Each row shows the name, what is left ("3/6", "0/150") and the points it
+  awards. Hover a row for its category, description and every criterion.
+- Leaves out the other classes' challenges, which your current character can never earn, and
+  says how many it left out.
 - Filters the list by the game's own Legacy categories.
 - Shows your reward track: current Legacy points, points to the next reward, and that reward's
   name.
@@ -38,19 +42,23 @@ Layout, with the numbers a fresh character sees:
 ├────────────────────────────────────────┤
 │ [All] Class Prof PvP Rep Dung Raid     │
 ├────────────────────────────────────────┤
+│ ──────────── not started ───────────── │
 │ Journeyman Alchemist        0/150  1pt │
+│ Expert Alchemist            0/225  1pt │
 │ Novice Spelunker              0/6  1pt │
 │ Master of Alterac Valley  0/42000  1pt │
-│ Conquerer of the Deeps        0/8  1pt │
-│ Expert Alchemist            0/225  1pt │
-│ ─────────── no progress shown ──────── │
-│ Novice Druid                       1pt │
+│ ───────── no progress shown ────────── │
+│ Novice Shaman                      1pt │
 │ Rank 3                             1pt │
+│ 24 other-class challenges hidden       │
 └────────────────────────────────────────┘
 ```
 
-Rows are text, one line each. The divider is not decoration: 34 challenges expose no progress
-at all through the game's API, so they sit below it rather than being drawn as 0%.
+Rows are text, one line each, under a divider for each group. A fresh character starts with
+nothing in progress, so the list opens at "not started". Those rows stay in the game's own
+category order, because zero progress says nothing about which is closest. The "no progress
+shown" divider matters too: those challenges expose no progress at all through the game's
+API, so they sit below it rather than being drawn as 0%.
 
 ## Commands
 
@@ -93,8 +101,11 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
   beta (a Blizzard-side bug), so v0 keeps no data of its own.
 - 34 challenges expose no progress through the game's API: class levelling, the PvP ranks and a
   few others. They sit under a "no progress shown" divider instead of being scored as 0%.
-- The list refreshes when you open the window and when the game reports achievement or
-  criteria progress while it is open. It waits until you leave combat before rebuilding.
+- Other classes' challenges are recognised by matching your class name against the game's
+  category names. If that ever fails to match, nothing is hidden.
+- The list refreshes when you open the window, within a second of earning an achievement, and
+  at most every five seconds while criteria progress. It waits until you leave combat before
+  rebuilding.
 
 ## Roadmap
 

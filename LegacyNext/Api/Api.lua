@@ -411,32 +411,32 @@ end
 
 -- Walks the category list directly. Never SetAchievementSearchString: that is global client
 -- state shared with Blizzard's Achievement UI and it changes underneath us.
-function Api.GetChallenges()
+--
+-- `categories` is optional Api.GetCategories output. The view reads that list anyway, for
+-- the parents' names, so passing it saves the ~58 calls of reading it a second time.
+function Api.GetChallenges(categories)
 	local currencyId = Api.GetConstant("LEGACY_POINTS_TRAIT_CURRENCY_ID")
 	local accountMask = globalNumber("ACHIEVEMENT_FLAGS_ACCOUNT")
 	local progressBarMask = globalNumber("EVALUATION_TREE_FLAG_PROGRESS_BAR")
 
-	local categoriesResult = call("GetCategoryList")
-	if not categoriesResult then
-		return nil, "GetCategoryList unavailable"
-	end
-
-	local categories = categoriesResult[1]
 	if type(categories) ~= "table" then
-		return nil, "GetCategoryList returned no list"
+		local reason
+		categories, reason = Api.GetCategories()
+		if not categories then
+			return nil, reason
+		end
 	end
 
 	local challenges = {}
-	for _, categoryId in ipairs(categories) do
-		local countResult = call("GetCategoryNumAchievements", categoryId)
-		local total = countResult and countResult[1]
+	for _, category in ipairs(categories) do
+		local categoryId = type(category) == "table" and category.id
+		local total = type(category) == "table" and category.numAchievements
 
 		-- Drop empty categories by count, never by name: "Do Not Display" is a real category
 		-- the client hands back and its name is not a contract.
-		if type(total) == "number" and total > 0 then
-			local infoResult = call("GetCategoryInfo", categoryId)
-			local categoryName = infoResult and infoResult[1]
-			local parentId = infoResult and infoResult[2]
+		if type(categoryId) == "number" and type(total) == "number" and total > 0 then
+			local categoryName = category.name
+			local parentId = category.parentId
 
 			for index = 1, total do
 				local result = call("GetAchievementInfo", categoryId, index)
@@ -461,8 +461,10 @@ function Api.GetChallenges()
 						parentCategoryId = parentId,
 						categoryIndex = index,
 						points = points,
-						-- `completed` is account state. Per-character "done" is
-						-- completed and wasEarnedByMe, which is Model's call to make.
+						-- `completed` is account state, and Model reads it alone: every
+						-- point-bearing challenge carries ACHIEVEMENT_FLAGS_ACCOUNT, and the
+						-- per-character ones are the zero-point Explore set Next Up drops.
+						-- wasEarnedByMe is kept for the dump and for v1.
 						completed = result[4] and true or false,
 						wasEarnedByMe = result[13] and true or false,
 						earnedBy = result[14],
@@ -502,25 +504,29 @@ local function readRewards(factionId, level)
 
 	local rewards = {}
 	for _, entry in ipairs(list) do
-		rewards[#rewards + 1] = {
-			-- `name` is absent on some entries and toastDescription is not, so the fallback
-			-- is normal rather than an error path.
-			name = entry.name or entry.toastDescription,
-			rawName = entry.name,
-			toastDescription = entry.toastDescription,
-			description = entry.description,
-			icon = entry.icon,
-			itemID = entry.itemID,
-			spellID = entry.spellID,
-			mountID = entry.mountID,
-			titleMaskID = entry.titleMaskID,
-			rewardType = entry.rewardType,
-			-- Account collection state, not "this threshold is reached". Read true at a
-			-- threshold a renown-0 character had not hit. Never render it as progress.
-			isCollected = entry.isCollected,
-			isAccountUnlock = entry.isAccountUnlock,
-			uiOrder = entry.uiOrder,
-		}
+		-- The copy guard vouches for plain data, not for shape; a non-table entry is skipped
+		-- rather than indexed.
+		if type(entry) == "table" then
+			rewards[#rewards + 1] = {
+				-- `name` is absent on some entries and toastDescription is not, so the fallback
+				-- is normal rather than an error path.
+				name = entry.name or entry.toastDescription,
+				rawName = entry.name,
+				toastDescription = entry.toastDescription,
+				description = entry.description,
+				icon = entry.icon,
+				itemID = entry.itemID,
+				spellID = entry.spellID,
+				mountID = entry.mountID,
+				titleMaskID = entry.titleMaskID,
+				rewardType = entry.rewardType,
+				-- Account collection state, not "this threshold is reached". Read true at a
+				-- threshold a renown-0 character had not hit. Never render it as progress.
+				isCollected = entry.isCollected,
+				isAccountUnlock = entry.isAccountUnlock,
+				uiOrder = entry.uiOrder,
+			}
+		end
 	end
 
 	return rewards
@@ -566,7 +572,7 @@ function Api.GetRewardTrack()
 	-- because every calculation below assumes ascending order.
 	local thresholds = {}
 	for _, info in ipairs(levels) do
-		if type(info.level) == "number" then
+		if type(info) == "table" and type(info.level) == "number" then
 			thresholds[#thresholds + 1] = {
 				level = info.level,
 				locked = info.locked,
