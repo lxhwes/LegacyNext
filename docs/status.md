@@ -2,23 +2,116 @@
 
 Last updated 2026-09-26.
 
-**Where we are: Phase 3 is built, green here, and the frame has now been drawn by the client.
-3a and 3b are done — U1's uidump came back correct on the first try, with one Lua error since
-fixed. 3c is done except the CurseForge check and the TOC version line. Phase 4 has not
-started. The vendor pin is at `1.60.1.70009`; nothing we call moved.**
+**Where we are: Phase 3 is built and the frame has been drawn by the client. A review pass on
+2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
+`CRITERIA_UPDATE` refresh to 5 s and hardened the read path. All of it is tested here and
+none of it has been seen in game yet. 3c is done except the CurseForge check and the TOC
+version line. Phase 4 has not started. The vendor pin is at `1.60.1.70009`.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
 rather than an assumption: `issecretvalue` exists and the guard is active.
 
-`Model/` ranks, groups and summarises against the fixtures (30 tests, run under an environment
-that errors on any non-stdlib global). `UI/` renders the settled layout through a widget
-double (5 tests). `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and
-matches `spec/golden/uidump_combined.txt`. 74 tests, nothing pending.
+`Model/` ranks, groups and summarises against the fixtures (38 tests, run under an environment
+that errors on any non-stdlib global). `UI/` renders through a widget double (10 tests).
+`/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
+`spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Open in the queue, in order: **U3** (icon in the AddOns list), **U1** (screenshot only, the
-uidump half is answered), **U2** (truncation), then **D4**, **C1–C4**, **D8** as before.
-See `docs/ingame-commands.md`.
+Open in the queue, in order: **U3**, **U1** and **U2** (under five minutes together), then
+**C3**, with **D4** and **C2** in the same Alchemy session. C3 is the first real data for the
+"in progress" tier. See `docs/ingame-commands.md`.
+
+## Review pass — 2026-09-26
+
+Two critical reviews, one of the code and one of the dev docs, then fixes. Alex settled the
+three open choices the same day.
+
+**The ranking misled a fresh character, and that was the headline finding.** With every
+criterion at zero, the tiebreak did all the ordering. It summed raw units remaining across
+skill points, reputation and dungeon counts, which put `Explorer` (one type-8 step, the whole
+map underneath) second in the golden file. **Decided: three tiers.** In progress is ranked by
+fraction, then criteria left, then client order. Not started stays in client order. No
+progress shown is unchanged. Each tier present gets its own divider, so a fresh character's
+list opens at "not started" and nothing claims to be close. Ranking decision 4 below records
+it.
+
+**Other classes' challenges are hidden, with a count.** Decided by Alex, and it closes the
+open decision in the article section below. The match is structural: the category named like
+`UnitClass`'s localized name marks its parent, and that parent's other children are hidden.
+There is no "Classes" name and no ID. No match hides nothing. `Core.ReadViewInput` now reads
+`Api.GetCharacterInfo` for this.
+
+**`CRITERIA_UPDATE` coalesces over 5 s**, and `ACHIEVEMENT_EARNED` keeps 1 s. The event fires
+for every criterion in the game, so at 1 s an open window cost a 21 ms sweep every second while
+questing. A sooner request supersedes a later one through a token, and closing the window
+cancels whatever is in flight.
+
+Also fixed in code, each with a test:
+
+- `UI.Refresh` `pcall`s the whole read. A throw now shows as the window's error state instead
+  of a Lua error on every open. A test caught its own bug this way while being written.
+- `Api.GetRewardTrack` skips non-table entries in the level and reward lists instead of
+  indexing them.
+- The first open in combat now waits for `PLAYER_REGEN_ENABLED` too, and says so in the window.
+  Before, only event-driven refreshes waited.
+- `Api.GetChallenges(categories)` reuses the category list `ReadViewInput` already read.
+- `UI.filter` follows `BuildView`'s fallback, so a vanished group is forgotten.
+- `UPDATE_GOLDEN=1` regenerates the uidump golden file. The golden now includes the Shaman
+  character fixture, so it shows the view a real character gets.
+
+Docs:
+
+- **The vendor recreate recipe never checked out the pin.** It cloned the branch head.
+  `vendor/PINS.md` now fetches and checks out the SHA from its own table, which is the same
+  extraction `bump.sh` uses. The recipe was tested in a scratch directory and landed on
+  `bd2470a` / `1.60.1.70009`. `docs/development.md` points to it instead of copying it.
+- **`docs/legacy-internals.md` carried a second in-game queue**, C1–C9, whose IDs clashed with
+  the live C1–C4. It is retired to a table mapping each old ID to where it was answered.
+- `docs/ingame-commands.md` dropped the closed rows' instructions (they are in git history),
+  replaced Scripts 1 and 2 with the `/lgn` commands that already read the same data, re-priced
+  C3 as a ten-minute Alchemy session with D4 and C2, and added `ACHIEVEMENT_EARNED` to the C2
+  trace. The `LNDump` EditBox block stays, because the `ingame-script` skill uses it as its
+  template.
+- `docs/development.md` gained a Workflows section: fixture intake, script parse-check, golden
+  updates, re-pinning and citation checks.
+
+**Tooling notes for Alex**, since the sandbox refuses writes under `.claude/skills/`:
+`ingame-script/SKILL.md` (lines 105, 135-144) and `fixture-intake`'s examples still say
+"script 1". Script 1 is gone from the doc, and the `LNDump` block is now its own section.
+The evals in `ingame-script/evals/evals.json` ask to edit script 1. The `mktemp -d` issue in
+`check_script.sh` and `precommit.sh` still stands, so this pass parse-checked the in-game
+blocks by hand with `luac -p`, multi-line and flattened.
+
+## Blizzard's Legacy overview article — 2026-09-26
+
+Blizzard published a public overview of the system
+(<https://news.blizzard.com/en-us/article/24307383/get-to-know-the-world-of-warcraft-forever-legacy-system>).
+Nothing in it contradicts a client fact, and its per-category totals are the U1 filter bar
+row for row — 27/18/12/2/3/3, 65 challenges, with the zero-point Explore achievements outside
+Blizzard's own count. The four reward names match D6. Detail and quotes in
+`docs/legacy-internals.md`, "Blizzard's public numbers".
+
+Two things it adds that change plans rather than facts:
+
+**One character can earn at most 29 of the 65.** Blizzard's breakdown: 3 leveling, up to 6
+tradeskills, 12 PvP, 2 Adventure, 6 Dungeons and Raids. That is v1's premise in Blizzard's own
+words. It also pins down v1's profession mapping: the six Tradeskills children are all
+crafting, the unlock rule says "non-gathering primary tradeskill", and 6 = two primaries ×
+three tiers. Gathering and secondary professions never map to a challenge.
+
+**v0 shows 24 rows the current character cannot finish.** The character's own class covers 3
+of the 27 class points; the other eight classes' challenges sit below the "no progress shown"
+divider because they carry no criteria, but they are dead weight for that character — 24 of
+the 34 rows under the divider. ~~**Open decision, Alex's:** hide them, or leave them as the
+account-wide view.~~ **Settled 2026-09-26: hidden, with a count.** See "Review pass" above. Hiding would match the class subcategory name against the localized name
+`UnitClass("player")` already returns through `Api.GetCharacterInfo` — a same-locale string compare
+of two client values, not description parsing — and would be a `Model` change plus a golden
+update. It is not a ship blocker either way.
+
+Also from the article: the system unlocks on the first point (level 25, 150 in a crafting
+profession, or the full map), yet every read we make worked on two zero-point characters, so
+the addon works before Blizzard's own window does. Blizzard plans more challenges and reward
+tiers "for each content update", which is the no-hardcoded-IDs rule earning its keep.
 
 ## Vendor pin moved to 1.60.1.70009 — 2026-09-26
 
@@ -89,8 +182,9 @@ and drop empty groups by count. `RewardSummary` recomputes the next threshold fr
 list. `BuildView` produces the whole view: header lines, filter bar, rows with a divider, and
 three distinct non-ok states (`error`, `empty`, `done`).
 
-One consequence worth stating so it is not reported as a bug: **single-step challenges sort
-first among untouched entries.** `Explorer` (one type-8 criterion) and `Field of Honor: Week 4`
+~~One consequence worth stating so it is not reported as a bug: **single-step challenges sort
+first among untouched entries.**~~ **Superseded 2026-09-26.** It was a bug from the player's side.
+Untouched challenges are now their own tier in client order. See "Review pass" above. `Explorer` (one type-8 criterion) and `Field of Honor: Week 4`
 (one type-27 quest step) read `0/1`, and one step is fewer than 150. That is decision 3
 (no recursion) meeting decision 4 (steps as the tiebreak). If it reads wrong in the client,
 the fix is a scoring change in `Model.Compare`, not a rewrite.
@@ -108,7 +202,7 @@ categories, doc order, every row verbatim) and labelled as such; **D9** replaces
 | Scroll | ScrollBox vs `UIPanelScrollFrameTemplate` | **`UIPanelScrollFrameTemplate`**, via `pcall`, falling back to a bare `ScrollFrame` with wheel scrolling by hand. ScrollBox is Tier A on the branch (`docs/ui-templates.md`) but unproven in game, and 65 text rows in a pool do not need a data provider. Revisit only if U1 shows a problem |
 | Truncation | Long names in a ~40-char row | `SetWordWrap(false)` + `SetMaxLines(1)` on a fixed-width name string, tooltip on hover with the full name, description and every criterion. Whether the client draws `...` is Tier C: **U2** |
 | States | Empty vs error | Three: `error` ("Could not read your challenges: <reason>"), `empty` ("No Legacy challenges found"), `done` ("Nothing left to earn", with a per-category variant). Header failures are separate and never blank the list |
-| Refresh | Throttle policy | On show; `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE` registered only while shown; coalesced to one rebuild per second via `C_Timer.After` (feature-detected); deferred to `PLAYER_REGEN_ENABLED` when `InCombatLockdown()`. The frame itself is not protected, the 900-call sweep is the reason |
+| Refresh | Throttle policy | On show; `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE` registered only while shown; ~~coalesced to one rebuild per second~~ 1 s for `ACHIEVEMENT_EARNED`, 5 s for `CRITERIA_UPDATE` (2026-09-26), via `C_Timer.After` (feature-detected); deferred to `PLAYER_REGEN_ENABLED` when `InCombatLockdown()`, on first open too since 2026-09-26. The frame itself is not protected, the 900-call sweep is the reason |
 | Escape | `UISpecialFrames` | Inserted when the table exists. The template's own close button is rewired to `frame:Hide()` because `UIPanelCloseButton_OnClick` routes through `HideUIPanel`, which refuses in combat (`UIParentPanelManager.lua:854-861`) |
 
 Frame chrome is `BasicFrameTemplateWithInset` with a plain-frame fallback. `UI/` never touches
@@ -262,7 +356,7 @@ way: the dry run cost twenty minutes and closed two blockers.
 | — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
 | 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
-| 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Built**, unseen in the client — **U1** |
+| 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Done** — drawn in the client 2026-09-19 (U1 uidump). Screenshot still open; the 2026-09-26 changes are unseen |
 | 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except CurseForge check, TOC version line |
 | 4 | v1 roster. Blocked on SavedVariables, **and its stated approach is known broken** — see below. | Blocked |
 
@@ -378,6 +472,13 @@ So the honest options are to parse the description for a level (the thing the br
 and it breaks on localisation), to ship profession mapping only, or to drop the class half.
 **Alex's call, not taken yet.** It does not block Phase 3.
 
+Added 2026-09-26, from Blizzard's overview article: profession mapping only ever targets the
+six crafting professions — Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking,
+Tailoring — since those are the only Tradeskills children and the unlock rule reads
+"non-gathering primary tradeskill". A roster snapshot should still record every profession
+slot (the seven-return rule stands), but the mapper skips any skill line with no challenge.
+The same article states the reason v1 exists: one character tops out at 29 of the 65 points.
+
 ## Research questions
 
 All twelve answered. Detail and citations in `docs/legacy-internals.md`.
@@ -434,12 +535,13 @@ These came out of research and should not be relitigated without new evidence.
 here — it used to be, and the two copies drifted within a day. Cite the ID when something is
 blocked on a row.
 
-What blocks what, as of 2026-09-19:
+What blocks what, as of 2026-09-26:
 
 | Blocked | On |
 |---|---|
-| Calling 3b done; every look-and-feel question | U1 |
-| Un-pending the `GetCategories` fixture test; filter bar in client order | D9 |
+| ~~Calling 3b done;~~ every look-and-feel question | U1 (3b is done, the screenshot is not) |
+| ~~Un-pending the `GetCategories` fixture test; filter bar in client order~~ | ~~D9~~ closed 2026-09-19 |
+| A real "in progress" row for the three-tier ranking | C3 |
 | Whether long names ellipsise or only clip | U2 |
 | `Api.GetCharacterInfo`'s profession slots (v1, not v0) | D4 |
 | Real mid-progress ranking tests — derived values carry Phase 3a until then | C3 |
@@ -463,6 +565,8 @@ Scoring inputs, all settled and not to be relitigated without new evidence:
 4. Use `need`/`have` whenever `need > 1`, not only when the progress-bar bit is set (D7)
 5. Mid-progress test values may be derived from captured shapes, labelled — see
    `spec/fixtures/README.md`
+6. Added 2026-09-26: untouched measurable challenges are their own tier, in client order
+   (Ranking decision 4)
 
 **The known weakness, stated so it is not discovered later:** every captured point-bearing
 criterion reads `have = 0`. Ordering by fewest absolute steps is testable from real data
@@ -575,6 +679,13 @@ function; changing one is a scoring change, not a rewrite.
    with decision 2, the only entries that recursion would have fixed are zero-point Explore
    achievements that Next Up already excludes. `followMetaChains` stays in `Api`, stays off,
    and is a v1 question if a point-bearing meta challenge ever turns up — none has yet.
+4. **Three tiers — Alex, 2026-09-26.** In progress (fraction above zero, ranked by fraction,
+   then criteria left, then client order), not started (client order), no progress shown
+   (client order). Replaces the raw-units tiebreak, which summed skill points, reputation and
+   dungeon counts and ranked `Explorer` second on a fresh character.
+5. **Other classes' challenges hidden, with a count — Alex, 2026-09-26.** Matched by structure
+   against `UnitClass`'s localized name, never by a hardcoded name or ID. No match hides
+   nothing.
 
 ## What Phase 2 built
 
@@ -617,7 +728,7 @@ returns and never names a slot.
   `docs/distribution.md`. What remains is the CurseForge version type, unverified.
 - ~~**`.pkgmeta`'s `move-folders`** has never been run against the real packager.~~ Run
   2026-09-19; TOC at the zip root.
-- **The v0 frame has never been drawn.** Every template it uses is cited at the pin and
+- ~~**The v0 frame has never been drawn.**~~ Drawn 2026-09-19, U1's uidump. Kept for the record: Every template it uses is cited at the pin and
   feature-detected with a fallback, and the render path is exercised through a widget double,
   but a widget double cannot tell a frame from a blank. U1 is the first look.
 - **IDs churn during beta.** Nothing in `LegacyNext/` may hardcode an achievement, category or
