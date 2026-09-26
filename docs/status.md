@@ -1,10 +1,11 @@
 # Status
 
-Last updated 2026-09-19 (evening).
+Last updated 2026-09-19 (night).
 
-**Where we are: Phase 3 is built and green here. 3a is done. 3b is written but has never been
-drawn by the client — U1 is the next thing that happens. 3c is done except the CurseForge
-check and the TOC version line. Phase 4 has not started.**
+**Where we are: Phase 3 is built, green here, and the frame has now been drawn by the client.
+3a and 3b are done — U1's uidump came back correct on the first try, with one Lua error since
+fixed. 3c is done except the CurseForge check and the TOC version line. Phase 4 has not
+started.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
@@ -12,12 +13,53 @@ rather than an assumption: `issecretvalue` exists and the guard is active.
 
 `Model/` ranks, groups and summarises against the fixtures (30 tests, run under an environment
 that errors on any non-stdlib global). `UI/` renders the settled layout through a widget
-double (4 tests). `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and
-matches `spec/golden/uidump_combined.txt`. 72 tests, 1 pending on **D9**.
+double (5 tests). `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and
+matches `spec/golden/uidump_combined.txt`. 74 tests, nothing pending.
 
-Open in the queue, in order: **U1** (open the frame, paste uidump), **U3** (icon in the AddOns
-list), **D9** (categories dump), **U2** (truncation), then **D4**, **C1–C4**, **D8** as before.
+Open in the queue, in order: **U3** (icon in the AddOns list), **U1** (screenshot only, the
+uidump half is answered), **U2** (truncation), then **D4**, **C1–C4**, **D8** as before.
 See `docs/ingame-commands.md`.
+
+## U1 — the frame drew, and D9 closed the last pending test, 2026-09-19 (night)
+
+**The window renders, and the content is right.** Both templates resolved on the live client —
+`frameTemplate = "BasicFrameTemplateWithInset"`, `scrollTemplate = "UIPanelScrollFrameTemplate"`,
+neither a fallback — and `escapeCloses = true`. The header read
+`Legacy Track  ·  0 pts  ·  15 to next` / `Next: Replica Ironforge Air Rifle`. The filter bar
+came back exactly as predicted: `[All 65] | Classes 27 | Tradeskills 18 | Dungeons 3 |
+Raids 3 | Player vs. Player 12 | Adventure 2`, summing to 65, in client category order with
+every group named. 65 rows, 31 measurable above the `no progress shown` divider and 34 below,
+no `?` figures. Longest name 27 characters, none over 30.
+
+**`read took 21 ms`** for the whole sweep. That is the number nobody had, and it settles the
+refresh policy: the 100 ms threshold that would have forced `CRITERIA_UPDATE` off the refresh
+path is not close. The throttle stays as built.
+
+**One Lua error, and it fired on the very first `/lgn` of a session.** `ensureFrame` published
+`UI.frame` *after* `frame:Hide()`, but a frame is shown at creation, so that Hide fired
+`OnHide`, which indexes `UI.frame` — nil at that instant. It is once per session and the frame
+drew anyway, since `ensureFrame` had already finished building it and Toggle went on to Show.
+Fixed by hiding and publishing `UI.frame` before the handlers are wired.
+
+The UI widget double had not caught it because `Show`/`Hide` on the double were plain state
+setters that never fired the scripts. They now fire `OnShow` and `OnHide` on a state change,
+as the client does, which reproduces the exact stack; the regression test is
+`spec/ui/ui_spec.lua`, "toggles open on the first call without touching a nil UI.frame".
+
+**U1 stays open for the screenshot alone.** Row content is checkable here against
+`spec/golden/`; only the look needs Alex's eyes, and it should be judged on a build with the
+fix in it.
+
+**D9: all 29 categories, in client order, summing to 111.** `spec/fixtures/categories_full.lua`
+replaces the assembled `categories_partial.lua`, which it confirms field for field — all 16
+rows, nothing contradicted. The 13 it adds are the class and tradeskill ids the section-B sweep
+never recorded. Client order is not sorted by id, name or depth: `Do Not Display`, `Druid`,
+`Alchemy`, `Ranks`, `Explorer`, `Tier 1 Gear`, `Eastern Kingdoms`, then the rest interleaved.
+Two structural notes the partial could not show — **Raids and Adventure both hold achievements
+of their own and have children**, while Classes, Tradeskills and Player vs. Player hold none,
+so "a parent category is empty" was never a safe assumption. No `Model/` or golden output
+changed when the fixture was swapped in, which is the check that the partial had not been
+quietly shaping the tests.
 
 ## Phase 3 built — 2026-09-19
 
@@ -165,7 +207,9 @@ that are currently known to be false or unverified.
 
 - [x] `Model/` ranking, tested against `spec/fixtures/` — 2026-09-19
 - [x] The v0 frame: reward track header, ranked list, category filter — written 2026-09-19
-- [ ] The v0 frame **seen in the client** — **U1**
+- [x] The v0 frame **seen in the client** — U1's uidump, 2026-09-19. Content correct, both
+      templates resolved, 21 ms per read, one OnHide error found and fixed. Screenshot still
+      wanted for the look; U1 stays open for that alone
 - [x] Reward track header actually renders — D6 closed 2026-09-19, header built on it
 
 **Blocking, release mechanics** (`docs/distribution.md`):
@@ -184,7 +228,8 @@ that are currently known to be false or unverified.
 
 **Should be true, not blocking:**
 
-- [ ] **D9** — categories capture in client order, replacing the assembled partial fixture
+- [x] **D9** — categories capture in client order, `spec/fixtures/categories_full.lua`,
+      2026-09-19
 - [ ] **U2** — whether long names get `...` or need the tooltip alone
 - [ ] **C2** — whether the achievement events fire; the frame registers them regardless
 - [ ] Competition recheck immediately before release

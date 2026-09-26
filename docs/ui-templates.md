@@ -8,6 +8,12 @@ bump. That script only resolves `.lua` citations, so the `.xml` lines here were 
 Tiers: **A** defined in vendored source at the cited line. **B** referenced in vendored source
 but defined C-side or elsewhere. **C** not found; needs the game.
 
+**Two of these are now confirmed in game, not just at the pin** [U1, 2026-09-19]: `/lgn uidump`
+reported `frameTemplate = "BasicFrameTemplateWithInset"` and
+`scrollTemplate = "UIPanelScrollFrameTemplate"`, so neither `pcall` fallback fired on build
+1.60.1 (69913). Tier A held for both. The Tier C items below — auto-ellipsis (U2) and combat
+behaviour — are still open.
+
 Scope note: this pass widened the sparse checkout (same SHA) with `Blizzard_SharedXML{,Base,Game}`,
 `Blizzard_FrameXML{,Base,Util}`, `Blizzard_Fonts_Shared`, `Blizzard_UIParent{,PanelManager,Util}`,
 `Blizzard_UIPanelTemplates` and `Blizzard_GameTooltip`. `vendor/PINS.md` records the widened set

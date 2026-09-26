@@ -51,10 +51,10 @@ describe("Debug.RenderView", function()
 		local view = ns.Model.BuildView({
 			challenges = combinedChallenges(),
 			rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
-			categories = fixture("categories_partial").categories,
+			categories = fixture("categories_full").categories,
 		})
 		local text = ns.Debug.RenderView(view,
-			"fixtures: page1 + criteria types + categories_partial + rewards_fresh")
+			"fixtures: page1 + criteria types + categories_full + rewards_fresh")
 
 		assertSameText(readFile("spec/golden/uidump_combined.txt"), text)
 	end)
@@ -75,7 +75,7 @@ describe("Debug.RenderView", function()
 
 	it("marks the selected filter and reports names that overflow", function()
 		local ns = loadStack()
-		local categories = fixture("categories_partial").categories
+		local categories = fixture("categories_full").categories
 		local classes
 		for _, category in ipairs(categories) do
 			if category.name == "Classes" then classes = category.id end

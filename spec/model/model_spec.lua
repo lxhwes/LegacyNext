@@ -84,7 +84,7 @@ describe("Model", function()
 		local view = Model.BuildView({
 			challenges = combinedChallenges(),
 			rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
-			categories = fixture("categories_partial").categories,
+			categories = fixture("categories_full").categories,
 		})
 		assert.equals("ok", view.state)
 	end)
@@ -248,7 +248,7 @@ describe("Model", function()
 
 		it("treats parentCategoryId -1 as top level and names groups from the category list", function()
 			local entries = Model.Rank(combinedChallenges())
-			local groups = Model.Groups(entries, fixture("categories_partial").categories)
+			local groups = Model.Groups(entries, fixture("categories_full").categories)
 
 			local labels, counts = {}, {}
 			for index, group in ipairs(groups) do
@@ -269,7 +269,7 @@ describe("Model", function()
 
 		it("never shows an empty category", function()
 			local entries = Model.Rank(combinedChallenges())
-			local groups = Model.Groups(entries, fixture("categories_partial").categories)
+			local groups = Model.Groups(entries, fixture("categories_full").categories)
 			for _, group in ipairs(groups) do
 				assert.is_not_equal("Do Not Display", group.name)
 				assert.is_not_equal("Tier 1 Gear", group.name)
@@ -287,7 +287,7 @@ describe("Model", function()
 
 		it("filters to one group", function()
 			local entries = Model.Rank(combinedChallenges())
-			local groups = Model.Groups(entries, fixture("categories_partial").categories)
+			local groups = Model.Groups(entries, fixture("categories_full").categories)
 			local pvp = byName(groups, "Player vs. Player")
 			local filtered = Model.Filter(entries, pvp.id)
 			assert.equals(7, #filtered)
@@ -354,7 +354,7 @@ describe("Model", function()
 			local base = {
 				challenges = combinedChallenges(),
 				rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
-				categories = fixture("categories_partial").categories,
+				categories = fixture("categories_full").categories,
 			}
 			for key, value in pairs(overrides or {}) do
 				if value == false then
@@ -425,7 +425,7 @@ describe("Model", function()
 		end)
 
 		it("applies a filter and falls back to All on an unknown id", function()
-			local classes = byName(fixture("categories_partial").categories, "Classes")
+			local classes = byName(fixture("categories_full").categories, "Classes")
 			local view = Model.BuildView(input({ filter = classes.id }))
 			assert.equals(classes.id, view.filter)
 			assert.is_true(byName(view.filters, "Classes").selected)

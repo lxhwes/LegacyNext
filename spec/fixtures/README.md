@@ -9,8 +9,9 @@ will churn through beta, and Forever's API docs already differ from live retail 
 about 6k lines.
 
 Name files after what produced them: `dump_<section>_<character>.lua` for a `/lgn dump`
-section, e.g. `dump_rewards_fresh.lua`. `categories_partial.lua` is the one file assembled
-from earlier captures rather than a single dump.
+section, e.g. `dump_rewards_fresh.lua`. `categories_full.lua` keeps the shorter name it
+inherited from the assembled `categories_partial.lua` it replaced (queue row D9, 2026-09-19);
+it is a single `/lgn dump categories` capture like the rest.
 
 ## The one carve-out — derived progress values, 2026-09-19
 

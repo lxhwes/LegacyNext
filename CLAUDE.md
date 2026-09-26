@@ -88,7 +88,14 @@ that changes how code gets written.
 - `GetCategoryList()` returns **only Legacy categories** — 29 of them, exactly two levels
   deep, six real top-level groups plus a "Do Not Display" bucket holding zero achievements.
   111 challenges total, confirmed three times by separate code paths. Full tree in
-  `docs/legacy-internals.md`.
+  `docs/legacy-internals.md`; the complete capture is `spec/fixtures/categories_full.lua`
+  [2026-09-19].
+- **Category order is the client's and is sorted by nothing** [2026-09-19] — not id, not name,
+  not depth. Parents appear after some of their own children. Preserve the returned order and
+  never re-derive the tree from a sort.
+- **A parent category can hold achievements of its own** [2026-09-19]. Raids (3) and Adventure
+  (2) both do, while Classes, Tradeskills and Player vs. Player hold none. "Has children"
+  and "is empty" are independent.
 - The filter API (`GetNumFilteredAchievements` / `GetFilteredAchievementID`) reads 0 at login
   and 111 after any `SetAchievementSearchString("")`. It is global state shared with
   Blizzard's Achievement UI — we never call it, and never read it as a source of truth.

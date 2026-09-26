@@ -1,4 +1,4 @@
-LegacyNext uidump  fixtures: page1 + criteria types + categories_partial + rewards_fresh
+LegacyNext uidump  fixtures: page1 + criteria types + categories_full + rewards_fresh
 == HEADER (ok) ==
 Legacy Track  ·  0 pts  ·  15 to next
 Next: Replica Ironforge Air Rifle

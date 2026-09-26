@@ -17,9 +17,19 @@ local function newWidget(kind, name, template)
 			elseif key == "GetText" then
 				return function() return self.text end
 			elseif key == "Show" then
-				return function() self.shown = true end
+				-- Show and Hide fire their handlers on a state change, as the client does.
+				-- A frame is shown at creation, so the first Hide() fires OnHide.
+				return function()
+					local was = self.shown
+					self.shown = true
+					if not was and self.script_OnShow then self.script_OnShow(self) end
+				end
 			elseif key == "Hide" then
-				return function() self.shown = false end
+				return function()
+					local was = self.shown
+					self.shown = false
+					if was and self.script_OnHide then self.script_OnHide(self) end
+				end
 			elseif key == "IsShown" then
 				return function() return self.shown end
 			elseif key == "CreateFontString" or key == "CreateTexture" then
@@ -73,19 +83,28 @@ describe("UI", function()
 		assert.equals(0, #created)
 	end)
 
+	-- ensureFrame used to publish UI.frame after frame:Hide(), and the Hide at creation fires
+	-- OnHide, which indexes UI.frame. First /lgn in a session errored instead of opening.
+	it("toggles open on the first call without touching a nil UI.frame", function()
+		local ns = loadUI()
+		assert.has_no.errors(function() ns.UI.Toggle() end)
+		assert.is_true(ns.UI.frame:IsShown())
+		assert.has_no.errors(function() ns.UI.Toggle() end)
+		assert.is_false(ns.UI.frame:IsShown())
+	end)
+
 	it("renders the fixture view into rows that match Model's text", function()
 		local ns = loadUI()
 		ns.UI.SetDataSource(function()
 			return {
 				challenges = fixture("dump_challenges_page1_fresh").challenges,
 				rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
-				categories = fixture("categories_partial").categories,
+				categories = fixture("categories_full").categories,
 			}
 		end)
 
 		ns.UI.Show()
-		-- The double does not fire OnShow, so drive the refresh the handler would.
-		local view = ns.UI.Refresh()
+		local view = ns.UI.view
 		local frame = ns.UI.frame
 
 		assert.equals(view.header.lines[1], frame.headerLines[1].text)
@@ -126,8 +145,7 @@ describe("UI", function()
 			return { challenges = nil, challengesReason = "GetCategoryList unavailable" }
 		end)
 
-		ns.UI.Show()
-		ns.UI.Refresh()
+		ns.UI.Show() -- OnShow refreshes: first read
 		assert.equals(11, #ns.UI.frame.rows)
 
 		ns.UI.Refresh()
@@ -142,7 +160,7 @@ describe("UI", function()
 
 	it("applies a filter through SetFilter", function()
 		local ns = loadUI()
-		local categories = fixture("categories_partial").categories
+		local categories = fixture("categories_full").categories
 		ns.UI.SetDataSource(function()
 			return {
 				challenges = fixture("dump_challenges_page1_fresh").challenges,
@@ -155,7 +173,6 @@ describe("UI", function()
 		end
 
 		ns.UI.Show()
-		ns.UI.Refresh()
 		ns.UI.SetFilter(tradeskills)
 
 		local shown = {}

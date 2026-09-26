@@ -356,10 +356,38 @@ describe("Api", function()
 			assert.equals(0, categories[2].numAchievements)
 		end)
 
-		pending("matches a captured /lgn dump categories fixture -- queue row D9", function()
-			-- spec/fixtures/categories_partial.lua is assembled from two earlier captures and
-			-- carries 16 of the 29 categories in doc order, not client order. D9 replaces it
-			-- with a full capture, and this test then asserts the whole list round-trips.
+		-- Queue row D9: the full /lgn dump categories capture, replayed through the globals it
+		-- came from. What this pins is that Api preserves the client's order and drops nothing.
+		it("round-trips the captured /lgn dump categories fixture", function()
+			local captured = dofile("spec/fixtures/categories_full.lua").categories
+			local byId, ids = {}, {}
+			for index, category in ipairs(captured) do
+				byId[category.id] = category
+				ids[index] = category.id
+			end
+
+			local Api = loadApi().Api
+			inject("GetCategoryList", function() return ids end)
+			inject("GetCategoryInfo", function(id)
+				return byId[id].name, byId[id].parentId, 0
+			end)
+			inject("GetCategoryNumAchievements", function(id)
+				local c = byId[id]
+				return c.numAchievements, c.numComplete, c.numIncomplete
+			end)
+
+			local categories = Api.GetCategories()
+
+			assert.equals(29, #categories)
+			local total = 0
+			for index, category in ipairs(categories) do
+				assert.equals(captured[index].id, category.id)
+				assert.equals(captured[index].name, category.name)
+				assert.equals(captured[index].parentId, category.parentId)
+				assert.equals(captured[index].numAchievements, category.numAchievements)
+				total = total + category.numAchievements
+			end
+			assert.equals(111, total)
 		end)
 	end)
 end)

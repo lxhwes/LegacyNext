@@ -308,12 +308,15 @@ local function ensureFrame()
 		frame.escapeCloses = true
 	end
 
+	-- Hide before wiring the handlers and publish UI.frame before either: a frame is shown at
+	-- creation, so this Hide() fires OnHide, and the handlers read UI.frame.
+	frame:Hide()
+	UI.frame = frame
+
 	frame:SetScript("OnShow", function() UI.OnShow() end)
 	frame:SetScript("OnHide", function() UI.OnHide() end)
 	frame:SetScript("OnEvent", function(_, event) UI.OnEvent(event) end)
 
-	frame:Hide()
-	UI.frame = frame
 	return frame
 end
 

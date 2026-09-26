@@ -20,9 +20,8 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
-| U1 | Install the Phase 3 build, `/lgn`, then `/lgn uidump` and paste it, plus one screenshot of the window | Whether the v0 frame renders at all, which templates it got (`BasicFrameTemplateWithInset`, `UIPanelScrollFrameTemplate`, Escape), whether the header and rows read right, and the cost of one read (`read took N ms`). Section U1 below | 5 min |
+| U1 | **Partly answered 2026-09-19** — the uidump came back and is written up in `docs/status.md`. Still open for the one thing it cannot show: **one screenshot of the window**, after a `/reload` on a build with the OnHide fix | Look only: spacing, alignment, whether the inset crops anything. Row content is already checked against `spec/golden/`. Section U1 below | 1 min |
 | U3 | Look at the AddOns list at character select (or Escape > AddOns) after installing this build | Whether `## IconTexture` draws our 64x64 TGA at 20 px beside the addon name instead of the question mark. Section U3 below | 30 s |
-| D9 | `/lgn dump categories` | A complete `Api.GetCategories` capture in client order. Replaces `spec/fixtures/categories_partial.lua` (16 of 29, doc order) and un-pends the test in `spec/api/api_spec.lua` | 1 min |
 | U2 | The WoWLua block under U2 below | Whether a one-line FontString with word wrap off draws `...` or just clips (Tier C in `docs/ui-templates.md`), `IsTruncated()` on it, and `IsProtected()` on our frame | 2 min |
 | D4 | `/lgn dump character` on a character with professions | `GetProfessions`' seven Forever slots, still unverified against a real return. Two primaries plus cooking is the useful case. Two characters so far knew none | needs an alt |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
@@ -43,6 +42,7 @@ Closed — kept so a citation still resolves:
 | D5 | 2026-09-19 | Mixin fix confirmed on a second character: `partial`, 19 fields recovered, all 14 ColorMixin methods named. Also found `configID` is not stable | `CLAUDE.md`, `docs/status.md` |
 | D6 | 2026-09-19 | Reward track alive. Legacy Track 0/90, four thresholds (15/25/40/55), all four rewards named with items. `isCollected` true on an unreached tier, confirming it is collection state | `spec/fixtures/dump_rewards_fresh.lua` |
 | D7 | 2026-09-19 | Full `section = "all"` dump, all 111 challenges. Found **five undocumented `criteriaType` values** and the type-243 progress trap; plus the character shape and a part-done challenge | `spec/fixtures/dump_criteria_types.lua`, `dump_character_shaman.lua`, `CLAUDE.md` |
+| D9 | 2026-09-19 | All 29 categories in client order, summing to 111. Confirms every row of the assembled partial field for field, and adds the 13 class and tradeskill ids the sweep never recorded | `spec/fixtures/categories_full.lua` (replaces `categories_partial.lua`), the un-pended test in `spec/api/api_spec.lua` |
 
 See `docs/status.md` for what each finding changed.
 
@@ -157,7 +157,10 @@ now tells you the valid list instead.
 **Copy the addon folder over again first.** This build adds `Model/`, `UI/`, `/lgn` as a
 window, `/lgn uidump` and a `categories` dump section.
 
-**U1 — does the window render.** Log in, then:
+**U1 — does the window render.** The uidump half came back on 2026-09-19 and every bullet
+below is answered except the screenshot; the write-up is in `docs/status.md` under "U1 — the
+frame drew". What is still wanted is **one screenshot** of the open window, on a build with
+the OnHide fix, so the look can be judged. Original ask, kept so the bullets still read:
 
 ```
 /lgn
@@ -223,8 +226,8 @@ client's "texture failed to load"), say which. The file is `LegacyNext/Media/ico
 line is `## IconTexture: Interface\AddOns\LegacyNext\Media\icon` in the TOC. PNG support on
 this client is unverified, which is why the file is TGA (`docs/icon-design.md`).
 
-**D9 — categories.** `/lgn dump categories`, paste it. Goes straight into
-`spec/fixtures/`, replacing the assembled partial one.
+**D9 — categories.** Closed 2026-09-19. `/lgn dump categories` came back with all 29 in client
+order; it is `spec/fixtures/categories_full.lua` and the assembled partial is gone.
 
 ## How to run these
 
