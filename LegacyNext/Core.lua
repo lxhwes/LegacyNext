@@ -83,25 +83,40 @@ function ns.TakeSnapshot(trigger)
 end
 
 -- Level, skill and trait changes arrive in bursts, and UnitLevel can lag PLAYER_LEVEL_UP, so
--- they coalesce into one snapshot a few seconds later. PLAYER_LOGOUT is the backstop if none
--- of these fire on Forever (C2 is still open on the trait event).
+-- they coalesce into one snapshot a few seconds after the *last* event: each one restarts the
+-- wait, so a late event still gets the full delay. PLAYER_LOGOUT is the backstop if none of
+-- these fire on Forever (C2 is still open on the trait event).
 local SNAPSHOT_DELAY = 5
-local snapshotPending = false
+local snapshotGeneration = 0
+local pendingTriggers = {}
 
 local function scheduleSnapshot(trigger)
-	if snapshotPending then
-		return
+	local seen = false
+	for _, pending in ipairs(pendingTriggers) do
+		seen = seen or pending == trigger
 	end
+	if not seen then
+		pendingTriggers[#pendingTriggers + 1] = trigger
+	end
+
+	-- C_Timer.After cannot be cancelled, so a superseded timer is told apart by generation.
+	snapshotGeneration = snapshotGeneration + 1
+	local generation = snapshotGeneration
+	local function fire()
+		if generation ~= snapshotGeneration then
+			return
+		end
+		local triggers = table.concat(pendingTriggers, "+")
+		pendingTriggers = {}
+		ns.TakeSnapshot(triggers)
+	end
+
 	local timer = rawget(_G, "C_Timer")
-	if type(timer) ~= "table" or type(timer.After) ~= "function" then
-		ns.TakeSnapshot(trigger)
-		return
+	local scheduled = type(timer) == "table" and type(timer.After) == "function"
+		and pcall(timer.After, SNAPSHOT_DELAY, fire)
+	if not scheduled then
+		fire()
 	end
-	snapshotPending = true
-	timer.After(SNAPSHOT_DELAY, function()
-		snapshotPending = false
-		ns.TakeSnapshot(trigger)
-	end)
 end
 
 -- One read for /lgn roster. Takes a snapshot first so the current character is never stale.
@@ -169,7 +184,8 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 		ns.version = getVersion()
 		-- No "v" prefix: the packager writes the tag name into ## Version, and tags carry it.
 		say(ns.version .. " loaded. /lgn to open, /lgn help for commands.")
-		ns.TakeSnapshot(event)
+		-- Delayed like the others: skill and trait data may not be ready at PLAYER_LOGIN.
+		scheduleSnapshot(event)
 	elseif event == "PLAYER_LOGOUT" then
 		ns.TakeSnapshot(event)
 	elseif SNAPSHOT_EVENTS[event] then

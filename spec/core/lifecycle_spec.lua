@@ -79,6 +79,70 @@ describe("addon lifecycle", function()
 		end
 	end)
 
+	describe("snapshot events", function()
+		local timers
+
+		local function runTimers()
+			local due = timers
+			timers = {}
+			for _, timer in ipairs(due) do
+				timer.fn()
+			end
+		end
+
+		local function stored()
+			return _G.LegacyNextDB.characters["Tester-Realm"]
+		end
+
+		before_each(function()
+			timers = {}
+			_G.C_Timer = { After = function(delay, fn) timers[#timers + 1] = { delay = delay, fn = fn } end }
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+		end)
+
+		it("snapshots a level-up after the delay, not at once", function()
+			handler(nil, "PLAYER_LEVEL_UP")
+			assert.is_nil(stored())
+			assert.equals(5, timers[1].delay)
+
+			runTimers()
+
+			assert.equals(10, stored().level)
+			assert.equals("PLAYER_LEVEL_UP -> written", ns.lastSnapshot)
+		end)
+
+		it("restarts the wait on each event and snapshots once, after the last", function()
+			handler(nil, "SKILL_LINES_CHANGED")
+			local first = timers[1]
+			_G.UnitLevel = function() return 12 end
+			handler(nil, "PLAYER_LEVEL_UP")
+			handler(nil, "PLAYER_LEVEL_UP")
+
+			first.fn()
+			assert.is_nil(stored())
+
+			runTimers()
+			assert.equals(12, stored().level)
+			assert.equals("SKILL_LINES_CHANGED+PLAYER_LEVEL_UP -> written", ns.lastSnapshot)
+		end)
+
+		it("delays the login snapshot the same way", function()
+			handler(nil, "PLAYER_LOGIN")
+			assert.is_nil(stored())
+
+			runTimers()
+			assert.is_table(stored())
+		end)
+
+		it("snapshots at once when C_Timer is missing", function()
+			_G.C_Timer = nil
+
+			handler(nil, "TRAIT_CONFIG_UPDATED")
+
+			assert.equals(10, stored().level)
+		end)
+	end)
+
 	describe("event registration", function()
 		it("registers the lifecycle and snapshot events", function()
 			for _, event in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_LEVEL_UP",
