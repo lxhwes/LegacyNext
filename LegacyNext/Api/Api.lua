@@ -695,12 +695,16 @@ local function readProfessions()
 		return nil, "GetProfessions unavailable"
 	end
 
-	local professions = {}
+	-- A slot whose GetProfessionInfo failed is named in the second return, so a short list is
+	-- never mistaken for the character's whole set -- the roster would drop that profession.
+	local professions, failures = {}, {}
 	for slot = 1, result.n do
 		local skillIndex = result[slot]
 		if type(skillIndex) == "number" then
-			local info = call("GetProfessionInfo", skillIndex)
-			if info then
+			local info, reason = call("GetProfessionInfo", skillIndex)
+			if not info then
+				failures[#failures + 1] = "slot " .. slot .. ": " .. tostring(reason)
+			else
 				professions[#professions + 1] = {
 					slot = slot,
 					skillIndex = skillIndex,
@@ -716,6 +720,9 @@ local function readProfessions()
 		end
 	end
 
+	if failures[1] then
+		return professions, "partial: " .. table.concat(failures, "; ")
+	end
 	return professions
 end
 

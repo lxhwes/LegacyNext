@@ -428,6 +428,40 @@ describe("Api", function()
 		end)
 	end)
 
+	-- Trivial stubs in the GetProfessionInfo return order at Blizzard_ProfessionsFrame.lua:55
+	-- (CLAUDE.md). No populated profession has been captured yet (D4).
+	describe("GetCharacterInfo professions", function()
+		it("names a slot whose GetProfessionInfo threw instead of returning a short list", function()
+			local Api = loadApi().Api
+			inject("UnitClass", function() return "Druid", "DRUID", 11 end)
+			inject("GetProfessions", function() return 1, 2 end)
+			inject("GetProfessionInfo", function(index)
+				if index == 2 then
+					error("boom")
+				end
+				return "one", 0, 10, 75, 0, 0, 100
+			end)
+
+			local character = Api.GetCharacterInfo()
+
+			assert.equals(1, #character.professions)
+			assert.equals(100, character.professions[1].skillLineId)
+			assert.truthy(character.professionsReason:find("partial: slot 2: error", 1, true))
+		end)
+
+		it("gives no reason when every slot read", function()
+			local Api = loadApi().Api
+			inject("UnitClass", function() return "Druid", "DRUID", 11 end)
+			inject("GetProfessions", function() return 1 end)
+			inject("GetProfessionInfo", function() return "one", 0, 10, 75, 0, 0, 100 end)
+
+			local character = Api.GetCharacterInfo()
+
+			assert.equals(1, #character.professions)
+			assert.is_nil(character.professionsReason)
+		end)
+	end)
+
 	describe("GetServerTime", function()
 		it("returns nil and a reason when the function is missing", function()
 			local Api = loadApi().Api

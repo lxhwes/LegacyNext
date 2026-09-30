@@ -193,6 +193,48 @@ describe("Roster model", function()
 			assert.equals("tree spend not read for 1188", snapshot.treesReason)
 		end)
 
+		local function withProfessions(list, reason, now)
+			local character = fixture("dump_character_shaman").character
+			character.professions = list -- derived: captured {}, varied
+			character.professionsReason = reason
+			return Model.BuildSnapshot({ character = character, now = now })
+		end
+
+		local TWO = { { name = "Alchemy", skillLineId = 171, skill = 120 },
+			{ name = "Herbalism", skillLineId = 182, skill = 90 } }
+
+		it("keeps stored professions over a partial read", function()
+			local previous = withProfessions(TWO, nil, 1000)
+			local fresh = withProfessions({ TWO[2] }, "partial: slot 1: error: boom", 2000)
+
+			local merged = Model.MergeSnapshot(previous, fresh)
+
+			assert.is_nil(fresh.professions)
+			assert.equals(2, #merged.professions)
+			assert.equals(1000, merged.professionsAt)
+			assert.equals("partial: slot 1: error: boom", merged.professionsReason)
+		end)
+
+		it("keeps stored professions over an empty read, and says so", function()
+			local previous = withProfessions(TWO, nil, 1000)
+
+			local merged = Model.MergeSnapshot(previous, withProfessions({}, nil, 2000))
+
+			assert.equals(2, #merged.professions)
+			assert.equals(1000, merged.professionsAt)
+			assert.equals("empty read, kept stored", merged.professionsReason)
+		end)
+
+		it("takes a complete read over the stored one", function()
+			local previous = withProfessions(TWO, nil, 1000)
+
+			local merged = Model.MergeSnapshot(previous, withProfessions({ TWO[1] }, nil, 2000))
+
+			assert.equals(1, #merged.professions)
+			assert.equals(2000, merged.professionsAt)
+			assert.is_nil(merged.professionsReason)
+		end)
+
 		it("takes the fresh snapshot whole when nothing was stored", function()
 			local fresh = captured(1000)
 

@@ -95,7 +95,9 @@ function Model.BuildSnapshot(input)
 		takenAt = input.now,
 	}
 
-	if type(character.professions) == "table" then
+	-- A list with a reason beside it is a partial read (Api names the slots that failed), and
+	-- counts as no read: it would erase the professions it missed.
+	if type(character.professions) == "table" and character.professionsReason == nil then
 		snapshot.professions = snapshotProfessions(character.professions)
 		snapshot.professionsAt = input.now
 	else
@@ -141,9 +143,17 @@ function Model.MergeSnapshot(previous, fresh)
 		end
 	end
 
-	if fresh.professions == nil and previous.professions ~= nil then
+	-- An empty read over a stored list is kept as a failed one too: skill data may not be ready
+	-- when a snapshot fires, and a character that really dropped both professions costs only a
+	-- stale row until /lgn roster forget.
+	local freshEmpty = type(fresh.professions) == "table" and fresh.professions[1] == nil
+	local previousHas = type(previous.professions) == "table" and previous.professions[1] ~= nil
+	if (fresh.professions == nil and previous.professions ~= nil) or (freshEmpty and previousHas) then
 		merged.professions = previous.professions
 		merged.professionsAt = previous.professionsAt
+		if freshEmpty then
+			merged.professionsReason = "empty read, kept stored"
+		end
 	end
 
 	if fresh.trees == nil and previous.trees ~= nil then
