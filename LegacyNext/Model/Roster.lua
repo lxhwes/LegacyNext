@@ -338,3 +338,267 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 
 	return out
 end
+
+--------------------------------------------------------------------------------------------
+-- The roster tab
+--------------------------------------------------------------------------------------------
+
+-- Coarse on purpose: the age says how far to trust a snapshot, not when it was taken.
+local function ageText(now, at)
+	if type(now) ~= "number" or type(at) ~= "number" then
+		return nil
+	end
+	local seconds = now - at
+	if seconds < 60 then
+		return "just now"
+	elseif seconds < 3600 then
+		return ("%dm ago"):format(math.floor(seconds / 60))
+	elseif seconds < 86400 then
+		return ("%dh ago"):format(math.floor(seconds / 3600))
+	end
+	return ("%dd ago"):format(math.floor(seconds / 86400))
+end
+
+-- First UTF-8 character, so a localized tree name never splits mid-byte.
+local function initial(name)
+	return type(name) == "string" and name:match("^[%z\1-\127\194-\244][\128-\191]*") or nil
+end
+
+local function readTrees(row)
+	if type(row.trees) ~= "table" or not row.trees[1] then
+		return nil
+	end
+	for _, tree in ipairs(row.trees) do
+		if type(tree) ~= "table" or type(tree.spent) ~= "number" then
+			return nil
+		end
+	end
+	return row.trees
+end
+
+-- Column heading over the per-tree figures: the trees' own initials when every stored tree
+-- carries a name, so nothing here names a tree.
+local function treeHeading(rows)
+	for _, row in ipairs(rows) do
+		local trees = readTrees(row)
+		if trees then
+			local letters = {}
+			for _, tree in ipairs(trees) do
+				local letter = initial(tree.name)
+				if not letter then
+					return "Spent"
+				end
+				letters[#letters + 1] = letter
+			end
+			return table.concat(letters, "/")
+		end
+	end
+	return "Spent"
+end
+
+local function spendText(row)
+	local trees = readTrees(row)
+	if not trees then
+		return "?"
+	end
+	local parts = {}
+	for _, tree in ipairs(trees) do
+		parts[#parts + 1] = tostring(tree.spent)
+	end
+	return table.concat(parts, "/")
+end
+
+local function characterName(row, withRealm)
+	local name = (withRealm or type(row.name) ~= "string") and row.key or row.name
+	local text = name .. "  L" .. (type(row.level) == "number" and tostring(row.level) or "?")
+	if type(row.class) == "string" and row.class ~= "" then
+		text = text .. " " .. row.class
+	end
+	return text
+end
+
+-- A part MergeSnapshot kept from an earlier snapshot carries its own, older timestamp.
+local function keptLine(lines, row, part, label, now)
+	local at = row[part .. "At"]
+	if type(at) ~= "number" or at == row.takenAt then
+		return
+	end
+	local reason = row[part .. "Reason"]
+	lines[#lines + 1] = label .. " from " .. (ageText(now, at) or "an earlier session")
+		.. (reason and (": " .. tostring(reason)) or "")
+end
+
+local function characterDetail(row, now)
+	local lines = {}
+
+	local trees = readTrees(row)
+	if trees then
+		local parts = {}
+		for _, tree in ipairs(trees) do
+			parts[#parts + 1] = tostring(tree.name or tree.treeId) .. " " .. tostring(tree.spent)
+		end
+		lines[#lines + 1] = "Spent: " .. table.concat(parts, ", ")
+		if type(row.unspent) == "number" then
+			lines[#lines + 1] = "Unspent: " .. tostring(row.unspent)
+				.. (type(row.cap) == "number" and (" of " .. tostring(row.cap)) or "")
+		end
+	else
+		lines[#lines + 1] = "Tree spend not read"
+			.. (row.treesReason and (": " .. tostring(row.treesReason)) or "")
+	end
+	keptLine(lines, row, "trees", "Trees", now)
+
+	if type(row.professions) == "table" then
+		if row.professions[1] == nil then
+			lines[#lines + 1] = "No professions"
+		end
+		for _, profession in ipairs(row.professions) do
+			if type(profession) == "table" then
+				lines[#lines + 1] = tostring(profession.name or profession.skillLineId) .. " "
+					.. tostring(profession.skill) .. "/" .. tostring(profession.max)
+			end
+		end
+	else
+		lines[#lines + 1] = "Professions not read"
+			.. (row.professionsReason and (": " .. tostring(row.professionsReason)) or "")
+	end
+	keptLine(lines, row, "professions", "Professions", now)
+
+	local age = ageText(now, row.takenAt)
+	if age then
+		lines[#lines + 1] = "Updated " .. age
+	end
+	return lines
+end
+
+local function realmCount(rows)
+	local seen, count = {}, 0
+	for _, row in ipairs(rows) do
+		if type(row.realm) == "string" and not seen[row.realm] then
+			seen[row.realm] = true
+			count = count + 1
+		end
+	end
+	return count
+end
+
+-- Tradeskill challenges some saved character can work on, closest first, then client order.
+-- The rest are counted, not listed: a row that says "nobody" eighteen times is noise.
+local function tradeskillRows(candidates)
+	local shown, hidden = {}, 0
+	for index, entry in ipairs(candidates) do
+		if type(entry) == "table" and type(entry.challenge) == "table"
+			and type(entry.candidates) == "table" and entry.candidates[1] then
+			shown[#shown + 1] = { entry = entry, index = index }
+		else
+			hidden = hidden + 1
+		end
+	end
+	table.sort(shown, function(a, b)
+		local aLeft, bLeft = a.entry.candidates[1].remaining, b.entry.candidates[1].remaining
+		if aLeft ~= bLeft then
+			return aLeft < bLeft
+		end
+		return a.index < b.index
+	end)
+
+	local rows = {}
+	for _, item in ipairs(shown) do
+		local entry, challenge = item.entry, item.entry.challenge
+		local best = entry.candidates[1]
+		local detail = {}
+		if type(challenge.description) == "string" and challenge.description ~= "" then
+			detail[#detail + 1] = challenge.description
+		end
+		for _, candidate in ipairs(entry.candidates) do
+			detail[#detail + 1] = Model.CandidateLine(candidate, entry.need)
+		end
+		rows[#rows + 1] = {
+			kind = "tradeskill",
+			id = challenge.id,
+			name = tostring(challenge.name or ("Challenge " .. tostring(challenge.id))) .. Model.SEPARATOR
+				.. tostring(best.name or best.key),
+			category = challenge.categoryName,
+			progressText = tostring(best.skill) .. "/" .. tostring(entry.need),
+			pointsText = Model.PointsText(challenge.points),
+			measurable = true,
+			detail = detail,
+		}
+	end
+	return rows, hidden
+end
+
+local function plural(count, one, many)
+	return tostring(count) .. " " .. (count == 1 and one or many)
+end
+
+--- The roster tab's view, in the same shape Model.BuildView returns so one renderer draws both.
+-- input = { snapshots, currentKey, now, candidates = Model.ProfessionCandidates output,
+-- challengesReason, rewardTrack, rewardTrackReason, error }
+function Model.BuildRosterView(input)
+	input = input or {}
+	local view = {
+		tab = "roster",
+		header = Model.Header(input.rewardTrack, input.rewardTrackReason),
+		filters = {},
+		rows = {},
+		state = "ok",
+	}
+
+	if input.error ~= nil or type(input.snapshots) ~= "table" then
+		view.state = "error"
+		view.message = "Could not read the roster"
+			.. (input.error ~= nil and (": " .. tostring(input.error)) or "")
+		return view
+	end
+
+	local notes = {}
+	local roster = Model.Roster(input.snapshots, input.currentKey)
+	if roster.skipped > 0 then
+		notes[#notes + 1] = plural(roster.skipped, "saved character", "saved characters") .. " could not be read"
+	end
+
+	if not roster.rows[1] then
+		view.state = "empty"
+		view.message = "No characters saved yet. Each character joins the roster when it logs in."
+	else
+		view.rows[1] = { kind = "columns", name = "Character", progressText = treeHeading(roster.rows),
+			pointsText = "Free" }
+		local withRealm = realmCount(roster.rows) > 1
+		for _, row in ipairs(roster.rows) do
+			view.rows[#view.rows + 1] = {
+				kind = "character",
+				key = row.key,
+				name = characterName(row, withRealm),
+				category = type(row.realm) == "string" and row.realm or nil,
+				progressText = spendText(row),
+				pointsText = type(row.unspent) == "number" and tostring(row.unspent) or "?",
+				measurable = true,
+				current = row.key == roster.currentKey,
+				detail = characterDetail(row, input.now),
+			}
+		end
+	end
+
+	if input.challengesReason then
+		notes[#notes + 1] = "Could not read tradeskill challenges: " .. tostring(input.challengesReason)
+	elseif type(input.candidates) == "table" then
+		local rows, hidden = tradeskillRows(input.candidates)
+		if rows[1] then
+			view.rows[#view.rows + 1] = { kind = "columns", name = "Tradeskill challenge", progressText = "Skill",
+				pointsText = "" }
+			for _, row in ipairs(rows) do
+				view.rows[#view.rows + 1] = row
+			end
+		end
+		if hidden > 0 then
+			notes[#notes + 1] = plural(hidden, "tradeskill challenge has", "tradeskill challenges have")
+				.. " no saved character with the profession"
+		end
+	end
+
+	if notes[1] then
+		view.footnote = table.concat(notes, "\n")
+	end
+	return view
+end

@@ -24,16 +24,40 @@ end
 
 ns.say = say
 
--- One read of everything the v0 view needs. The only place Api output is gathered for
--- Model, shared by the frame and by /lgn uidump so the two cannot disagree.
+-- Store's characters and the skill-line map, shared by the window and /lgn roster so the two
+-- join alts to tradeskill challenges the same way. The map is merged with this session's
+-- lookup and saved back, so an answer read on the Alchemist still joins when the roster is
+-- read on an alt that never learned it.
+local function readRoster(challenges)
+	local Api, Model, Store = ns.Api, ns.Model, ns.Store
+	local skillLines = Model.ChallengeSkillLines(challenges)
+	local parentsLive, parentsReason = Api.GetSkillLineParents(skillLines)
+	local parents = Model.MergeSkillLineParents(Store.GetSkillLineParents(), parentsLive)
+	Store.PutSkillLineParents(parents)
+	local snapshots = Store.GetSnapshots()
+	return {
+		skillLines = skillLines,
+		parentsLive = parentsLive,
+		parentsReason = parentsReason,
+		parents = parents,
+		snapshots = snapshots,
+		candidates = Model.ProfessionCandidates(challenges, snapshots, parents),
+	}
+end
+
+-- One read of everything both tabs need. The only place Api output is gathered for Model,
+-- shared by the frame and by /lgn uidump so the two cannot disagree.
 function ns.ReadViewInput()
 	local Api = ns.Api
+	-- Keeps this character's roster row current. A window read stays out of the snapshot log.
+	ns.TakeSnapshot("window", true)
 	-- Categories first, then handed to GetChallenges so the list is read once.
 	local categories = Api.GetCategories()
 	local challenges, challengesReason = Api.GetChallenges(categories)
 	local rewardTrack, rewardTrackReason = Api.GetRewardTrack()
 	-- For hiding other classes' challenges. A failed read hides nothing.
 	local character = Api.GetCharacterInfo()
+	local roster = readRoster(challenges)
 	return {
 		challenges = challenges,
 		challengesReason = challengesReason,
@@ -41,6 +65,11 @@ function ns.ReadViewInput()
 		rewardTrackReason = rewardTrackReason,
 		categories = categories,
 		character = character,
+		snapshots = roster.snapshots,
+		currentKey = ns.currentKey,
+		parents = roster.parents,
+		candidates = roster.candidates,
+		now = Api.GetServerTime(),
 	}
 end
 
@@ -140,7 +169,7 @@ end
 -- One read for /lgn roster. Takes a snapshot first so the current character is never stale.
 -- The challenge sweep is the ~900-call one, so this runs on command only, never on an event.
 function ns.ReadRosterInput()
-	local Api, Model, Store = ns.Api, ns.Model, ns.Store
+	local Api, Store = ns.Api, ns.Store
 	local snapshotResult = ns.TakeSnapshot("roster command", true)
 	-- A failed read has to reach the paste: an empty candidate list otherwise reads as "no
 	-- tradeskill challenges" rather than "could not read them".
@@ -151,21 +180,16 @@ function ns.ReadRosterInput()
 	else
 		challengesReason = "categories: " .. tostring(categoriesReason)
 	end
-	local skillLines = Model.ChallengeSkillLines(challenges)
-	-- Merged with the saved map and saved back, so an answer read on the Alchemist still joins
-	-- when /lgn roster runs on an alt that never learned it.
-	local parentsLive, parentsReason = Api.GetSkillLineParents(skillLines)
-	local parents = Model.MergeSkillLineParents(Store.GetSkillLineParents(), parentsLive)
-	Store.PutSkillLineParents(parents)
+	local roster = readRoster(challenges)
 	return {
-		snapshots = Store.GetSnapshots(),
+		snapshots = roster.snapshots,
 		currentKey = ns.currentKey,
 		challenges = challenges,
 		challengesReason = challengesReason,
-		skillLines = skillLines,
-		parents = parents,
-		parentsLive = parentsLive,
-		parentsReason = parentsReason,
+		skillLines = roster.skillLines,
+		parents = roster.parents,
+		parentsLive = roster.parentsLive,
+		parentsReason = roster.parentsReason,
 		diagnostics = Store.Diagnostics(),
 		snapshotResult = snapshotResult,
 		snapshotLog = ns.snapshotLog,
@@ -231,9 +255,10 @@ SLASH_LEGACYNEXT2 = "/lgn"
 
 local function usage()
 	say("commands:")
-	print("  /lgn                     open or close the Next Up window")
+	print("  /lgn                     open or close the window (Next Up and Roster tabs)")
 	print("  /lgn show | hide")
-	print("  /lgn uidump [category]   what the window would show, as copyable text")
+	print("  /lgn uidump [category]   what the Next Up tab would show, as copyable text")
+	print("  /lgn uidump roster       the same for the Roster tab")
 	print("  /lgn roster              every saved character and tradeskill candidates, as text")
 	print("  /lgn roster forget <Name-Realm>   drop a deleted alt from the roster")
 	print("  /lgn probe               one line per API: ok / partial / nil / missing / error / secret / skipped")

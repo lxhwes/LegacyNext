@@ -374,6 +374,9 @@ function Debug.RenderView(view, label)
 	for _, row in ipairs(view.rows or {}) do
 		if row.kind == "divider" then
 			w("     ----- " .. row.text .. " -----")
+		elseif row.kind == "columns" then
+			w("     " .. pad(row.name, Debug.NAME_CHARS) .. lpad(row.progressText, 9)
+				.. "  " .. lpad(row.pointsText, 4))
 		else
 			rowNumber = rowNumber + 1
 			local name = row.name or ""
@@ -383,7 +386,12 @@ function Debug.RenderView(view, label)
 			if #name > Debug.NAME_CHARS then
 				overflow[#overflow + 1] = name
 			end
-			w(lpad(rowNumber, 3) .. "  " .. pad(name, Debug.NAME_CHARS) .. lpad(row.progressText, 9)
+			-- The current character, which the frame draws in gold.
+			local prefix = lpad(rowNumber, 3)
+			if row.current then
+				prefix = "*" .. prefix:sub(2)
+			end
+			w(prefix .. "  " .. pad(name, Debug.NAME_CHARS) .. lpad(row.progressText, 9)
 				.. "  " .. lpad(row.pointsText, 4))
 		end
 	end
@@ -412,7 +420,8 @@ function Debug.RenderView(view, label)
 end
 
 -- Reads Api once, builds the view through Model, renders it. `filter` is a group name typed
--- on the command line ("classes"), matched case-insensitively against the filter labels.
+-- on the command line ("classes"), matched case-insensitively against the filter labels, or
+-- "roster" for the roster tab. No category is named Roster.
 function Debug.BuildUIDump(filterName)
 	local Model = ns.Model
 
@@ -423,23 +432,29 @@ function Debug.BuildUIDump(filterName)
 	local input = ns.ReadViewInput()
 	local elapsed = started and (clock() - started) or nil
 
-	local filterId
-	if filterName and filterName ~= "" then
-		local probe = Model.BuildView(input)
-		for _, filter in ipairs(probe.filters or {}) do
-			if filter.id and string.lower(filter.name) == string.lower(filterName) then
-				filterId = filter.id
+	local info = clientInfo()
+	local view, label
+	if filterName and string.lower(filterName) == "roster" then
+		view = Model.BuildRosterView(input)
+		label = tostring(info.buildString or "?") .. "  tab=roster"
+	else
+		local filterId
+		if filterName and filterName ~= "" then
+			local probe = Model.BuildView(input)
+			for _, filter in ipairs(probe.filters or {}) do
+				if filter.id and string.lower(filter.name) == string.lower(filterName) then
+					filterId = filter.id
+				end
 			end
 		end
-	end
 
-	input.filter = filterId
-	local view = Model.BuildView(input)
+		input.filter = filterId
+		view = Model.BuildView(input)
 
-	local info = clientInfo()
-	local label = tostring(info.buildString or "?") .. "  filter=" .. (filterName or "all")
-	if filterName and filterName ~= "" and not filterId then
-		label = label .. " (unknown, showing all)"
+		label = tostring(info.buildString or "?") .. "  filter=" .. (filterName or "all")
+		if filterName and filterName ~= "" and not filterId then
+			label = label .. " (unknown, showing all)"
+		end
 	end
 
 	local text = Debug.RenderView(view, label)

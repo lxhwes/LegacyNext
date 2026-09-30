@@ -497,8 +497,41 @@ function Model.Header(rewardTrack, rewardTrackReason)
 	}
 end
 
+-- One saved character's standing on a tradeskill challenge, for both tabs' tooltips.
+function Model.CandidateLine(candidate, need)
+	local figure = tostring(candidate.skill) .. "/" .. tostring(need)
+	local name = tostring(candidate.name or candidate.key)
+	if candidate.reached then
+		return name .. "  " .. figure .. ", already reached"
+	end
+	return name .. "  " .. figure .. ", " .. tostring(candidate.remaining) .. " to go"
+end
+
+Model.CANDIDATE_TOOLTIP_MAX = 3
+
+-- Who could finish a tradeskill challenge. `candidates` is one Model.ProfessionCandidates
+-- entry, or nil when the caller passed none, which adds nothing.
+local function candidateLines(lines, candidates)
+	if type(candidates) ~= "table" or type(candidates.candidates) ~= "table" then
+		return
+	end
+	local list = candidates.candidates
+	if not list[1] then
+		lines[#lines + 1] = "No saved character has this profession"
+		return
+	end
+	lines[#lines + 1] = "Saved characters with this profession:"
+	for index, candidate in ipairs(list) do
+		if index > Model.CANDIDATE_TOOLTIP_MAX then
+			lines[#lines + 1] = "  and " .. tostring(#list - Model.CANDIDATE_TOOLTIP_MAX) .. " more"
+			break
+		end
+		lines[#lines + 1] = "  " .. Model.CandidateLine(candidate, candidates.need)
+	end
+end
+
 -- Tooltip content for one row: the description, then one line per criterion.
-local function detailLines(entry)
+local function detailLines(entry, candidates)
 	local challenge, progress = entry.challenge, entry.progress
 	local lines = {}
 	if challenge.description and challenge.description ~= "" then
@@ -513,6 +546,7 @@ local function detailLines(entry)
 		lines[#lines + 1] = "Only " .. tostring(progress.criteriaRead) .. " of "
 			.. tostring(progress.criteriaTotal) .. " criteria could be read"
 	end
+	candidateLines(lines, candidates)
 	if challenge.rewardText and challenge.rewardText ~= "" then
 		lines[#lines + 1] = challenge.rewardText
 	end
@@ -526,6 +560,7 @@ end
 --   rewardTrack = table | nil, rewardTrackReason = string | nil,
 --   categories = list | nil,
 --   character = Api.GetCharacterInfo output | nil, -- for hiding other classes
+--   candidates = Model.ProfessionCandidates output | nil, -- tradeskill tooltip lines
 --   filter = groupId | nil,
 -- }
 function Model.BuildView(input)
@@ -597,6 +632,13 @@ function Model.BuildView(input)
 		return view
 	end
 
+	local candidatesById = {}
+	for _, item in ipairs(type(input.candidates) == "table" and input.candidates or {}) do
+		if type(item) == "table" and type(item.challenge) == "table" and item.challenge.id ~= nil then
+			candidatesById[item.challenge.id] = item
+		end
+	end
+
 	local currentTier
 	for _, entry in ipairs(visible) do
 		if entry.tier ~= currentTier then
@@ -612,7 +654,7 @@ function Model.BuildView(input)
 			pointsText = pointsText(entry.challenge.points),
 			measurable = entry.progress.measurable,
 			tier = entry.tier,
-			detail = detailLines(entry),
+			detail = detailLines(entry, candidatesById[entry.challenge.id]),
 			entry = entry,
 		}
 	end

@@ -334,7 +334,7 @@ describe("UI", function()
 			assert.equals("roster", ns.UI.Describe().tab)
 			assert.same({ "Character", "Bong Wrip  L1 Shaman" }, shownNames(frame))
 			assert.equals("0/0/0", frame.rows[2].figure.text)
-			assert.is_nil(frame.rows[1].data) -- a heading has no tooltip
+			assert.is_nil(rawget(frame.rows[1], "data")) -- a heading has no tooltip; raw, past the double
 			for _, button in ipairs(frame.filterBar.buttons) do
 				assert.is_false(button.shown)
 			end

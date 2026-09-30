@@ -1,0 +1,18 @@
+LegacyNext uidump  fixtures: character_shaman + trees_fresh + derived Zug + page1 + criteria types + rewards_fresh
+== HEADER (ok) ==
+Legacy Track  ·  0 pts  ·  15 to next
+Next: Replica Ironforge Air Rifle
+== FILTERS ==
+
+== ROWS (7) ==
+     Character                         P/A/R  Free
+* 1  Bong Wrip  L1 Shaman              0/0/0     0
+  2  Zug  L30 Druid                        ?     ?
+     Tradeskill challenge              Skill      
+  3  Journeyman Alchemist  ·  Zug   140/150   1pt
+  4  Expert Alchemist  ·  Zug       140/225   1pt
+  5  Artisan Alchemist  ·  Zug      140/300   1pt
+== STATE ==
+state=ok
+longest name=29 chars "Journeyman Alchemist  ·  Zug"
+names over 30 chars: 0
