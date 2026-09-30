@@ -69,7 +69,9 @@ cross-account or guild sync, writing to trait configs.
   `docs/ingame-commands.md`. Until then the old fact stands: written but never loaded back,
   Blizzard-side, confirmed by other addon authors. The workarounds were Thunderz96/forever-addon-kit
   `sv_bridge` and Wicksmods/WickCore Profiles. `Store/` is the only file that names
-  `LegacyNextDB`, so either outcome stays a one-file change.
+  `LegacyNextDB`, so either outcome stays a one-file change. Blizzard's own challenge tracker
+  sets `## LoadSavedVariablesFirst: 1` (`Blizzard_LegacyChallengeTracker.toc:6`), and so does
+  another Legacy addon that ships on saved data. Ours does not. S1's fallback step tests it.
 - `ReloadUI()` is protected; users type `/reload`. Client stops surfacing Lua errors after 100.
 
 ## Legacy API surface [verified: used by Blizzard_LegacySystem / Blizzard_LegacyChallengeTracker]
@@ -118,10 +120,13 @@ that changes how code gets written.
 - **`parentCategoryId` is `-1` for top-level challenge categories** [2026-09-19] — Dungeons,
   Raids and Adventure challenges carry it. The category filter must treat `-1` as "no parent"
   rather than looking it up and finding nothing.
-- **Class challenges carry no machine-readable level threshold** [2026-09-19].
+- **Class challenges carry no machine-readable level threshold through the API** [2026-09-19].
   `Novice / Experienced / Master Druid` (61502–61504) are levels 25/45/60, but
   `criteriaExpected == 0` and the number appears only in `description` prose. Profession
   challenges are the opposite — `criteriaType` 7 gives `assetId` 2937, `need` 150.
+  **The client data does hold the level** [DB2, 2026-09-30]. Each class challenge has one
+  type-5 criterion whose `CriteriaTree.Amount` is 25, 45 or 60. We know of no API that returns
+  it. The PvP rank challenges are the same case, with type 261 in the data.
 - `C_Traits.GetMaxAvailableTraitCurrency(4225, false)` = 65 earnable account-wide;
   `(4225, true)` = 16 spendable per character. The cap does **not** come from
   `TreeCurrencyInfo.maxQuantity`, which read 0 at zero points.
@@ -163,6 +168,12 @@ that changes how code gets written.
 - `flags` is `134349824` on point-bearing challenges and `0` on the 46 zero-point exploration
   ones, so the latter are per-character. `isAccountWide` is **derived** from `flags`, not
   returned. Bit breakdown in `docs/legacy-internals.md`.
+- **The client data holds two mirrored sets of 65 point-bearing challenges** [DB2,
+  2026-09-30]. Ours carry flag bit 27 (`0x08000000`). The mirror carries bit 28
+  (`0x10000000`) and has its own challenge and criteria IDs: Novice Warrior is 61499 in ours
+  and 63969 in the mirror. The client listed only ours on both characters. Which ruleset sees
+  the mirror is unknown. **Never assume two characters see the same challenge IDs**, which
+  matters for anything v1 compares across alts.
 
 **The generated API docs are a floor, not a contract.** The live reward struct carries five
 fields that appear in no documentation file. Feature-detect fields; never assume a documented
@@ -207,11 +218,22 @@ name** [source, unverified in game — S1]. The same frame compares it against
 `parentProfessionID or professionID` (`:41-43`), and Alchemy's challenges name 2937, not
 Classic's 171. Join through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID`
 as well as directly, never by name. `GetServerTime` stamps roster snapshots.
+The client data backs the parent reading [DB2, 2026-09-30]. All six tradeskill lines are
+tier-4 children of the Classic lines: 2937 → 171, 2938 → 164, 2940 → 333, 2941 → 202,
+2945 → 165, 2948 → 197. What the live call returns is still S1's to answer.
 
 Reference source, read-only, on the forever branch: the directories `vendor/PINS.md` lists
 (the Legacy addons, the generated API docs, `Blizzard_AchievementUI`, and the UI template,
 font and panel directories added 2026-09-19). PINS.md is the list; `ls
 vendor/wow-ui-source/Interface/AddOns` is the check.
+
+Client data, read-only, for any build: the DB2 tables at
+`https://wago.tools/db2/<Table>/csv?build=<build>`. `https://wago.tools/api/builds` lists builds;
+Forever's are the `1.6*` versions under `wow_classic_beta`, and it is the quickest way to learn
+a new beta build shipped. A fact from there is tagged `[DB2, <date>]` and names its builds in
+`docs/legacy-internals.md`. **It is research evidence, the same as `vendor/`.** It is never a
+runtime source, never shipped, and never licenses a hardcoded ID. It answers questions the API
+cannot, and some that would otherwise need a round trip in game.
 
 ## Architecture
 
@@ -266,7 +288,7 @@ Each doc owns one thing. The test for where something goes:
 
 Also `docs/legacy-internals.md` (research with `file:line` citations), `docs/ui-templates.md`
 (frame templates, fonts and FontString methods verified at the pin), `docs/distribution.md`
-(what the packager dry-run showed, and the CurseForge check still open), `docs/icon-design.md`
+(what the packager dry-run showed, and how CurseForge was confirmed), `docs/icon-design.md`
 (the icon decision and how to re-render it) and `docs/development.md` (bootstrap, toolchain and
 the capture commands, for contributors).
 `README.md` is the CurseForge listing, not a repo guide. `docs/kickoff-phases.md` is

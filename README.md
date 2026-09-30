@@ -116,7 +116,7 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
 | | Version | What |
 |---|---|---|
 | ▰▰▰▱ | **v0 "Next Up"** | The ranked list, category filter and reward track above |
-| ▰▱▱▱ | v1 "Roster" | A snapshot of each character on login and logout (class, level, professions, points spent per tree, unspent points), a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Class-levelling challenges get no match: the game gives no readable level for them. Started; `/lgn roster` shows the data as text |
+| ▰▱▱▱ | v1 "Roster" | A snapshot of each character on login and logout (class, level, professions, points spent per tree, unspent points), a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Class-levelling challenges get no match: the game doesn't give addons their level to read. Started; `/lgn roster` shows the data as text |
 
 Changes are listed in [CHANGELOG.md](https://github.com/lxhwes/LegacyNext/blob/main/CHANGELOG.md).
 
