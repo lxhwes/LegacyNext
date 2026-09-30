@@ -148,6 +148,51 @@ describe("Roster model", function()
 			assert.equals(1000, merged.professionsAt)
 		end)
 
+		-- The shape Api.GetTreeSpend returns when GetConfigIDByTreeID gives nothing: tree ids,
+		-- names and the cap survive, every currency field is gone.
+		local function unreadTrees()
+			local spend = fixture("dump_trees_fresh").treeSpend
+			spend.unspent, spend.spent = nil, nil
+			for _, treeId in ipairs(spend.treeIds) do
+				local tree = spend[treeId]
+				tree.configId, tree.quantity, tree.spent, tree.spentInTree = nil, nil, nil, nil
+			end
+			return spend
+		end
+
+		it("keeps the last good tree spend when no tree's currency was read", function()
+			local stored = fixture("dump_trees_fresh").treeSpend
+			stored[1187].spentInTree, stored[1188].spentInTree = 5, 3 -- derived: captured 0, varied
+			stored.unspent = 2 -- derived: captured 0, varied
+			local previous = Model.BuildSnapshot({
+				character = fixture("dump_character_shaman").character, treeSpend = stored, now = 1000,
+			})
+
+			local fresh = Model.BuildSnapshot({
+				character = fixture("dump_character_shaman").character, treeSpend = unreadTrees(), now = 2000,
+			})
+			local merged = Model.MergeSnapshot(previous, fresh)
+
+			assert.is_nil(fresh.trees)
+			assert.equals("unspent points not read", fresh.treesReason)
+			assert.equals(5, merged.trees[1].spent)
+			assert.equals(3, merged.trees[2].spent)
+			assert.equals(2, merged.unspent)
+			assert.equals(1000, merged.treesAt)
+		end)
+
+		it("counts a read with one tree missing its spend as failed", function()
+			local spend = fixture("dump_trees_fresh").treeSpend
+			spend[1188].spentInTree = nil
+
+			local snapshot = Model.BuildSnapshot({
+				character = fixture("dump_character_shaman").character, treeSpend = spend, now = 1000,
+			})
+
+			assert.is_nil(snapshot.trees)
+			assert.equals("tree spend not read for 1188", snapshot.treesReason)
+		end)
+
 		it("takes the fresh snapshot whole when nothing was stored", function()
 			local fresh = captured(1000)
 

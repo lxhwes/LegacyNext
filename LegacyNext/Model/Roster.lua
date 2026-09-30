@@ -48,13 +48,27 @@ local function snapshotProfessions(list)
 	return out
 end
 
+-- Api.GetTreeSpend returns a table even when every currency read failed -- the tree ids come
+-- from constants with fallbacks -- so a non-nil spend proves nothing. The read counts only if
+-- the pool's unspent and every tree's spentInTree came back as numbers.
 local function snapshotTrees(treeSpend)
-	local trees = {}
+	if type(treeSpend.unspent) ~= "number" then
+		return nil, "unspent points not read"
+	end
+	local trees, unread = {}, {}
 	for _, treeId in ipairs(treeSpend.treeIds or {}) do
 		local tree = treeSpend[treeId]
-		if type(tree) == "table" then
+		if type(tree) == "table" and type(tree.spentInTree) == "number" then
 			trees[#trees + 1] = { treeId = treeId, name = tree.name, spent = tree.spentInTree }
+		else
+			unread[#unread + 1] = tostring(treeId)
 		end
+	end
+	if unread[1] then
+		return nil, "tree spend not read for " .. table.concat(unread, ", ")
+	end
+	if not trees[1] then
+		return nil, "no trees"
 	end
 	return trees
 end
@@ -89,14 +103,18 @@ function Model.BuildSnapshot(input)
 	end
 
 	local spend = input.treeSpend
+	local trees, treesReason = nil, input.treeSpendReason or "not read"
 	if type(spend) == "table" then
-		snapshot.trees = snapshotTrees(spend)
+		trees, treesReason = snapshotTrees(spend)
+	end
+	if trees then
+		snapshot.trees = trees
 		snapshot.spent = spend.spent
 		snapshot.unspent = spend.unspent
 		snapshot.cap = spend.cap
 		snapshot.treesAt = input.now
 	else
-		snapshot.treesReason = input.treeSpendReason or "not read"
+		snapshot.treesReason = treesReason
 	end
 
 	return snapshot
