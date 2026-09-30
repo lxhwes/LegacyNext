@@ -76,6 +76,17 @@ describe("Debug.RenderRoster", function()
 		assert.truthy(text:find("B-R", 1, true))
 	end)
 
+	it("marks a skill-line answer that came from the saved map", function()
+		local ns = loadStack()
+		local challenges = fixture("dump_challenges_page1_fresh").challenges
+		local parents = ns.Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+
+		local text = ns.Debug.RenderRoster({ roster = ns.Model.Roster({}, nil), parents = parents,
+			candidates = ns.Model.ProfessionCandidates(challenges, {}, parents) })
+
+		assert.truthy(text:find("[line 2937, parent 171, profession nil, saved]  need 150", 1, true))
+	end)
+
 	it("tells a failed challenge read apart from no tradeskill challenges", function()
 		local ns = loadStack()
 		local roster = ns.Model.Roster({}, nil)

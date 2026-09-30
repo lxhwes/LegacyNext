@@ -123,6 +123,21 @@ describe("Store", function()
 		assert.is_true(Store.PutSnapshot("A-R", { key = "A-R" }))
 	end)
 
+	it("round-trips the skill-line map account-wide, as a copy", function()
+		local Store = loadStore()
+		assert.same({}, Store.GetSkillLineParents())
+		assert.is_false((Store.PutSkillLineParents({})))
+
+		Store.Attach()
+		local map = { [2937] = { parentId = 171 } }
+		assert.is_true(Store.PutSkillLineParents(map))
+		map[2937].parentId = 1
+
+		assert.equals(171, _G.LegacyNextDB.skillLineParents[2937].parentId)
+		assert.equals(171, Store.GetSkillLineParents()[2937].parentId)
+		assert.is_false((Store.PutSkillLineParents("junk")))
+	end)
+
 	-- Hypothetical until S1: the client assigning the loaded table after ADDON_LOADED.
 	describe("a table assigned after attach", function()
 		it("is adopted, with this session's writes replayed onto it", function()

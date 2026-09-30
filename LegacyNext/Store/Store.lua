@@ -10,9 +10,11 @@ local _, ns = ...
 --     sessions = <number of times the addon loaded with this table>,
 --     characters = { ["Name-Realm"] = <Model.BuildSnapshot output>, ... },
 --     snapshotLog = { { session, at, text }, ... },   -- last LOG_LIMIT snapshot results
+--     skillLineParents = { [skillLineId] = <Model.MergeSkillLineParents entry>, ... },
 --   }
 --
--- snapshotLog is additive, so schema stays 1: an older build ignores it.
+-- snapshotLog and skillLineParents are additive, so schema stays 1: an older build ignores
+-- them.
 --
 -- Store never interprets a snapshot. Merging, validating and rendering them is Model's job.
 ns.Store = ns.Store or {}
@@ -176,6 +178,28 @@ function Store.LogSnapshot(at, text)
 	while #log > Store.LOG_LIMIT do
 		table.remove(log, 1)
 	end
+	return true
+end
+
+--- The account-wide skill-line map, as a copy; empty when none was saved.
+function Store.GetSkillLineParents()
+	sync()
+	if not db or type(db.skillLineParents) ~= "table" then
+		return {}
+	end
+	return copy(db.skillLineParents)
+end
+
+--- Replaces the skill-line map. Model merges; Store only persists.
+function Store.PutSkillLineParents(parents)
+	local ok, reason = writable()
+	if not ok then
+		return false, reason
+	end
+	if type(parents) ~= "table" then
+		return false, "bad skill-line map"
+	end
+	db.skillLineParents = copy(parents)
 	return true
 end
 

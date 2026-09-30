@@ -152,7 +152,11 @@ function ns.ReadRosterInput()
 		challengesReason = "categories: " .. tostring(categoriesReason)
 	end
 	local skillLines = Model.ChallengeSkillLines(challenges)
-	local parents, parentsReason = Api.GetSkillLineParents(skillLines)
+	-- Merged with the saved map and saved back, so an answer read on the Alchemist still joins
+	-- when /lgn roster runs on an alt that never learned it.
+	local parentsLive, parentsReason = Api.GetSkillLineParents(skillLines)
+	local parents = Model.MergeSkillLineParents(Store.GetSkillLineParents(), parentsLive)
+	Store.PutSkillLineParents(parents)
 	return {
 		snapshots = Store.GetSnapshots(),
 		currentKey = ns.currentKey,
@@ -160,6 +164,7 @@ function ns.ReadRosterInput()
 		challengesReason = challengesReason,
 		skillLines = skillLines,
 		parents = parents,
+		parentsLive = parentsLive,
 		parentsReason = parentsReason,
 		diagnostics = Store.Diagnostics(),
 		snapshotResult = snapshotResult,

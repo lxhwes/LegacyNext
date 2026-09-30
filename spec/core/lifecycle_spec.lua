@@ -171,6 +171,18 @@ describe("addon lifecycle", function()
 		assert.equals("categories: GetCategoryList unavailable", input.challengesReason)
 	end)
 
+	it("uses and keeps the saved skill-line map when this session's lookup is missing", function()
+		_G.LegacyNextDB = { schema = 1, skillLineParents = { [2937] = { parentId = 171 } } }
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadRosterInput()
+
+		assert.is_nil(input.parentsLive)
+		assert.equals(171, input.parents[2937].parentId)
+		assert.is_true(input.parents[2937].saved)
+		assert.equals(171, _G.LegacyNextDB.skillLineParents[2937].parentId)
+	end)
+
 	describe("event registration", function()
 		it("registers the lifecycle and snapshot events", function()
 			for _, event in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_LEVEL_UP",

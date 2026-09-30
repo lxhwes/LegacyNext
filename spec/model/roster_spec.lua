@@ -268,6 +268,42 @@ describe("Roster model", function()
 			assert.same({ 2937 }, Model.ChallengeSkillLines(challenges))
 		end)
 
+		-- 171 and 200 stand in for whatever the lookup reports; see alt().
+		describe("MergeSkillLineParents", function()
+			it("keeps a saved answer over a live one that names no id", function()
+				local merged = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } },
+					{ [2937] = { name = "", raw = { professionID = 0 } } })
+
+				assert.equals(171, merged[2937].parentId)
+				assert.is_true(merged[2937].saved)
+			end)
+
+			it("lets a live answer with an id replace the saved one", function()
+				local merged = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } },
+					{ [2937] = { parentId = 200 }, [2938] = { professionId = 2938 } })
+
+				assert.equals(200, merged[2937].parentId)
+				assert.is_nil(merged[2937].saved)
+				assert.equals(2938, merged[2938].professionId)
+			end)
+
+			it("reads a missing map on either side as empty", function()
+				assert.same({}, Model.MergeSkillLineParents(nil, nil))
+				assert.same({ [1] = { parentId = 2, saved = true } },
+					Model.MergeSkillLineParents({ [1] = { parentId = 2 }, [3] = "junk" }, nil))
+			end)
+
+			it("joins an alt through a saved answer when this session's lookup failed", function()
+				local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+				local alts = { alt("Alch-R", 30, { { skillLineId = 171, skill = 100 } }) }
+
+				local journeyman = byName(Model.ProfessionCandidates(challenges, alts, parents),
+					"Journeyman Alchemist")
+
+				assert.equals("Alch-R", journeyman.candidates[1].key)
+			end)
+		end)
+
 		it("lists every tradeskill challenge with no candidates when no alt knows the line", function()
 			local shaman = Model.BuildSnapshot({ character = fixture("dump_character_shaman").character })
 

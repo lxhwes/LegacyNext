@@ -227,6 +227,36 @@ function Model.ChallengeSkillLines(challenges)
 	return ids
 end
 
+local function effectiveId(parent)
+	return type(parent) == "table" and (parent.parentId or parent.professionId) or nil
+end
+
+--- The skill-line map this session reads, laid over the one saved account-wide. The lookup may
+-- answer only on a character who knows the profession (S1), and the join is for finding
+-- *other* characters, so one answer from any character has to outlive its session.
+-- A live entry with an id wins, so a build that re-parents a line is picked up on the next
+-- read; a live entry with none (a zeroed struct) never erases a saved one. Kept entries carry
+-- saved = true.
+function Model.MergeSkillLineParents(saved, live)
+	local merged = {}
+	for skillLineId, parent in pairs(type(saved) == "table" and saved or {}) do
+		if type(parent) == "table" then
+			local entry = {}
+			for field, value in pairs(parent) do
+				entry[field] = value
+			end
+			entry.saved = true
+			merged[skillLineId] = entry
+		end
+	end
+	for skillLineId, parent in pairs(type(live) == "table" and live or {}) do
+		if type(parent) == "table" and (effectiveId(parent) or not effectiveId(merged[skillLineId])) then
+			merged[skillLineId] = parent
+		end
+	end
+	return merged
+end
+
 -- A character's profession matches a challenge's skill line directly, or through the line's
 -- effective id -- `parentProfessionID or professionID`, the value Blizzard's own frame compares
 -- GetProfessionInfo's skillLine against (Blizzard_ProfessionsFrame.lua:41). Which one the
@@ -239,10 +269,7 @@ local function matches(profession, skillLineId, parent)
 	if id == skillLineId then
 		return true
 	end
-	if type(parent) ~= "table" then
-		return false
-	end
-	local effective = parent.parentId or parent.professionId
+	local effective = effectiveId(parent)
 	return effective ~= nil and id == effective
 end
 

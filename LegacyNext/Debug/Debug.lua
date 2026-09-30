@@ -582,9 +582,10 @@ function Debug.RenderRoster(input)
 	end
 	for _, entry in ipairs(input.candidates or {}) do
 		local parent = input.parents and input.parents[entry.skillLineId]
-		w(("%s  [line %s, parent %s, profession %s]  need %s"):format(tostring(entry.challenge.name),
+		w(("%s  [line %s, parent %s, profession %s%s]  need %s"):format(tostring(entry.challenge.name),
 			tostring(entry.skillLineId), tostring(parent and parent.parentId),
-			tostring(parent and parent.professionId), tostring(entry.need)))
+			tostring(parent and parent.professionId), parent and parent.saved and ", saved" or "",
+			tostring(entry.need)))
 		if #entry.candidates == 0 then
 			w("    no stored character has this profession")
 		end
@@ -621,7 +622,9 @@ function Debug.BuildRoster()
 		diagnostics = input.diagnostics,
 		challengesReason = input.challengesReason,
 		skillLines = input.skillLines,
-		parents = withReason(input.parents, input.parentsReason),
+		-- What the client said this session, apart from the saved map: S1's evidence.
+		parentsLive = withReason(input.parentsLive, input.parentsReason),
+		parents = input.parents,
 		snapshots = input.snapshots,
 	}) .. "\n"
 end
