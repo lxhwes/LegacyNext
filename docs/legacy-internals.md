@@ -207,7 +207,10 @@ the achievement's own `points` field is **0** — which is what the override exi
 `rewardText` reads "Earn 1 Legacy Point.", a free display string.
 
 `flags` on a point-bearing challenge is `134349824` — bits 10, 17 and 27. Bit 17 is
-`ACHIEVEMENT_FLAGS_ACCOUNT`. Bits 10 and 27 are unidentified and appear on all 65. The 46
+`ACHIEVEMENT_FLAGS_ACCOUNT`. ~~Bits 10 and 27 are unidentified and appear on all 65.~~ Bit 10
+is still unidentified. **Bit 27 marks which of two mirrored challenge sets this is.** The
+client data holds a second set of 65 that carries bit 28 instead (added 2026-09-30, "Client
+data (DB2)" below). Both bits 10 and 27 appear on all 65 of ours. The 46
 zero-point exploration achievements have `flags == 0`, so they are ordinary per-character
 achievements. The correlation between "awards a point" and "is account-wide" holds across all
 111, but it is an observation, not a documented invariant — do not branch on it.
@@ -827,6 +830,15 @@ reward-track changes we will have to register `TRAIT_CONFIG_UPDATED` / `TRAIT_TR
 and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED` ourselves — Blizzard's Legacy UI gives us no
 precedent that they fire in this context. Queue row **C2** in `docs/ingame-commands.md` checks.
 
+**`RECEIVED_ACHIEVEMENT_LIST`** (added 2026-09-30) is documented as a `UniqueEvent` with no
+payload (`Blizzard_APIDocumentationGenerated/AchievementInfoDocumentation.lua:161`). No
+Blizzard addon at the pin registers it. Legacy Forever invalidates on it, and tells its users
+"if you just logged in, try again shortly". That suggests the achievement list can read empty
+for a moment after login. It is a note rather than a C2 line for two reasons. It fires at
+login, before `/etrace` can be opened. And nothing of ours reads achievements at login: the
+window reads on open, and roster snapshots never read achievements. If anyone reports an empty
+list right after login, this is the first event to try.
+
 ---
 
 ## Full dependency surface
@@ -960,11 +972,124 @@ game; queue row S1.**
   the Nilable `parentProfessionID` / `parentProfessionName`
   (`TradeSkillUITypesDocumentation.lua:361`). No Blizzard caller of it was in the sparse
   checkout, so this is doc-only evidence (Tier A).
+- **The client data agrees** (added 2026-09-30, "Client data (DB2)" below). In `SkillLine`,
+  every line a tradeskill challenge names is a `ParentTierIndex` 4 child of a Classic
+  profession line: 2937 → 171 Alchemy, 2938 → 164 Blacksmithing, 2940 → 333 Enchanting,
+  2941 → 202 Engineering, 2945 → 165 Leatherworking, 2948 → 197 Tailoring. It is the same at
+  builds 69913, 70009 and 70124. That is the parent/child split the frame expects. It does not
+  say what the live `GetProfessionInfo` returns, so S1 still decides.
 
 Consequence: `Model.ProfessionCandidates` accepts a direct match **or** a match through the
 parent, which is correct whichever way the client answers. S1 answers two questions. Does the
 lookup work for a line the character never learned? And which number does an Alchemy
 character's `GetProfessionInfo` report?
+
+---
+
+## Client data (DB2) via wago.tools — 2026-09-30
+
+wago.tools publishes the client's data tables (DB2) as CSV for every build. These are the rows
+the client itself reads, so they answer some questions the API cannot, without a trip into the
+game. **They are research evidence only, in the same way `vendor/` is.** They are never a
+runtime source, never shipped, and never a reason to hardcode an ID.
+
+```sh
+curl -sS "https://wago.tools/api/builds" | jq -r '.wow_classic_beta[].version' | grep '^1\.6' | sort -V
+# ... 1.60.1.69913, 1.60.1.69977, 1.60.1.70009, 1.60.1.70058, 1.60.1.70124 on 2026-09-30
+curl -sS -o Achievement.csv "https://wago.tools/db2/Achievement/csv?build=1.60.1.70009"
+```
+
+Five tables were read: `Achievement`, `CriteriaTree`, `Criteria`, `TraitCurrencySource` and
+`SkillLine`, each at builds **69913** (our fixtures), **70009** (the pin) and **70124** (the
+newest). The join follows `Achievement.Criteria_tree` down the `CriteriaTree.Parent` chain to
+the leaves that carry a `CriteriaID`. Each leaf gives `Criteria.Type` and `.Asset`, plus
+`CriteriaTree.Amount` as the threshold. A challenge is point-bearing when it has a
+`TraitCurrencySource` row with `TraitCurrencyID` 4225. The check was a throwaway Python
+script and is not committed. Every result below is identical at all three builds.
+
+**The data agrees with our captures.** All 26 challenges in `spec/fixtures/`, 16 of them
+point-bearing, match on ID, `flags` and points, with zero mismatches. That is the grounds for
+trusting the rest.
+
+**Two mirrored sets of 65.** `TraitCurrencySource` has **130** rows for currency 4225. 65
+carry flag bit 27 (`0x08000000`) and 65 carry bit 28 (`0x10000000`). Both sets split the same
+way: Classes 27, Tradeskills 18, Player vs. Player 12, Dungeons 3, Raids 3, Adventure 2. Every
+challenge ID in our captures is in the bit-27 set. The mirror uses its own IDs: Novice Warrior
+is 61499 in ours and 63969 in the mirror, and Novice Spelunker is 62031 and 64016. Its criteria
+have new IDs too (checked on those two: 110153 → 117712, 19213 → 117733). The client listed
+only ours on two characters. **Which
+ruleset or realm sees the mirror is unknown.** For v1, a character who sees the mirror would
+report different challenge IDs for the same challenge.
+
+**Class levels are in the data, not the API.** Each of our 27 class challenges has exactly one
+leaf, `Criteria.Type` 5 with `Asset` 0, and a `CriteriaTree.Amount` of 25, 45 or 60 (nine of
+each). The leaf also carries a `ModifierTree`, presumably the class restriction: 422101 on all
+three Druid tiers. We have not decoded it. The live API reports `criteriaExpected == 0` for the same challenges
+(`spec/fixtures/dump_challenges_page1_fresh.lua`). So the number exists in the client but no
+API we know of hands it to addon code.
+
+**Criteria types behind our 65**, grouped by what each challenge's leaves hold:
+
+| Leaves | Challenges | Examples |
+|---|---|---|
+| one type 5 (level) | 27 | Novice / Experienced / Master of each class |
+| one type 7 (skill) | 18 | Journeyman Alchemist, 2937 / 150 |
+| one type 261 | 5 | Rank 3, Rank 7, Rank 10 |
+| one type 27 (quest) | 4 | Lord Valthalak Laid to Rest, Field of Honor: Week 4 |
+| one type 0 | 1 | Conqueror of the Lair |
+| one type 8 | 1 | Explorer |
+| several type 0 | 3 | Experienced Spelunker, Conquerer of the Deeps |
+| type 0 and 78 | 1 | Novice Spelunker |
+| type 0 and 165 | 1 | Conquerer of the Wilds |
+| several type 243 | 4 | Master of Alterac Valley |
+
+Types 5 and 261 never reached our dumps, because the API showed those 32 challenges with no
+criteria at all. That is 32 of the 34 no-criteria challenges. Legacy Forever's generator calls
+261 "rank". We have not decoded its `Asset` or `Amount`. Type 78 has `Asset` 0 and a
+`ModifierTree` instead (455791 on Novice Spelunker). That is how "Ragefire Chasm or Hall of
+Thanes" names two dungeons in one criterion.
+
+**Tradeskill lines are children of the Classic lines.** See the Professions section above.
+
+---
+
+## Legacy Forever — what another Legacy addon shows, 2026-09-30
+
+<https://github.com/cjber/legacy-forever>, v0.6.7, read at `c489de8`. It puts unfinished
+challenges on the world map by zone, with a tracker and zone completion. Its data is generated
+from the DB2 tables above, and a daily workflow opens a PR when wago.tools lists a new build.
+**It is GPL-3.0-or-later and LegacyNext is MIT, so we take facts and approaches from it, never
+code.** It does not rank challenges by closeness and does not track alts.
+
+What it adds to our picture:
+
+- **SavedVariables.** Its TOC sets `## LoadSavedVariablesFirst: 1`, and it ships features that
+  depend on saved data. Its own code still guards against missing saves: "Forever's beta
+  client can start without the saved variables loaded" (`UI/WhatsNew.lua:12`). Its audit marks
+  whether Forever honours the directive as unproven. Blizzard's own challenge tracker also
+  sets it (`Blizzard_LegacyChallengeTracker.toc:6`, Q6 above). Our TOC does not, which is why
+  S1 has a fallback step.
+- **Achievement tracking is refused.** It says Forever's ruleset makes `C_ContentTracking`
+  report achievements as `Untrackable` (`UI/Tracker.lua:5`). The enum value is real
+  (`Blizzard_APIDocumentationGenerated/ContentTrackingTypesDocumentation.lua:13`). We have not
+  seen it refuse. Its own objective-tracker section then needed taint fixes in six releases
+  (0.6.2 to 0.6.7). That supports the no-hooking rule.
+- **Opening Blizzard's Legacy panel on one challenge.** Three calls, all present at our pin:
+  `ToggleLegacySystemUI()` (`Blizzard_LegacySystem/Blizzard_LegacySystem_Bootstrap.lua:7`)
+  loads and shows the panel. `EventRegistry:TriggerEvent("Legacy.SelectPage", 2)`
+  (`Blizzard_LegacySystem.lua:12`) switches to the challenges page, tab `id="2"` in
+  `Blizzard_LegacySystem.xml:16`. `AchievementFrame_SelectAchievement(id, true)`
+  (`Blizzard_LegacyChallenges.lua:314`) selects the challenge. These are calls, not hooks.
+  One catch: `Blizzard_AchievementUI` defines a global with the same name
+  (`Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:2811`), and whichever file
+  loads last owns it. Feature-detect it.
+- **Criteria keyed by ID.** It keys criteria by `criteriaID`, the tenth return of
+  `GetAchievementCriteriaInfo`, because DB2 order and API order need not agree. Worth copying
+  as an approach for anything v1 persists.
+- **Single-step challenges.** When `GetAchievementNumCriteria` is 0, it treats the whole
+  achievement as its one step, using the description as the text. That matches our "no
+  progress shown" tier.
+- **Release evidence** that closed our CurseForge check. See `docs/distribution.md` §3.
 
 ---
 

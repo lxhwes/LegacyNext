@@ -79,7 +79,7 @@ GitHub's Ubuntu runners, which use GNU sed.
 
 `.pkgmeta` line 7 was updated in the same commit; it now reads `Verified against BigWigsMods/packager on 2026-09-19`.
 
-## 3. CurseForge Forever game version: could not test, needs a token
+## 3. CurseForge Forever game version: ~~could not test, needs a token~~ answered 2026-09-30 by another addon's uploads
 
 The packager reads `https://wow.curseforge.com/api/game/wow/versions` with an
 `x-api-token` header (line 2823). Without a token:
@@ -103,6 +103,21 @@ real CurseForge type ID. Circumstantial, not a test. Alex, in a browser, either 
    `curl -s -H "x-api-token: $CF_API_KEY" https://wow.curseforge.com/api/game/wow/versions | jq '.[] | select(.gameVersionTypeID == 88568)'`
    Expect at least one entry with `"name": "1.60.1"`.
 
+**Answered by another addon's uploads, 2026-09-30.** Legacy Forever (CurseForge project
+1705879) releases through `BigWigsMods/packager@e50a250` (v2.6.1), with `CF_API_KEY` set, and
+does nothing special for Forever. Its last five release runs passed (`api.github.com`, workflow
+`release.yml`). Its v0.6.7 `release.json` reads `"flavor": "forever", "interface": 16001`.
+CurseForge lists the resulting files under game version `1.60.1`:
+
+```
+curl -sS "https://api.cfwidget.com/1705879" | jq '[.files[:3][] | {name, versions}]'
+# LegacyForever-v0.6.7-forever.zip, v0.6.6, v0.6.5 — each "versions": ["1.60.1"]
+```
+
+So CurseForge has a Forever `1.60.1` version and the packager uploads into it. The type ID
+88568 itself is not shown by that endpoint. It is not our upload either, so our first release
+is still the real test, but the browser and token checks above are no longer needed.
+
 WoWInterface, verified: `curl https://api.wowinterface.com/addons/compatible.json` lists
 games `Cata-Classic`, `Classic`, `Retail`, `TBC-Classic`, `WOTLK-Classic` and no `1.6x`
 interface. Nothing to publish into; the packager already skips it with a warning.
@@ -119,7 +134,9 @@ repos/McTalian-WoW-Addons/wow-build-tools/commits`). The earlier note that it wo
 
 ## Open
 
-- CurseForge type 88568 needs the browser or token check above before the first upload.
+- ~~CurseForge type 88568 needs the browser or token check above before the first upload.~~
+  Answered 2026-09-30 by Legacy Forever's uploads landing under `1.60.1` (§3). Our first
+  upload is the remaining check.
 - `BigWigsMods/packager@v2` is not wired into CI. When it is, `-g` is unnecessary; the TOC
   alone yields `forever` / `1.60.1`.
 - `.pkgmeta`'s ignore list did not include `.claude/` at dry-run time, and whether the packager

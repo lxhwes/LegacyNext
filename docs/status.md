@@ -4,9 +4,11 @@ Last updated 2026-09-30.
 
 **Where we are, 2026-09-30: Phase 4 (v1 roster) has started on the report that SavedVariables
 now load back. That report is untested here, and S1 tests it. Store, per-character snapshots,
-the roster and tradeskill-candidate model, and `/lgn roster` are built and tested. A review of
-PR #2 the same day found 14 problems, and 13 are fixed (158 tests, 2 pending on S1). No roster
-frame yet, and none of it has run in game. Phase 3 is as below.**
+the roster and tradeskill-candidate model, and `/lgn roster` are built, tested and merged
+(PR #2: 158 tests, 2 pending on S1). No roster frame yet, and none of it has run in game.
+Later the same day the client's own data tables (DB2) backed the tradeskill join, and another
+addon's uploads closed the CurseForge check. S1 gained a fallback step. The vendor pin is still
+`1.60.1.70009`, and wago.tools lists `1.60.1.70124`. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -27,6 +29,53 @@ Open in the queue, in order: **S1** (v1 rests on it), **U3**, **U1** and **U2** 
 minutes together), then **C3**, with **D4**, **C2** and the second half of S1 in the same
 Alchemy session. C3 is the first real data for the
 "in progress" tier. See `docs/ingame-commands.md`.
+
+## Legacy Forever and the client data (DB2) — 2026-09-30
+
+Alex asked what another Legacy addon could teach us: cjber's Legacy Forever, a GPL-3.0 map and
+tracker addon. It builds its data from the client's DB2 tables through wago.tools, so the read
+turned into a DB2 cross-check at builds 69913, 70009 and 70124. The facts are in `CLAUDE.md`,
+tagged `[DB2, 2026-09-30]`. The detail and the join are in `docs/legacy-internals.md`, under
+"Client data (DB2)" and "Legacy Forever". Nothing it found changes code.
+
+**The client data agrees with every capture we have.** All 26 challenges in `spec/fixtures/`
+match on ID, `flags` and points. So DB2 can now answer questions that would otherwise cost a
+round trip in game. It stays research evidence, never a runtime source.
+
+What it found:
+
+- **The tradeskill join.** All six tradeskill lines are tier-4 children of the Classic lines,
+  as PR #2 inferred from source. S1 still decides what the live call returns.
+- **Class levels are in the data.** Each class challenge has a type-5 criterion with 25, 45 or
+  60. See the note under the professions-only decision below.
+- **Two mirrored challenge sets.** Ours carry flag bit 27 and the mirror carries bit 28, with
+  its own IDs. Who sees the mirror is unknown. That explains bit 27, one of two flag bits
+  `docs/legacy-internals.md` had as unidentified. v1 must not assume two characters report the
+  same challenge IDs.
+- **CurseForge.** Legacy Forever's packager uploads land under CurseForge's `1.60.1` version,
+  which closes the check that was open since 2026-09-19 (`docs/distribution.md` §3).
+- **SavedVariables.** Legacy Forever and Blizzard's own challenge tracker both set
+  `## LoadSavedVariablesFirst: 1`, and ours does not. S1 gained a fifth step that tries it,
+  only if the plain load fails.
+- **Newer builds.** wago.tools lists 1.60.1.70058 and 1.60.1.70124 after our pin. The bump is
+  next.
+
+Not taken:
+
+- `RECEIVED_ACHIEVEMENT_LIST` in C2. It fires at login, before `/etrace` can be opened, and
+  nothing of ours reads achievements at login. It is a note under Q12 in
+  `docs/legacy-internals.md` instead.
+- Their code. GPL-3.0 against our MIT means facts and approaches only.
+- Their tooling: a type checker, six CI jobs and a locale pipeline. That is more than v0 needs.
+
+Open for Alex, neither blocking S1:
+
+- A "Works alongside" line in `README.md` that points to Legacy Forever for map pins. It
+  covers where a challenge is. We cover which challenge is next and which alt should do it.
+- Whether a Next Up row should open Blizzard's Legacy panel on that challenge. It takes three
+  calls, all present at the pin and cited in `docs/legacy-internals.md`. An idea only, not
+  planned.
+- Whether class-level matching reopens. See the note under the decision below.
 
 ## PR #2 review — 2026-09-30
 
@@ -420,7 +469,7 @@ way: the dry run cost twenty minutes and closed two blockers.
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
 | 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
 | 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Done** — drawn in the client 2026-09-19 (U1 uidump). Screenshot still open; the 2026-09-26 changes are unseen |
-| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except CurseForge check, TOC version line |
+| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except ~~CurseForge check~~ (answered 2026-09-30, `docs/distribution.md` §3), TOC version line |
 | 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, unverified in game (S1); roster frame not started |
 
 Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
@@ -536,6 +585,14 @@ and it breaks on localisation), to ship profession mapping only, or to drop the 
 ~~**Alex's call, not taken yet.** It does not block Phase 3.~~ **Decided 2026-09-30, Alex:
 professions only.** Class challenges appear in the roster data but get no candidate alt. If a
 later build exposes a machine-readable level, reopen this.
+
+**New evidence the same day, and not a reversal.** The client data holds the level for every
+class challenge: type 5, with `CriteriaTree.Amount` 25, 45 or 60, at builds 69913, 70009 and
+70124. No API we know of returns it. That falls short of the reopen condition above, which
+asks for a build that exposes the level to addon code. Reading it from DB2 would mean shipping
+a generated table keyed by achievement ID, and the no-hardcoded-IDs rule forbids that today.
+It could be relaxed to "never hand-maintain IDs", which is how Legacy Forever works: a daily
+regenerated table plus an in-game audit. That is Alex's call. The decision stands until then.
 
 Added 2026-09-26, from Blizzard's overview article: profession mapping only ever targets the
 six crafting professions — Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking,
@@ -838,10 +895,14 @@ returns and never names a slot.
   change. Original entry: v1's roster
   depends on a workaround. Blizzard's own Challenge Tracker uses
   `SavedVariablesPerCharacter`, so if its unviewed dots survive a relog the bug is narrower
-  than it looks. Cheap thing to watch.
+  than it looks. Cheap thing to watch. Added 2026-09-30: that tracker, and Legacy Forever,
+  both set `## LoadSavedVariablesFirst: 1`, and ours does not. S1's step 5 tries it if the
+  plain load fails.
 - ~~**The packager tags unknown interface numbers as retail**, and wow-build-tools won't bump
   16001.~~ Both fixed upstream on 2026-09-17 and verified by dry run 2026-09-19 —
-  `docs/distribution.md`. What remains is the CurseForge version type, unverified.
+  `docs/distribution.md`. ~~What remains is the CurseForge version type, unverified.~~
+  Answered 2026-09-30: another addon's packager uploads land under CurseForge's `1.60.1`
+  version. Our own first upload is the remaining check.
 - ~~**`.pkgmeta`'s `move-folders`** has never been run against the real packager.~~ Run
   2026-09-19; TOC at the zip root.
 - ~~**The v0 frame has never been drawn.**~~ Drawn 2026-09-19, U1's uidump. Kept for the record: Every template it uses is cited at the pin and
