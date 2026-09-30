@@ -781,6 +781,10 @@ function Api.GetServerTime()
 	return now
 end
 
+local function positiveId(value)
+	return (type(value) == "number" and value > 0) and value or nil
+end
+
 --- For each skill line asked about, the parent profession it belongs to.
 -- C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID) -> ProfessionInfo
 --                                              doc: TradeSkillUIDocumentation.lua:488
@@ -796,8 +800,12 @@ end
 -- If that holds, a character's profession never equals the challenge's skill line directly.
 -- Whether this function answers for a profession the character has not learned is S1.
 --
--- Returns { [skillLineId] = { parentId, parentName, name } }. A line that failed to read is
--- absent, and the reasons are in the second return; a missing function fails the whole read.
+-- Returns { [skillLineId] = { parentId, parentName, name, professionId, raw } }. parentId and
+-- professionId read 0 as absent, for matching. `raw` is the whole struct, zeros kept: for an
+-- unlearned line the client may hand back a zeroed ProfessionInfo (Nilable = false), and only
+-- the raw fields tell that apart from a real top-level line -- which is the question S1 asks.
+-- A line that failed to read is absent, and the reasons are in the second return; a missing
+-- function fails the whole read.
 function Api.GetSkillLineParents(skillLineIds)
 	if type(resolve("C_TradeSkillUI.GetProfessionInfoBySkillLineID")) ~= "function" then
 		record("C_TradeSkillUI.GetProfessionInfoBySkillLineID", "missing")
@@ -809,12 +817,12 @@ function Api.GetSkillLineParents(skillLineIds)
 		local result, reason = call("C_TradeSkillUI.GetProfessionInfoBySkillLineID", skillLineId)
 		local info = result and result[1]
 		if type(info) == "table" then
-			local parentId = info.parentProfessionID
 			parents[skillLineId] = {
-				-- 0 is a plausible "no parent" encoding for a Nilable number; treat it as none.
-				parentId = (type(parentId) == "number" and parentId > 0) and parentId or nil,
+				parentId = positiveId(info.parentProfessionID),
 				parentName = info.parentProfessionName,
 				name = info.professionName,
+				professionId = positiveId(info.professionID),
+				raw = info,
 			}
 		else
 			failures[#failures + 1] = tostring(skillLineId) .. ": " .. (reason or "no info")

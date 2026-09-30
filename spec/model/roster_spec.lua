@@ -294,6 +294,16 @@ describe("Roster model", function()
 			assert.equals(110, journeyman.candidates[2].remaining)
 		end)
 
+		it("falls back to the line's professionId when it has no parent, as Blizzard's frame does", function()
+			local parents = { [2937] = { professionId = 171 } } -- derived: 171 stands in, see alt()
+			local alts = { alt("Alch-R", 30, { { skillLineId = 171, skill = 100 } }) }
+
+			local journeyman = byName(Model.ProfessionCandidates(challenges, alts, parents), "Journeyman Alchemist")
+
+			assert.equals(1, #journeyman.candidates)
+			assert.equals(50, journeyman.candidates[1].remaining)
+		end)
+
 		it("matches the challenge's skill line directly too", function()
 			local alts = { alt("Direct-R", 30, { { skillLineId = 2937, skill = 160 } }) }
 

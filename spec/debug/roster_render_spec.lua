@@ -43,7 +43,7 @@ describe("Debug.RenderRoster", function()
 		assert.truthy(text:find("Professions 0, Adventure 0, Resourcefulness 0 | unspent 0, cap 16", 1, true))
 		assert.truthy(text:find("no professions", 1, true))
 		assert.truthy(text:find("parent lookup: 2937: missing", 1, true))
-		assert.truthy(text:find("Journeyman Alchemist  [line 2937, parent nil]  need 150", 1, true))
+		assert.truthy(text:find("Journeyman Alchemist  [line 2937, parent nil, profession nil]  need 150", 1, true))
 		assert.truthy(text:find("no stored character has this profession", 1, true))
 	end)
 

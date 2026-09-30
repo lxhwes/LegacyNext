@@ -536,7 +536,9 @@ describe("Api", function()
 
 			local parents, reason = Api.GetSkillLineParents({ 1, 2 })
 
-			assert.same({ parentId = 10, parentName = "parent", name = "child" }, parents[1])
+			assert.same({ parentId = 10, parentName = "parent", name = "child", professionId = 1,
+				raw = { professionID = 1, professionName = "child", parentProfessionID = 10,
+					parentProfessionName = "parent" } }, parents[1])
 			assert.is_nil(parents[2])
 			assert.truthy(reason:find("2: error", 1, true))
 		end)
@@ -554,6 +556,22 @@ describe("Api", function()
 			assert.is_nil(reason)
 			assert.is_nil(parents[1].parentId)
 			assert.is_nil(parents[2].parentId)
+		end)
+
+		it("keeps a zeroed struct's zeros in raw, so S1 can tell it from a top-level line", function()
+			local Api = loadApi().Api
+			inject("C_TradeSkillUI", {
+				GetProfessionInfoBySkillLineID = function()
+					return { professionID = 0, professionName = "", parentProfessionID = 0 }
+				end,
+			})
+
+			local parent = Api.GetSkillLineParents({ 5 })[5]
+
+			assert.is_nil(parent.parentId)
+			assert.is_nil(parent.professionId)
+			assert.equals(0, parent.raw.professionID)
+			assert.equals(0, parent.raw.parentProfessionID)
 		end)
 
 		pending("S1: what the client returns for a tradeskill challenge's skill line (2937 on 1.60.1)")

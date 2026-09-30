@@ -228,8 +228,9 @@ function Model.ChallengeSkillLines(challenges)
 end
 
 -- A character's profession matches a challenge's skill line directly, or through the line's
--- parent. Which of the two the client actually needs is S1; accepting both is what makes the
--- mapper correct either way.
+-- effective id -- `parentProfessionID or professionID`, the value Blizzard's own frame compares
+-- GetProfessionInfo's skillLine against (Blizzard_ProfessionsFrame.lua:41). Which one the
+-- client actually needs is S1; accepting both is what makes the mapper correct either way.
 local function matches(profession, skillLineId, parent)
 	local id = profession.skillLineId
 	if type(id) ~= "number" then
@@ -238,7 +239,11 @@ local function matches(profession, skillLineId, parent)
 	if id == skillLineId then
 		return true
 	end
-	return parent ~= nil and parent.parentId ~= nil and id == parent.parentId
+	if type(parent) ~= "table" then
+		return false
+	end
+	local effective = parent.parentId or parent.professionId
+	return effective ~= nil and id == effective
 end
 
 -- Snapshots arrive straight from Store, which never validates: a newer schema's table, or a
