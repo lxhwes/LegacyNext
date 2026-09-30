@@ -517,7 +517,12 @@ local function candidateLines(lines, candidates)
 	end
 	local list = candidates.candidates
 	if not list[1] then
-		lines[#lines + 1] = "No saved character has this profession"
+		if candidates.parentKnown == false then
+			lines[#lines + 1] = "No saved character matched, and the profession lookup gave no answer, so one"
+				.. " may be missing"
+		else
+			lines[#lines + 1] = "No saved character has this profession"
+		end
 		return
 	end
 	lines[#lines + 1] = "Saved characters with this profession:"

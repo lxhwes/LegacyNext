@@ -535,6 +535,15 @@ describe("Roster model", function()
 				1, true))
 		end)
 
+		it("says when the profession lookup gave no answer for the hidden ones", function()
+			local snapshots = { zug(), shaman }
+			local view = build(snapshots, { candidates = Model.ProfessionCandidates(challenges, snapshots, nil) })
+
+			assert.equals(0, #rows(view, "tradeskill"))
+			assert.truthy(view.footnote:find("3 tradeskill challenges have no saved character with the profession."
+				.. " The profession lookup gave no answer for 3 of them, so a match may be missing", 1, true))
+		end)
+
 		it("says when the tradeskill challenges could not be read", function()
 			local view = build({ shaman }, { challengesReason = "GetCategoryList unavailable" })
 
@@ -583,9 +592,21 @@ describe("Roster model", function()
 		end)
 
 		it("says so when no saved character has the profession", function()
-			local detail = journeymanDetail({ candidates = Model.ProfessionCandidates(challenges, {}, nil) })
+			local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+			local detail = journeymanDetail({ candidates = Model.ProfessionCandidates(challenges, {}, parents) })
 
 			assert.truthy(detail:find("No saved character has this profession", 1, true))
+		end)
+
+		-- Without the skill-line lookup, a character whose profession reads as the parent line
+		-- cannot match. "Nobody has it" would then be a claim the join cannot make (S1).
+		it("says the lookup gave no answer instead of claiming nobody has the profession", function()
+			local zug = alt("Zug-R", 30, { { name = "Alchemy", skillLineId = 171, skill = 120, max = 150 } })
+
+			local detail = journeymanDetail({ candidates = Model.ProfessionCandidates(challenges, { zug }, nil) })
+
+			assert.is_nil(detail:find("No saved character has this profession", 1, true))
+			assert.truthy(detail:find("No saved character matched, and the profession lookup gave no answer", 1, true))
 		end)
 
 		it("adds nothing when no candidates were passed", function()

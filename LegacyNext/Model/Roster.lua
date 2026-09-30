@@ -288,8 +288,10 @@ end
 --- For each incomplete tradeskill challenge, every stored character with that profession,
 -- closest first. `parents` is Api.GetSkillLineParents output and may be nil.
 -- Returns a list in the challenges' order:
---   { challenge, skillLineId, need, candidates = { { key, name, class, level, skill,
---     remaining, reached } } }
+--   { challenge, skillLineId, need, parentKnown, candidates = { { key, name, class, level,
+--     skill, remaining, reached } } }
+-- `parentKnown` is false when the skill-line lookup gave no id, so only a direct match can join
+-- and an empty list is not proof that nobody has the profession.
 -- `reached` means the snapshot's skill already meets the threshold while the challenge still
 -- reads incomplete: a stale snapshot, or a credit the client has not given yet.
 function Model.ProfessionCandidates(challenges, snapshots, parents)
@@ -331,6 +333,7 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 				challenge = challenge,
 				skillLineId = criterion.assetId,
 				need = criterion.need,
+				parentKnown = effectiveId(parents[criterion.assetId]) ~= nil,
 				candidates = candidates,
 			}
 		end
@@ -485,13 +488,16 @@ end
 -- Tradeskill challenges some saved character can work on, closest first, then client order.
 -- The rest are counted, not listed: a row that says "nobody" eighteen times is noise.
 local function tradeskillRows(candidates)
-	local shown, hidden = {}, 0
+	local shown, hidden, unjoined = {}, 0, 0
 	for index, entry in ipairs(candidates) do
 		if type(entry) == "table" and type(entry.challenge) == "table"
 			and type(entry.candidates) == "table" and entry.candidates[1] then
 			shown[#shown + 1] = { entry = entry, index = index }
 		else
 			hidden = hidden + 1
+			if type(entry) == "table" and entry.parentKnown == false then
+				unjoined = unjoined + 1
+			end
 		end
 	end
 	table.sort(shown, function(a, b)
@@ -525,7 +531,7 @@ local function tradeskillRows(candidates)
 			detail = detail,
 		}
 	end
-	return rows, hidden
+	return rows, hidden, unjoined
 end
 
 local function plural(count, one, many)
@@ -583,7 +589,7 @@ function Model.BuildRosterView(input)
 	if input.challengesReason then
 		notes[#notes + 1] = "Could not read tradeskill challenges: " .. tostring(input.challengesReason)
 	elseif type(input.candidates) == "table" then
-		local rows, hidden = tradeskillRows(input.candidates)
+		local rows, hidden, unjoined = tradeskillRows(input.candidates)
 		if rows[1] then
 			view.rows[#view.rows + 1] = { kind = "columns", name = "Tradeskill challenge", progressText = "Skill",
 				pointsText = "" }
@@ -592,8 +598,13 @@ function Model.BuildRosterView(input)
 			end
 		end
 		if hidden > 0 then
-			notes[#notes + 1] = plural(hidden, "tradeskill challenge has", "tradeskill challenges have")
+			local note = plural(hidden, "tradeskill challenge has", "tradeskill challenges have")
 				.. " no saved character with the profession"
+			if unjoined > 0 then
+				note = note .. ". The profession lookup gave no answer for " .. tostring(unjoined)
+					.. " of them, so a match may be missing"
+			end
+			notes[#notes + 1] = note
 		end
 	end
 
