@@ -42,6 +42,18 @@ local function newWidget(kind, name, template)
 				return function() return 0 end
 			elseif key == "SetScript" then
 				return function(_, event, fn) self["script_" .. event] = fn end
+			elseif key == "SetPoint" then
+				return function(_, ...)
+					local anchors = rawget(self, "anchors") or {}
+					anchors[#anchors + 1] = { ... }
+					self.anchors = anchors
+				end
+			elseif key == "ClearAllPoints" then
+				return function() self.anchors = {} end
+			elseif key == "EnableMouse" then
+				return function(_, enabled) self.mouse = enabled end
+			elseif key == "LockHighlight" or key == "UnlockHighlight" then
+				return function() self.locked = key == "LockHighlight" end
 			end
 			return function() end
 		end,
@@ -286,6 +298,26 @@ describe("UI", function()
 		assert.equals("3 other-class challenges hidden", ns.UI.frame.status.text)
 	end)
 
+	-- The status line was anchored once, at the top of the list, so a footnote printed over the
+	-- first two rows.
+	it("draws the footnote below the last row", function()
+		local ns = loadUI()
+		ns.UI.SetDataSource(function()
+			return {
+				challenges = fixture("dump_challenges_page1_fresh").challenges,
+				categories = fixture("categories_full").categories,
+				character = fixture("dump_character_shaman").character,
+			}
+		end)
+		ns.UI.Show()
+
+		local top
+		for _, anchor in ipairs(ns.UI.frame.status.anchors) do
+			if anchor[1] == "TOPLEFT" then top = anchor[3] end
+		end
+		assert.equals(-(#ns.UI.view.rows * 16 + 4), top)
+	end)
+
 	describe("roster tab", function()
 		local categories = fixture("categories_full").categories
 
@@ -335,12 +367,29 @@ describe("UI", function()
 			assert.same({ "Character", "Bong Wrip  L1 Shaman" }, shownNames(frame))
 			assert.equals("0/0/0", frame.rows[2].figure.text)
 			assert.is_nil(rawget(frame.rows[1], "data")) -- a heading has no tooltip; raw, past the double
+			assert.is_false(frame.rows[1].mouse)
+			assert.is_true(frame.rows[2].mouse)
+			assert.is_true(frame.tabs[2].locked)
+			assert.is_false(frame.tabs[1].locked)
 			for _, button in ipairs(frame.filterBar.buttons) do
 				assert.is_false(button.shown)
 			end
 
 			ns.UI.SetTab("nextup")
 			assert.same(nextUp, shownNames(frame))
+			assert.is_true(frame.rows[1].mouse) -- the pooled heading row is a challenge row again
+			assert.is_true(frame.tabs[1].locked)
+		end)
+
+		it("keeps the footnote under an empty roster", function()
+			local ns = loadWithRoster()
+			ns.UI.SetDataSource(function() return { snapshots = { "junk" } } end)
+			ns.UI.Show()
+
+			ns.UI.SetTab("roster")
+
+			assert.equals("No characters saved yet. Each character joins the roster when it logs in.\n"
+				.. "1 saved character could not be read", ns.UI.frame.status.text)
 		end)
 
 		it("switches tab from the tab buttons", function()

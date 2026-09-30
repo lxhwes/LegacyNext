@@ -482,16 +482,26 @@ local function layoutRows(frame, view)
 		frame.dividers[index]:Hide()
 	end
 
+	-- A state message, a footnote, or both. Anchored below the last row on every draw, since a
+	-- footnote under a list anchored at the top prints over the first two rows.
+	local note = view.footnote
 	if view.state ~= "ok" then
-		frame.status:SetText(view.message or view.state)
-		frame.status:Show()
-		y = y + 40
-	elseif view.footnote then
-		frame.status:SetText(view.footnote)
-		frame.status:Show()
-		y = y + 40
+		note = tostring(view.message or view.state) .. (note and ("\n" .. note) or "")
+	end
+	local status = frame.status
+	if note then
+		local lines = 1
+		for _ in note:gmatch("\n") do
+			lines = lines + 1
+		end
+		status:ClearAllPoints()
+		status:SetPoint("TOPLEFT", 0, -(y + 4))
+		status:SetPoint("RIGHT", 0, 0)
+		status:SetText(note)
+		status:Show()
+		y = y + 12 + 28 * lines
 	else
-		frame.status:Hide()
+		status:Hide()
 	end
 
 	child:SetHeight(math.max(y, ROW_HEIGHT))
