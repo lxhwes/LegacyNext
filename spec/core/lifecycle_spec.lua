@@ -74,7 +74,7 @@ describe("addon lifecycle", function()
 			_G[name] = nil
 		end
 		for _, name in ipairs({ "CreateFrame", "UIParent", "UISpecialFrames", "LegacyNextDB",
-			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer" }) do
+			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer", "C_AddOns" }) do
 			_G[name] = nil
 		end
 	end)
@@ -239,6 +239,25 @@ describe("addon lifecycle", function()
 			assert.is_nil(registered.SKILL_LINES_CHANGED)
 			assert.is_true(registered.PLAYER_LEVEL_UP)
 			assert.same({ "SKILL_LINES_CHANGED (unknown to this client)" }, ns.eventsNotRegistered)
+		end)
+	end)
+
+	describe("version", function()
+		local function versionAtLogin(metadata)
+			_G.C_AddOns = { GetAddOnMetadata = function(_, key)
+				if key == "Version" then return metadata end
+			end }
+			handler(nil, "PLAYER_LOGIN")
+			return ns.version
+		end
+
+		-- A dev build is LegacyNext/ copied from the repo, so the packager never replaced the token.
+		it("reports dev when ## Version is the unreplaced packager token", function()
+			assert.equals("dev", versionAtLogin("@project-version@"))
+		end)
+
+		it("reports the tag the packager wrote", function()
+			assert.equals("v0.1.0", versionAtLogin("v0.1.0"))
 		end)
 	end)
 
