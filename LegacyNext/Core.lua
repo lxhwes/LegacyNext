@@ -12,6 +12,11 @@ local function getVersion()
 
 	local ok, value = pcall(getMetadata, ADDON_NAME, "Version")
 	if ok and value then
+		-- A copy straight from the repo keeps the packager's version token. Match the leading
+		-- "@" only: the packager rewrites the whole token in every file it copies, this one too.
+		if type(value) == "string" and value:sub(1, 1) == "@" then
+			return "dev"
+		end
 		return value
 	end
 
