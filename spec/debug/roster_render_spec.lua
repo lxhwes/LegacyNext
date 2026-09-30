@@ -76,6 +76,27 @@ describe("Debug.RenderRoster", function()
 		assert.truthy(text:find("B-R", 1, true))
 	end)
 
+	it("dates a part carried over from an earlier snapshot", function()
+		local ns = loadStack()
+		local Model = ns.Model
+		local function snapshot(professionsReason, now)
+			local character = fixture("dump_character_shaman").character
+			character.professions = professionsReason == nil
+				and { { name = "Alchemy", skillLineId = 171, skill = 120, max = 150 } } or nil -- derived
+			character.professionsReason = professionsReason
+			return Model.BuildSnapshot({ character = character,
+				treeSpend = fixture("dump_trees_fresh").treeSpend, now = now })
+		end
+		local merged = Model.MergeSnapshot(snapshot(nil, 1000),
+			snapshot("GetProfessions unavailable", 1000 + 3600))
+
+		local text = ns.Debug.RenderRoster({ roster = Model.Roster({ merged }, merged.key), now = 1000 + 3600 })
+
+		assert.truthy(text:find("L1 Shaman  0m ago", 1, true))
+		assert.truthy(text:find("Alchemy 120/150 [171]  (kept from 60m ago: GetProfessions unavailable)", 1, true))
+		assert.truthy(text:find("unspent 0, cap 16\n", 1, true))
+	end)
+
 	it("marks a skill-line answer that came from the saved map", function()
 		local ns = loadStack()
 		local challenges = fixture("dump_challenges_page1_fresh").challenges

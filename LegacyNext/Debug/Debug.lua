@@ -505,6 +505,17 @@ local function treeText(snapshot)
 		tostring(snapshot.cap))
 end
 
+-- MergeSnapshot carries a failed part over with its own timestamp. Without this the row's age
+-- is the latest snapshot's, and last week's skill numbers read as current.
+local function keptNote(row, part, now)
+	local at, reason = row[part .. "At"], row[part .. "Reason"]
+	if type(at) ~= "number" or at == row.takenAt then
+		return reason and ("  (" .. tostring(reason) .. ")") or ""
+	end
+	local age = type(now) == "number" and ("%dm ago"):format(math.floor((now - at) / 60)) or ("at " .. at)
+	return "  (kept from " .. age .. (reason and (": " .. tostring(reason)) or "") .. ")"
+end
+
 -- Pure: renders the roster, the profession candidates and the store's own diagnostics.
 -- input = { roster = Model.Roster, candidates = Model.ProfessionCandidates, diagnostics,
 -- parents, parentsReason, challengesReason, snapshotResult, snapshotLog, eventsNotRegistered,
@@ -564,8 +575,8 @@ function Debug.RenderRoster(input)
 		end
 		w(("%s%s  L%s %s%s"):format(row.key == roster.currentKey and "* " or "  ", row.key,
 			tostring(row.level), tostring(row.class), age))
-		w("    " .. treeText(row))
-		w("    " .. professionText(row.professions))
+		w("    " .. treeText(row) .. keptNote(row, "trees", input.now))
+		w("    " .. professionText(row.professions) .. keptNote(row, "professions", input.now))
 	end
 	if (roster.skipped or 0) > 0 then
 		w("skipped " .. roster.skipped .. " unreadable snapshots")
