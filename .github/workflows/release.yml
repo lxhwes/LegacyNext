@@ -1,0 +1,51 @@
+name: Release
+
+# A pushed v* tag is the release: the packager writes the tag name into ## Version.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  # Same gate as ci.yml, so nothing ships that CI would reject.
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # WoW runs Lua 5.1, so the tests do too.
+      - uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: "5.1"
+
+      - uses: leafo/gh-actions-luarocks@v5
+
+      - name: Install tools
+        run: |
+          luarocks install --no-doc luacheck
+          luarocks install --no-doc busted
+
+      - name: Lint
+        run: luacheck LegacyNext spec
+
+      - name: Test
+        run: busted
+
+  package:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    # The packager creates the GitHub release and attaches the zip.
+    permissions:
+      contents: write
+    env:
+      # CurseForge upload is skipped until the TOC has ## X-Curse-Project-ID (release.sh:2818).
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The changelog is built from history since the previous tag.
+          fetch-depth: 0
+
+      # No -g: ## Interface: 16001 already yields forever / 1.60.1.
+      - uses: BigWigsMods/packager@v2
