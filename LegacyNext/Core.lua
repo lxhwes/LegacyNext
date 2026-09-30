@@ -142,13 +142,22 @@ end
 function ns.ReadRosterInput()
 	local Api, Model, Store = ns.Api, ns.Model, ns.Store
 	local snapshotResult = ns.TakeSnapshot("roster command", true)
-	local challenges = Api.GetChallenges(Api.GetCategories())
+	-- A failed read has to reach the paste: an empty candidate list otherwise reads as "no
+	-- tradeskill challenges" rather than "could not read them".
+	local categories, categoriesReason = Api.GetCategories()
+	local challenges, challengesReason
+	if categories then
+		challenges, challengesReason = Api.GetChallenges(categories)
+	else
+		challengesReason = "categories: " .. tostring(categoriesReason)
+	end
 	local skillLines = Model.ChallengeSkillLines(challenges)
 	local parents, parentsReason = Api.GetSkillLineParents(skillLines)
 	return {
 		snapshots = Store.GetSnapshots(),
 		currentKey = ns.currentKey,
 		challenges = challenges,
+		challengesReason = challengesReason,
 		skillLines = skillLines,
 		parents = parents,
 		parentsReason = parentsReason,

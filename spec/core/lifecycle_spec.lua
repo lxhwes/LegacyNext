@@ -161,6 +161,16 @@ describe("addon lifecycle", function()
 		end)
 	end)
 
+	it("carries a failed challenge read into the roster input", function()
+		-- No GetCategoryList stub: the category read fails before any challenge is read.
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadRosterInput()
+
+		assert.is_nil(input.challenges)
+		assert.equals("categories: GetCategoryList unavailable", input.challengesReason)
+	end)
+
 	describe("event registration", function()
 		it("registers the lifecycle and snapshot events", function()
 			for _, event in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_LEVEL_UP",

@@ -507,7 +507,8 @@ end
 
 -- Pure: renders the roster, the profession candidates and the store's own diagnostics.
 -- input = { roster = Model.Roster, candidates = Model.ProfessionCandidates, diagnostics,
--- parents, parentsReason, snapshotResult, snapshotLog, eventsNotRegistered, now }.
+-- parents, parentsReason, challengesReason, snapshotResult, snapshotLog, eventsNotRegistered,
+-- now }.
 function Debug.RenderRoster(input)
 	local out = {}
 	local function w(line) out[#out + 1] = line end
@@ -571,6 +572,11 @@ function Debug.RenderRoster(input)
 	end
 
 	w("== TRADESKILL CANDIDATES ==")
+	if input.challengesReason then
+		w("challenge read failed: " .. tostring(input.challengesReason))
+	elseif not (input.candidates and input.candidates[1]) then
+		w("no incomplete tradeskill challenges")
+	end
 	if input.parentsReason then
 		w("parent lookup: " .. input.parentsReason)
 	end
@@ -606,11 +612,13 @@ function Debug.BuildRoster()
 		snapshotResult = input.snapshotResult,
 		snapshotLog = input.snapshotLog,
 		eventsNotRegistered = input.eventsNotRegistered,
+		challengesReason = input.challengesReason,
 		now = input.now,
 	})
 
 	return text .. "== RAW ==\n" .. Debug.Serialize({
 		diagnostics = input.diagnostics,
+		challengesReason = input.challengesReason,
 		skillLines = input.skillLines,
 		parents = withReason(input.parents, input.parentsReason),
 		snapshots = input.snapshots,

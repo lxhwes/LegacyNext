@@ -75,4 +75,17 @@ describe("Debug.RenderRoster", function()
 		assert.truthy(text:find("trees ?", 1, true))
 		assert.truthy(text:find("B-R", 1, true))
 	end)
+
+	it("tells a failed challenge read apart from no tradeskill challenges", function()
+		local ns = loadStack()
+		local roster = ns.Model.Roster({}, nil)
+
+		local failed = ns.Debug.RenderRoster({ roster = roster, candidates = {},
+			challengesReason = "categories: GetCategoryList unavailable" })
+		local empty = ns.Debug.RenderRoster({ roster = roster, candidates = {} })
+
+		assert.truthy(failed:find("challenge read failed: categories: GetCategoryList unavailable", 1, true))
+		assert.is_nil(failed:find("no incomplete tradeskill challenges", 1, true))
+		assert.truthy(empty:find("no incomplete tradeskill challenges", 1, true))
+	end)
 end)
