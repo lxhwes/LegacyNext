@@ -3,7 +3,9 @@
 Read-only research against `vendor/wow-ui-source`, written 2026-09-19 at pin
 `70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e` (`1.60.1.69913`) and re-checked 2026-09-26 at
 `bd2470aed543f72697a044e989285b6c83e63f73` (`1.60.1.70009`), which is where the line numbers
-below now point. Five of them moved in that bump; see `docs/beta-builds.md` for which.
+below now point. Five of them moved in that bump; see `docs/beta-builds.md` for which. Checked
+again 2026-09-30 at `966519cf0ad2c10301ea011a88c14b25697c9687` (`1.60.1.70124`), where none
+moved.
 Paths are relative to `Interface/AddOns/`. Line numbers are pin-relative; re-run
 `.claude/skills/forever-api-lookup/scripts/verify_citations.py` after a
 bump. That script only resolves `.lua` citations, so the `.xml` lines here were checked by hand.

@@ -10,6 +10,34 @@ gap in this file should mean "nobody checked", not "nothing happened".
 
 Beta opened 2026-09-17. Launch is 2026-11-04.
 
+## 1.60.1.70124 — 2026-09-30
+
+Pin: `bd2470a` → `966519c` (mirror commit dated 2026-09-30). Covers two builds, since
+`1.60.1.70058` (`cde14c6`, 2026-09-29) was never pinned. `## Interface:` stays 16001, which is
+what the formula computes from `1.60.1.70124` and what the `.toc` reads. That is its third data
+point, and it still agrees.
+
+**Does not touch us**
+
+- One vendored file changed, `Blizzard_GameTooltip/Mainline/GameTooltip.lua`: a nil guard on
+  `GamepadMode.FrameControlsManager` in `GameTooltip_OnShow` (`:380-386`). We cite only
+  `GameTooltip.xml`, which did not move. `watchlist.txt` and `constants.diff` are empty.
+- The other 9 changed files are outside the sparse checkout: gamepad action bars, world map,
+  map data providers and item text. None of the four outside directories that `vendor/PINS.md`
+  lists changed.
+
+**Citations**
+
+`CITATIONS_SUSPECT` did not fire. `verify_citations.py` reported two broken lines, both false
+positives in files that did not change: `UnitDocumentation.lua:3869`, as at the last bump, and
+this file's own `SimpleScriptRegionAPIDocumentation.lua:95`, which still reads
+`Name = "EnableMouseWheel"`.
+
+**Needs in-game confirmation**
+
+- "No secrets on our surface" was last tested on 69913. `/lgn probe` on this build is queue row
+  **D10** in `docs/ingame-commands.md`.
+
 ## 1.60.1.70009 — 2026-09-26
 
 Pin: `70ef1b2` → `bd2470a` (mirror commit dated 2026-09-24). First real bump; the build number

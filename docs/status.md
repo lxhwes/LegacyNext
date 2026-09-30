@@ -7,8 +7,8 @@ now load back. That report is untested here, and S1 tests it. Store, per-charact
 the roster and tradeskill-candidate model, and `/lgn roster` are built, tested and merged
 (PR #2: 158 tests, 2 pending on S1). No roster frame yet, and none of it has run in game.
 Later the same day the client's own data tables (DB2) backed the tradeskill join, and another
-addon's uploads closed the CurseForge check. S1 gained a fallback step. The vendor pin is still
-`1.60.1.70009`, and wago.tools lists `1.60.1.70124`. Phase 3 is as below.**
+addon's uploads closed the CurseForge check. S1 gained a fallback step. The vendor pin then
+moved to `1.60.1.70124`, and nothing we call changed. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -18,17 +18,28 @@ version line. Phase 4 has not started. The vendor pin is at `1.60.1.70009`.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
-rather than an assumption: `issecretvalue` exists and the guard is active.
+rather than an assumption: `issecretvalue` exists and the guard is active. Tested on 69913.
+**D10** re-tests it on 70124.
 
 `Model/` ranks, groups and summarises against the fixtures (38 tests, run under an environment
 that errors on any non-stdlib global). `UI/` renders through a widget double (10 tests).
 `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Open in the queue, in order: **S1** (v1 rests on it), **U3**, **U1** and **U2** (under five
+Open in the queue, in order: **D10** and **S1** in one login (v1 rests on S1), **U3**, **U1** and **U2** (under five
 minutes together), then **C3**, with **D4**, **C2** and the second half of S1 in the same
 Alchemy session. C3 is the first real data for the
 "in progress" tier. See `docs/ingame-commands.md`.
+
+## Vendor pin moved to 1.60.1.70124 — 2026-09-30
+
+`bd2470a` → `966519c`, which covers 70058 and 70124. One vendored file changed, a gamepad nil
+guard in `GameTooltip.lua`. No Legacy file, API doc or constant moved, and no citation
+shifted. `## Interface: 16001` still matches. All 158 tests stay green. Detail in
+`docs/beta-builds.md`.
+
+The probe had not run since 69913, and no queue row asked for it. That row is now **D10**,
+taken at the start of S1's login.
 
 ## Legacy Forever and the client data (DB2) — 2026-09-30
 
@@ -415,8 +426,8 @@ tracker existed, which is the whole opportunity — recheck before release, sinc
 with a shelf life.
 
 Beta builds will churn the IDs and may churn the APIs. `beta-build-bump` exists for that; run
-it whenever the forever branch moves, and re-run **D5** after any bump, since "no secrets on
-our surface" is a per-build finding.
+it whenever the forever branch moves, and re-run the probe after any bump, since "no secrets on
+our surface" is a per-build finding. D5 was the first re-run. **D10** is the one for 70124.
 
 ## What must be true to ship v0
 
