@@ -194,6 +194,12 @@ describe("addon lifecycle", function()
 		for _, line in ipairs(printed) do
 			assert.is_nil(line:find("failed", 1, true), line)
 		end
+		-- No GetCategoryList stub: Next Up is in its error state, and the roster is not.
+		assert.truthy(ns.Debug.BuildUIDump(nil):find("state=error  Could not read your challenges", 1, true))
+		local roster = ns.Debug.BuildUIDump("roster")
+		assert.truthy(roster:find("tab=roster", 1, true))
+		assert.truthy(roster:find("Tester  L10 Druid", 1, true))
+		assert.truthy(roster:find("state=ok", 1, true))
 	end)
 
 	it("uses and keeps the saved skill-line map when this session's lookup is missing", function()
