@@ -22,6 +22,7 @@ Open, roughly in the order worth doing:
 |---|---|---|---|
 | S1 | `/lgn roster` at four points: after login, after `/reload`, on a second character, and after a full client restart. A fifth step, a one-line TOC edit and another restart, **only if the saved file did not come back**. **Best done as the C3 Alchemy session**, with the Alchemy character second. Section S1 below | Whether SavedVariables really load back now (reported fixed 2026-09-30, untested), and if not, whether `LoadSavedVariablesFirst` is the workaround. Everything in v1 rests on it. Also what `C_TradeSkillUI.GetProfessionInfoBySkillLineID(2937)` returns, and whether an Alchemy character's `GetProfessionInfo` skill line is 2937 or its parent. That decides the tradeskill→alt join. Unblocks both `pending` tests | ~5 min incl. a full restart, plus ~3 min if step 5 runs; the Alchemy half is free with C3 |
 | D10 | `/lgn dump probe` on build 1.60.1.70124, **at the start of the S1 session**. Section D10 below | Whether "no secrets on our surface" still holds. It is a per-build finding, last tested on 69913, and the pin is now two builds past that | 30 s |
+| U4 | `/lgn uidump roster`, then two screenshots: the Roster tab, and Next Up with the mouse over Journeyman Alchemist. **After S1's step 3**, so two characters are saved. Section U4 below | Whether the Roster tab reads right: the `P/A/R` and `Free` headings over their columns, the current character in gold, a tradeskill row naming the Alchemy character, and the collapsed filter bar. Content is checkable against `spec/golden/uidump_roster.txt`. Only the look needs your eyes | 2 min, same login as S1 |
 | U1 | **Partly answered 2026-09-19** — the uidump came back and is written up in `docs/status.md`. Still open for the one thing it cannot show: **one screenshot of the window**, after a `/reload` on a build with the OnHide fix | Look only: spacing, alignment, whether the inset crops anything. Row content is already checked against `spec/golden/`. Section U1 below | 1 min |
 | U3 | Look at the AddOns list at character select (or Escape > AddOns) after installing this build | Whether `## IconTexture` draws our 64x64 TGA at 20 px beside the addon name instead of the question mark. Section U3 below | 30 s |
 | U2 | The WoWLua block under U2 below | Whether a one-line FontString with word wrap off draws `...` or just clips (Tier C in `docs/ui-templates.md`), `IsTruncated()` on it, and `IsProtected()` on our frame | 2 min |
@@ -96,6 +97,20 @@ It prints one chat line and leaves a 120-pixel-wide test string near the top of 
 (`/reload` clears it). Tell me the chat line, and whether the string on screen ends in `...`
 or is cut off mid-word. That decides whether rows get an ellipsis for free or rely on the
 tooltip alone. `IsProtected` should read `false,false`.
+
+## U4 — the Roster tab
+
+Do this after S1's step 3, on character B, so the roster holds two characters.
+
+1. `/lgn uidump roster`. Paste it.
+2. `/lgn`, click **Roster**, and take a screenshot.
+3. Click **Next Up**, hover Journeyman Alchemist, and take a screenshot with the tooltip showing.
+
+What I am reading it for: in the paste, both characters with a tree figure and a `Free` number
+instead of `?`, and a tradeskill row naming B if B trained Alchemy. In the screenshots, the
+headings sitting over their columns, and whether a long tradeskill row is cut off. The
+tooltip should list B under "Saved characters with this profession". The middle dot in a
+tradeskill row is the same `Model.SEPARATOR` as U1's header, so one answer covers both.
 
 ## U3 — the icon
 
