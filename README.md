@@ -70,8 +70,10 @@ API, so they sit below it rather than being drawn as 0%.
 | `/lgn uidump [category]` | What the window would show, as copyable text |
 | `/lgn probe` | One line per API call: ok, partial, nil, missing, error, secret, skipped |
 | `/lgn dump [section] [page]` | Everything the addon reads, as a Lua literal |
+| `/lgn roster` | Preview of v1: every character this addon has seen, their Legacy tree spend and professions, and which of them is closest to each tradeskill challenge. As text for now |
+| `/lgn roster forget <Name-Realm>` | Remove a deleted character from the roster |
 
-The last three are for bug reports. Paste their output into an issue and it says exactly what
+`uidump`, `probe` and `dump` are for bug reports. Paste their output into an issue and it says exactly what
 the client handed back.
 
 ## What it does not do
@@ -97,8 +99,10 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
 - This is a beta client. Blizzard's challenge, category and criteria IDs change between builds.
   LegacyNext hardcodes none of them, but a new build can still change what the game reports.
   Verified against build 1.60.1 (69913).
-- Nothing is saved between sessions. SavedVariables are written but never loaded back on the
-  beta (a Blizzard-side bug), so v0 keeps no data of its own.
+- The roster depends on saved data. On the beta, saved data was written but never loaded back
+  (a Blizzard-side bug). Blizzard reports it fixed as of 2026-09-30, but LegacyNext has not
+  confirmed that yet. If `/lgn roster` only ever lists the character you're on, the bug is
+  still there. Next Up keeps no saved data and is unaffected.
 - 34 challenges expose no progress through the game's API: class levelling, the PvP ranks and a
   few others. They sit under a "no progress shown" divider instead of being scored as 0%.
 - Other classes' challenges are recognised by matching your class name against the game's
@@ -112,7 +116,7 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
 | | Version | What |
 |---|---|---|
 | ▰▰▰▱ | **v0 "Next Up"** | The ranked list, category filter and reward track above |
-| ▱▱▱▱ | v1 "Roster" | Once SavedVariables work: a snapshot of each character on login and logout (class, level, professions, points spent per tree, unspent points), a view of every alt, and a match from challenge to alt for class-levelling and profession challenges ("your level 34 Druid is 6 levels from this") |
+| ▰▱▱▱ | v1 "Roster" | A snapshot of each character on login and logout (class, level, professions, points spent per tree, unspent points), a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Class-levelling challenges get no match: the game gives no readable level for them. Started; `/lgn roster` shows the data as text |
 
 Changes are listed in [CHANGELOG.md](https://github.com/lxhwes/LegacyNext/blob/main/CHANGELOG.md).
 
