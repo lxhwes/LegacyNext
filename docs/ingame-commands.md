@@ -113,18 +113,24 @@ block included. The four pastes are four questions, so label them 1–4.
    `loadedType=nil` (nothing saved yet) and `sessions=1`.
 2. `/reload`, then `/lgn roster`. **This is the fix, or not:** `loadedType=table`,
    `loadedSessions=1` and `loadedCharacters=1` mean the file came back. `loadedType=nil` again
-   means the bug is still there.
+   means the bug is still there. A `snapshots saved by earlier sessions:` block with a
+   `PLAYER_LOGOUT` line means the logout write ran and came back too. A `LATE LOAD` line means
+   the client assigned the table after `ADDON_LOADED`, which would explain the original bug.
 3. Log out to character select and log in character B, ideally the one that trained Alchemy
    for C3. Then `/lgn roster`. Both characters should be listed. B's professions line shows its
-   skill line number in brackets, and the tradeskill section shows `[line 2937, parent N]`.
-   Those two numbers are the join.
+   skill line number in brackets, and the tradeskill section shows
+   `[line 2937, parent N, profession M]`. Those numbers are the join. `parentsLive` in the RAW
+   block is what the client said this session, zeros included, and is the fixture for the
+   pending `api_spec` test.
 4. Quit the game completely, relaunch, log in either character, then `/lgn roster`. A
    `/reload` can be served from memory; a restart has to come off disk. The original bug
    report was about the disk read, so this is the paste that closes the question.
 
 What I am reading it for: the `loaded*` fields in 2 and 4, whether `parent` is a number in
 3, and whether B's bracketed skill line equals 2937 or that parent. If the lookup reads
-`missing` or errors for 2937, say so. It means the join needs another route.
+`missing` or errors for 2937, say so. It means the join needs another route. Any
+`events not registered:` line in any paste is C2 data. It lists an event this build does not
+know.
 
 ## C3 and D4 — one Alchemy session
 

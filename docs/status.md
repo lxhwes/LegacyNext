@@ -4,8 +4,9 @@ Last updated 2026-09-30.
 
 **Where we are, 2026-09-30: Phase 4 (v1 roster) has started on the report that SavedVariables
 now load back. That report is untested here, and S1 tests it. Store, per-character snapshots,
-the roster and tradeskill-candidate model, and `/lgn roster` are built and tested (123 tests,
-2 pending on S1). No roster frame yet, and none of it has run in game. Phase 3 is as below.**
+the roster and tradeskill-candidate model, and `/lgn roster` are built and tested. A review of
+PR #2 the same day found 14 problems, and 13 are fixed (158 tests, 2 pending on S1). No roster
+frame yet, and none of it has run in game. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -26,6 +27,57 @@ Open in the queue, in order: **S1** (v1 rests on it), **U3**, **U1** and **U2** 
 minutes together), then **C3**, with **D4**, **C2** and the second half of S1 in the same
 Alchemy session. C3 is the first real data for the
 "in progress" tier. See `docs/ingame-commands.md`.
+
+## PR #2 review — 2026-09-30
+
+A code review of the Phase 4 branch, then fixes on the same branch. It found 14 problems. 13
+are fixed, each in its own commit with a test that fails without the fix.
+
+**The Phase 4 headline claim was false as first built.** "A failed part never overwrites a
+good one" did not hold for either part. `Api.GetTreeSpend` returns a table even when every
+`C_Traits` read fails, because the tree ids come from constants with fallbacks. So the
+keep-previous branch never fired, and a logout with no trait config would have saved nils over
+an alt's spend. Professions failed the same way: a slot whose `GetProfessionInfo` threw was
+dropped silently, and the short list passed as complete. Now a tree read counts only if
+`unspent` and every `spentInTree` are numbers. A profession read with a failed slot counts as
+no read. An empty profession read never replaces a stored list either, because skill data may
+not be ready when a snapshot fires. The cost is a stale row, until `/lgn roster forget`, for a
+character who really drops both professions.
+
+**One unknown event would have disabled the whole addon.** `RegisterEvent` throws on a name
+the client does not know, and Core registered the three snapshot events bare. A beta rename of
+`TRAIT_CONFIG_UPDATED` would have stopped Core before `OnEvent` and the slash commands were
+set up, taking Next Up down with it. Now each event is checked with `C_EventUtils.IsEventValid`
+where the client has it and registered under `pcall` regardless. Skipped events are listed in
+`/lgn roster`, which makes every S1 paste C2 evidence too.
+
+**S1's paste could not have answered S1.** Four gaps, all closed:
+
+- `GetSkillLineParents` dropped `professionID` and turned 0 into nil. Now it keeps both ids
+  and the raw struct.
+- The login and logout snapshot results were never shown. Now they are logged, and the last
+  10 are saved, so the next session shows the previous logout.
+- A failed challenge read looked like "no tradeskill challenges". Now it prints the reason.
+- A table assigned after `ADDON_LOADED` would have been missed. Now Store adopts it, replays
+  this session's writes onto it, and reports `LATE LOAD`.
+
+**The alt join depended on who ran the command.** If the skill-line lookup answers only for a
+learned profession, a non-Alchemist running `/lgn roster` could never match the Alchemy alt.
+The resolved map is now saved account-wide. A live answer with an id wins. A zeroed answer
+never erases a saved one. Matching also falls back to `professionID`, as Blizzard's frame does
+(`Blizzard_ProfessionsFrame.lua:41` at `bd2470a`).
+
+Smaller fixes:
+
+- A later event now restarts the 5 s snapshot delay, and the login snapshot is delayed too.
+- A junk stored row is skipped instead of failing the whole `/lgn roster`.
+- A carried-over part shows its own age and why the fresh read failed.
+- The CHANGELOG entry says the roster has not run in game.
+- `lifecycle_spec` now fires every snapshot event, with and without `C_Timer`.
+
+**Not fixed: the TDD commit order.** `bfdd212` and `f49faf0` ship their tests inside `feat`
+commits with no exception noted. Fixing that means rewriting pushed history, so it is left for
+Alex to decide.
 
 ## Review pass — 2026-09-26
 
@@ -505,10 +557,12 @@ Built and tested here, none of it run in game:
   is the S1 evidence. A table saved under a newer schema is left untouched and read-only, so a
   downgrade cannot wipe an alt list. `LegacyNextCharDB` is still declared and still unused.
 - **Snapshots** (`Model/Roster.lua`): class, level, every profession slot, per-tree spend,
-  unspent, cap. They are taken at `PLAYER_LOGIN` and `PLAYER_LOGOUT`, and 5 s after
-  `PLAYER_LEVEL_UP`, `SKILL_LINES_CHANGED` or `TRAIT_CONFIG_UPDATED`. Whether those three fire
-  is unverified (C2), and logout is the backstop. **A failed part never overwrites a good
-  one**: `MergeSnapshot` keeps the last good trees or professions with their old timestamp.
+  unspent, cap. They are taken ~~at `PLAYER_LOGIN` and~~ at `PLAYER_LOGOUT`, and 5 s after
+  `PLAYER_LOGIN` (moved by the PR #2 review), `PLAYER_LEVEL_UP`, `SKILL_LINES_CHANGED` or
+  `TRAIT_CONFIG_UPDATED`. Whether those three fire is unverified (C2), and logout is the
+  backstop. ~~**A failed part never overwrites a good one**: `MergeSnapshot` keeps the last
+  good trees or professions with their old timestamp.~~ False as first built, for both parts.
+  The PR #2 review above found it and fixed it the same day, so the claim holds now.
 - **Roster order**: current character first, then level, then key.
 - **Tradeskill candidates**: for each incomplete type-7 challenge, every stored character
   with the profession, closest first. Class challenges get none, per the decision above.
