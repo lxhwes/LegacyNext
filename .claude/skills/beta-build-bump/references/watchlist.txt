@@ -50,6 +50,20 @@ EVALUATION_TREE_FLAG_PROGRESS_BAR
 ACHIEVEMENT_EARNED
 CRITERIA_UPDATE
 ACHIEVEMENT_SEARCH_UPDATED
+# v1 roster snapshot triggers (Core.lua)
+PLAYER_LEVEL_UP
+SKILL_LINES_CHANGED
+TRAIT_CONFIG_UPDATED
+PLAYER_LOGOUT
+
+# --- Roster (v1) ------------------------------------------------------------
+# Bare global; stamps snapshots.
+GetServerTime
+# The tradeskill join: GetProfessionInfo's skillLine vs a challenge's skill line (S1).
+GetProfessionInfo
+GetProfessions
+ProfessionInfo
+parentProfessionID
 
 # --- Traits (read-only: trees and points) -----------------------------------
 GetConfigIDByTreeID

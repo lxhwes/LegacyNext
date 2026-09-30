@@ -940,6 +940,34 @@ in `spec/fixtures/` have to come from a live dump.
 
 ---
 
+## Professions — joining a character to a tradeskill challenge (2026-09-30)
+
+Source reading at `bd2470a` (1.60.1.70009), for v1's candidate-alt mapping. **Not verified in
+game; queue row S1.**
+
+- Tradeskill challenges are `criteriaType` 7. `assetId` is a skill line and `need` is the skill
+  level: `Journeyman Alchemist` is 2937 / 150 (`spec/fixtures/dump_challenges_page1_fresh.lua`).
+  2937 is not Classic's Alchemy line, 171.
+- A character's professions come from `GetProfessions` (seven slots on Forever) and then
+  `GetProfessionInfo(index)`, whose seventh return is `skillLine`
+  (`Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:56`).
+- The same frame matches a tab's `skillLine` against
+  `professionInfo.parentProfessionID or professionInfo.professionID` (`:41-43`). So Blizzard's
+  own code expects `GetProfessionInfo`'s line to be the **parent**, and the line a recipe or
+  challenge names to be a possible child.
+- `C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID)` returns `ProfessionInfo`
+  (`TradeSkillUIDocumentation.lua:488`), which carries `professionID`, `professionName` and
+  the Nilable `parentProfessionID` / `parentProfessionName`
+  (`TradeSkillUITypesDocumentation.lua:361`). No Blizzard caller of it was in the sparse
+  checkout, so this is doc-only evidence (Tier A).
+
+Consequence: `Model.ProfessionCandidates` accepts a direct match **or** a match through the
+parent, which is correct whichever way the client answers. S1 answers two questions. Does the
+lookup work for a line the character never learned? And which number does an Alchemy
+character's `GetProfessionInfo` report?
+
+---
+
 ## In-game commands (retired 2026-09-26)
 
 This section used to hold the Phase 1 command list, C1 to C9. **Those IDs are retired and are

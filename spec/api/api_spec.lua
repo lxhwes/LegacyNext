@@ -427,4 +427,153 @@ describe("Api", function()
 			assert.equals(111, total)
 		end)
 	end)
+
+	-- Trivial stubs in the GetProfessionInfo return order at Blizzard_ProfessionsFrame.lua:55
+	-- (CLAUDE.md). No populated profession has been captured yet (D4).
+	describe("GetCharacterInfo professions", function()
+		it("names a slot whose GetProfessionInfo threw instead of returning a short list", function()
+			local Api = loadApi().Api
+			inject("UnitClass", function() return "Druid", "DRUID", 11 end)
+			inject("GetProfessions", function() return 1, 2 end)
+			inject("GetProfessionInfo", function(index)
+				if index == 2 then
+					error("boom")
+				end
+				return "one", 0, 10, 75, 0, 0, 100
+			end)
+
+			local character = Api.GetCharacterInfo()
+
+			assert.equals(1, #character.professions)
+			assert.equals(100, character.professions[1].skillLineId)
+			assert.truthy(character.professionsReason:find("partial: slot 2: error", 1, true))
+		end)
+
+		it("gives no reason when every slot read", function()
+			local Api = loadApi().Api
+			inject("UnitClass", function() return "Druid", "DRUID", 11 end)
+			inject("GetProfessions", function() return 1 end)
+			inject("GetProfessionInfo", function() return "one", 0, 10, 75, 0, 0, 100 end)
+
+			local character = Api.GetCharacterInfo()
+
+			assert.equals(1, #character.professions)
+			assert.is_nil(character.professionsReason)
+		end)
+	end)
+
+	describe("GetServerTime", function()
+		it("returns nil and a reason when the function is missing", function()
+			local Api = loadApi().Api
+
+			local now, reason = Api.GetServerTime()
+
+			assert.is_nil(now)
+			assert.equals("GetServerTime unavailable", reason)
+		end)
+
+		it("passes a number through", function()
+			local Api = loadApi().Api
+			inject("GetServerTime", function() return 12345 end)
+
+			assert.equals(12345, Api.GetServerTime())
+		end)
+	end)
+
+	describe("IsEventValid", function()
+		it("returns nil and a reason when C_EventUtils is missing", function()
+			local Api = loadApi().Api
+
+			local valid, reason = Api.IsEventValid("PLAYER_LOGIN")
+
+			assert.is_nil(valid)
+			assert.equals("C_EventUtils.IsEventValid missing", reason)
+		end)
+
+		it("passes a boolean through, false included", function()
+			local Api = loadApi().Api
+			inject("C_EventUtils", { IsEventValid = function(event) return event == "PLAYER_LOGIN" end })
+
+			assert.is_true(Api.IsEventValid("PLAYER_LOGIN"))
+			assert.is_false(Api.IsEventValid("NOT_AN_EVENT"))
+		end)
+
+		it("refuses a non-boolean answer", function()
+			local Api = loadApi().Api
+			inject("C_EventUtils", { IsEventValid = function() return 1 end })
+
+			local valid, reason = Api.IsEventValid("PLAYER_LOGIN")
+
+			assert.is_nil(valid)
+			assert.equals("C_EventUtils.IsEventValid returned number", reason)
+		end)
+	end)
+
+	-- The stubbed ProfessionInfo below uses only field names from
+	-- TradeSkillUITypesDocumentation.lua:361, with trivial values. It tests the guard, not what
+	-- the client says about any real skill line -- that is S1.
+	describe("GetSkillLineParents", function()
+		it("fails the whole read when the function is missing", function()
+			local Api = loadApi().Api
+
+			local parents, reason = Api.GetSkillLineParents({ 1 })
+
+			assert.is_nil(parents)
+			assert.truthy(reason:find("missing", 1, true))
+		end)
+
+		it("keeps the lines that read and names the ones that threw", function()
+			local Api = loadApi().Api
+			inject("C_TradeSkillUI", {
+				GetProfessionInfoBySkillLineID = function(id)
+					if id == 2 then
+						error("boom")
+					end
+					return { professionID = id, professionName = "child", parentProfessionID = 10,
+						parentProfessionName = "parent" }
+				end,
+			})
+
+			local parents, reason = Api.GetSkillLineParents({ 1, 2 })
+
+			assert.same({ parentId = 10, parentName = "parent", name = "child", professionId = 1,
+				raw = { professionID = 1, professionName = "child", parentProfessionID = 10,
+					parentProfessionName = "parent" } }, parents[1])
+			assert.is_nil(parents[2])
+			assert.truthy(reason:find("2: error", 1, true))
+		end)
+
+		it("reads a zero or absent parent as no parent", function()
+			local Api = loadApi().Api
+			inject("C_TradeSkillUI", {
+				GetProfessionInfoBySkillLineID = function(id)
+					return { professionID = id, professionName = "top", parentProfessionID = id == 1 and 0 or nil }
+				end,
+			})
+
+			local parents, reason = Api.GetSkillLineParents({ 1, 2 })
+
+			assert.is_nil(reason)
+			assert.is_nil(parents[1].parentId)
+			assert.is_nil(parents[2].parentId)
+		end)
+
+		it("keeps a zeroed struct's zeros in raw, so S1 can tell it from a top-level line", function()
+			local Api = loadApi().Api
+			inject("C_TradeSkillUI", {
+				GetProfessionInfoBySkillLineID = function()
+					return { professionID = 0, professionName = "", parentProfessionID = 0 }
+				end,
+			})
+
+			local parent = Api.GetSkillLineParents({ 5 })[5]
+
+			assert.is_nil(parent.parentId)
+			assert.is_nil(parent.professionId)
+			assert.equals(0, parent.raw.professionID)
+			assert.equals(0, parent.raw.parentProfessionID)
+		end)
+
+		pending("S1: what the client returns for a tradeskill challenge's skill line (2937 on 1.60.1)")
+	end)
 end)

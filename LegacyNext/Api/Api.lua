@@ -695,12 +695,16 @@ local function readProfessions()
 		return nil, "GetProfessions unavailable"
 	end
 
-	local professions = {}
+	-- A slot whose GetProfessionInfo failed is named in the second return, so a short list is
+	-- never mistaken for the character's whole set -- the roster would drop that profession.
+	local professions, failures = {}, {}
 	for slot = 1, result.n do
 		local skillIndex = result[slot]
 		if type(skillIndex) == "number" then
-			local info = call("GetProfessionInfo", skillIndex)
-			if info then
+			local info, reason = call("GetProfessionInfo", skillIndex)
+			if not info then
+				failures[#failures + 1] = "slot " .. slot .. ": " .. tostring(reason)
+			else
 				professions[#professions + 1] = {
 					slot = slot,
 					skillIndex = skillIndex,
@@ -716,6 +720,9 @@ local function readProfessions()
 		end
 	end
 
+	if failures[1] then
+		return professions, "partial: " .. table.concat(failures, "; ")
+	end
 	return professions
 end
 
@@ -741,6 +748,88 @@ function Api.GetCharacterInfo()
 		professions = professions,
 		professionsReason = professionsReason,
 	}
+end
+
+--- Whether the client knows an event, checked before registering it: RegisterEvent throws on
+-- an unknown name, and beta builds rename events.
+-- C_EventUtils.IsEventValid(eventName) -> valid  doc: EventUtilsDocumentation.lua:26
+--                                              used: Blizzard_SharedXML/EventUtil.lua:12
+-- pin:  bd2470a (1.60.1.70009)
+-- Returns true or false, or nil plus a reason when the check is unavailable. The caller still
+-- pcalls the registration either way.
+function Api.IsEventValid(event)
+	local result, reason = call("C_EventUtils.IsEventValid", event)
+	if not result then
+		return nil, "C_EventUtils.IsEventValid " .. tostring(reason)
+	end
+	local valid = result[1]
+	if type(valid) ~= "boolean" then
+		return nil, "C_EventUtils.IsEventValid returned " .. type(valid)
+	end
+	return valid
+end
+
+--- Wall-clock seconds, for stamping roster snapshots.
+-- GetServerTime() -> time                     doc: SystemTimeDocumentation.lua:30
+-- pin:  bd2470a (1.60.1.70009)
+function Api.GetServerTime()
+	local result = call("GetServerTime")
+	local now = result and result[1]
+	if type(now) ~= "number" then
+		return nil, "GetServerTime unavailable"
+	end
+	return now
+end
+
+local function positiveId(value)
+	return (type(value) == "number" and value > 0) and value or nil
+end
+
+--- For each skill line asked about, the parent profession it belongs to.
+-- C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID) -> ProfessionInfo
+--                                              doc: TradeSkillUIDocumentation.lua:488
+-- ProfessionInfo.professionID, .professionName, .parentProfessionID (Nilable),
+-- .parentProfessionName (Nilable)              doc: TradeSkillUITypesDocumentation.lua:361
+-- GetProfessionInfo's skillLine is compared against `parentProfessionID or professionID`
+--                                              used: Blizzard_Professions/Camelot/
+--                                                    Blizzard_ProfessionsFrame.lua:41-43
+-- pin:  bd2470a (1.60.1.70009)
+--
+-- Why this exists: tradeskill challenges name skill line 2937 for Alchemy, which is not
+-- Classic's 171, and Blizzard's own frame treats GetProfessionInfo's skillLine as the parent.
+-- If that holds, a character's profession never equals the challenge's skill line directly.
+-- Whether this function answers for a profession the character has not learned is S1.
+--
+-- Returns { [skillLineId] = { parentId, parentName, name, professionId, raw } }. parentId and
+-- professionId read 0 as absent, for matching. `raw` is the whole struct, zeros kept: for an
+-- unlearned line the client may hand back a zeroed ProfessionInfo (Nilable = false), and only
+-- the raw fields tell that apart from a real top-level line -- which is the question S1 asks.
+-- A line that failed to read is absent, and the reasons are in the second return; a missing
+-- function fails the whole read.
+function Api.GetSkillLineParents(skillLineIds)
+	if type(resolve("C_TradeSkillUI.GetProfessionInfoBySkillLineID")) ~= "function" then
+		record("C_TradeSkillUI.GetProfessionInfoBySkillLineID", "missing")
+		return nil, "C_TradeSkillUI.GetProfessionInfoBySkillLineID missing"
+	end
+
+	local parents, failures = {}, {}
+	for _, skillLineId in ipairs(skillLineIds or {}) do
+		local result, reason = call("C_TradeSkillUI.GetProfessionInfoBySkillLineID", skillLineId)
+		local info = result and result[1]
+		if type(info) == "table" then
+			parents[skillLineId] = {
+				parentId = positiveId(info.parentProfessionID),
+				parentName = info.parentProfessionName,
+				name = info.professionName,
+				professionId = positiveId(info.professionID),
+				raw = info,
+			}
+		else
+			failures[#failures + 1] = tostring(skillLineId) .. ": " .. (reason or "no info")
+		end
+	end
+
+	return parents, failures[1] and table.concat(failures, "; ") or nil
 end
 
 --------------------------------------------------------------------------------------------
