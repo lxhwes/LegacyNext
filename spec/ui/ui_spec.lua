@@ -318,6 +318,24 @@ describe("UI", function()
 		assert.equals(-(#ns.UI.view.rows * 16 + 4), top)
 	end)
 
+	it("waits for combat to end before reading a filter change", function()
+		local ns = loadUI()
+		local counter = { calls = 0 }
+		ns.UI.SetDataSource(pageOneSource(counter))
+		local inCombat = false
+		_G.InCombatLockdown = function() return inCombat end
+		ns.UI.Show()
+
+		inCombat = true
+		ns.UI.SetFilter(123)
+		assert.equals(1, counter.calls)
+		assert.matches("combat", ns.UI.frame.status.text)
+
+		inCombat = false
+		ns.UI.frame.script_OnEvent(ns.UI.frame, "PLAYER_REGEN_ENABLED")
+		assert.equals(2, counter.calls)
+	end)
+
 	describe("roster tab", function()
 		local categories = fixture("categories_full").categories
 
@@ -379,6 +397,29 @@ describe("UI", function()
 			assert.same(nextUp, shownNames(frame))
 			assert.is_true(frame.rows[1].mouse) -- the pooled heading row is a challenge row again
 			assert.is_true(frame.tabs[1].locked)
+		end)
+
+		it("waits for combat to end before reading a tab switch", function()
+			local ns = loadWithRoster()
+			local source, reads = shamanSource(ns), 0
+			ns.UI.SetDataSource(function()
+				reads = reads + 1
+				return source()
+			end)
+			local inCombat = false
+			_G.InCombatLockdown = function() return inCombat end
+			ns.UI.Show()
+
+			inCombat = true
+			ns.UI.SetTab("roster")
+			assert.equals(1, reads)
+			assert.matches("combat", ns.UI.frame.status.text)
+			assert.is_true(ns.UI.frame.tabs[2].locked)
+
+			inCombat = false
+			ns.UI.frame.script_OnEvent(ns.UI.frame, "PLAYER_REGEN_ENABLED")
+			assert.equals(2, reads)
+			assert.same({ "Character", "Bong Wrip  L1 Shaman" }, shownNames(ns.UI.frame))
 		end)
 
 		it("keeps the footnote under an empty roster", function()

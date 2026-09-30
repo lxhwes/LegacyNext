@@ -559,27 +559,6 @@ function UI.Refresh()
 	return view
 end
 
-function UI.SetTab(tab)
-	local known = false
-	for _, entry in ipairs(TABS) do
-		known = known or entry.id == tab
-	end
-	if not known or tab == UI.tab then
-		return
-	end
-	UI.tab = tab
-	if UI.frame and UI.frame:IsShown() then
-		UI.Refresh()
-	end
-end
-
-function UI.SetFilter(groupId)
-	UI.filter = groupId
-	if UI.frame and UI.frame:IsShown() then
-		UI.Refresh()
-	end
-end
-
 --------------------------------------------------------------------------------------------
 -- Show, hide, events, throttle
 --------------------------------------------------------------------------------------------
@@ -652,14 +631,50 @@ function UI.OnEvent(event)
 	UI.RequestRefresh(EVENT_DELAY[event])
 end
 
--- Shown on a first open that lands in combat, until the read can run.
-local WAITING_VIEW = {
-	header = { lines = { "", "" }, state = "ok" },
-	filters = {},
-	rows = {},
-	state = "waiting",
-	message = "Reading your challenges when combat ends",
-}
+-- Shown on a first open or a switch that lands in combat, until the read can run.
+local function waitingView()
+	return {
+		header = { lines = { "", "" }, state = "ok" },
+		filters = {},
+		rows = {},
+		state = "waiting",
+		message = UI.tab == "roster" and "Reading the roster when combat ends"
+			or "Reading your challenges when combat ends",
+	}
+end
+
+-- A tab or filter switch reads at once, or after combat as a first open does. The old view
+-- stays off screen meanwhile: it would sit under the new tab's highlight.
+local function refreshOrDefer()
+	if not UI.frame or not UI.frame:IsShown() then
+		return
+	end
+	if UI.deferredForCombat or inCombat() then
+		if not UI.deferredForCombat then
+			deferForCombat()
+		end
+		UI.Render(waitingView())
+		return
+	end
+	UI.Refresh()
+end
+
+function UI.SetTab(tab)
+	local known = false
+	for _, entry in ipairs(TABS) do
+		known = known or entry.id == tab
+	end
+	if not known or tab == UI.tab then
+		return
+	end
+	UI.tab = tab
+	refreshOrDefer()
+end
+
+function UI.SetFilter(groupId)
+	UI.filter = groupId
+	refreshOrDefer()
+end
 
 function UI.OnShow()
 	for _, event in ipairs(REFRESH_EVENTS) do
@@ -669,7 +684,7 @@ function UI.OnShow()
 		-- A reopened frame keeps its last view until then; a first open says why it is blank.
 		deferForCombat()
 		if not UI.view then
-			UI.Render(WAITING_VIEW)
+			UI.Render(waitingView())
 		end
 		return
 	end
