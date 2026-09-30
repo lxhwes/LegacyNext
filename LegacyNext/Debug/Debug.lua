@@ -507,7 +507,7 @@ end
 
 -- Pure: renders the roster, the profession candidates and the store's own diagnostics.
 -- input = { roster = Model.Roster, candidates = Model.ProfessionCandidates, diagnostics,
--- parents, parentsReason, snapshotResult, now }.
+-- parents, parentsReason, snapshotResult, eventsNotRegistered, now }.
 function Debug.RenderRoster(input)
 	local out = {}
 	local function w(line) out[#out + 1] = line end
@@ -524,6 +524,9 @@ function Debug.RenderRoster(input)
 	end
 	if input.snapshotResult then
 		w("this snapshot: " .. input.snapshotResult)
+	end
+	if input.eventsNotRegistered and input.eventsNotRegistered[1] then
+		w("events not registered: " .. table.concat(input.eventsNotRegistered, ", "))
 	end
 
 	local roster = input.roster or { rows = {} }
@@ -576,6 +579,7 @@ function Debug.BuildRoster()
 		parents = input.parents,
 		parentsReason = input.parentsReason,
 		snapshotResult = input.snapshotResult,
+		eventsNotRegistered = input.eventsNotRegistered,
 		now = input.now,
 	})
 

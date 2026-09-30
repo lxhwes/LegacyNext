@@ -480,6 +480,35 @@ describe("Api", function()
 		end)
 	end)
 
+	describe("IsEventValid", function()
+		it("returns nil and a reason when C_EventUtils is missing", function()
+			local Api = loadApi().Api
+
+			local valid, reason = Api.IsEventValid("PLAYER_LOGIN")
+
+			assert.is_nil(valid)
+			assert.equals("C_EventUtils.IsEventValid missing", reason)
+		end)
+
+		it("passes a boolean through, false included", function()
+			local Api = loadApi().Api
+			inject("C_EventUtils", { IsEventValid = function(event) return event == "PLAYER_LOGIN" end })
+
+			assert.is_true(Api.IsEventValid("PLAYER_LOGIN"))
+			assert.is_false(Api.IsEventValid("NOT_AN_EVENT"))
+		end)
+
+		it("refuses a non-boolean answer", function()
+			local Api = loadApi().Api
+			inject("C_EventUtils", { IsEventValid = function() return 1 end })
+
+			local valid, reason = Api.IsEventValid("PLAYER_LOGIN")
+
+			assert.is_nil(valid)
+			assert.equals("C_EventUtils.IsEventValid returned number", reason)
+		end)
+	end)
+
 	-- The stubbed ProfessionInfo below uses only field names from
 	-- TradeSkillUITypesDocumentation.lua:361, with trivial values. It tests the guard, not what
 	-- the client says about any real skill line -- that is S1.

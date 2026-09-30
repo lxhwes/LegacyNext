@@ -29,6 +29,7 @@ read_globals = {
 	"GetAddOnMetadata",
 	"GetBuildInfo",
 	"CreateFrame",
+	"C_EventUtils",
 	"UIParent",
 	"ChatFontNormal",
 	"issecretvalue",

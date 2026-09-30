@@ -750,6 +750,25 @@ function Api.GetCharacterInfo()
 	}
 end
 
+--- Whether the client knows an event, checked before registering it: RegisterEvent throws on
+-- an unknown name, and beta builds rename events.
+-- C_EventUtils.IsEventValid(eventName) -> valid  doc: EventUtilsDocumentation.lua:26
+--                                              used: Blizzard_SharedXML/EventUtil.lua:12
+-- pin:  bd2470a (1.60.1.70009)
+-- Returns true or false, or nil plus a reason when the check is unavailable. The caller still
+-- pcalls the registration either way.
+function Api.IsEventValid(event)
+	local result, reason = call("C_EventUtils.IsEventValid", event)
+	if not result then
+		return nil, "C_EventUtils.IsEventValid " .. tostring(reason)
+	end
+	local valid = result[1]
+	if type(valid) ~= "boolean" then
+		return nil, "C_EventUtils.IsEventValid returned " .. type(valid)
+	end
+	return valid
+end
+
 --- Wall-clock seconds, for stamping roster snapshots.
 -- GetServerTime() -> time                     doc: SystemTimeDocumentation.lua:30
 -- pin:  bd2470a (1.60.1.70009)

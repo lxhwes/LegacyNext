@@ -121,6 +121,7 @@ function ns.ReadRosterInput()
 		parentsReason = parentsReason,
 		diagnostics = Store.Diagnostics(),
 		snapshotResult = snapshotResult,
+		eventsNotRegistered = ns.eventsNotRegistered,
 		now = Api.GetServerTime(),
 	}
 end
@@ -132,11 +133,29 @@ local SNAPSHOT_EVENTS = {
 }
 
 local frame = CreateFrame("Frame")
-frame:RegisterEvent("ADDON_LOADED")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("PLAYER_LOGOUT")
+
+-- RegisterEvent throws on a name the client does not know, and a throw here stops Core before
+-- the slash commands exist. Checked first where the client can say, pcall'd regardless.
+-- Anything skipped is listed by /lgn roster, which is also C2's evidence.
+ns.eventsNotRegistered = {}
+
+local function register(event)
+	local ok, reason
+	if ns.Api.IsEventValid(event) == false then
+		ok, reason = false, "unknown to this client"
+	else
+		ok, reason = pcall(frame.RegisterEvent, frame, event)
+	end
+	if not ok then
+		ns.eventsNotRegistered[#ns.eventsNotRegistered + 1] = event .. " (" .. tostring(reason) .. ")"
+	end
+end
+
+register("ADDON_LOADED")
+register("PLAYER_LOGIN")
+register("PLAYER_LOGOUT")
 for event in pairs(SNAPSHOT_EVENTS) do
-	frame:RegisterEvent(event)
+	register(event)
 end
 frame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then

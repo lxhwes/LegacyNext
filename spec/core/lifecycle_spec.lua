@@ -26,7 +26,18 @@ local STUBS = {
 }
 
 describe("addon lifecycle", function()
-	local handler, savedPrint
+	local handler, savedPrint, ns
+	-- Events a test wants the stubbed RegisterEvent to throw on, as the client does for a name
+	-- it does not know.
+	local unknownEvents, registered
+
+	local function boot()
+		registered = {}
+		ns = {}
+		for _, path in ipairs(tocFiles()) do
+			helper.loadAddonFile(path, ns)
+		end
+	end
 
 	before_each(function()
 		savedPrint = _G.print
@@ -34,10 +45,19 @@ describe("addon lifecycle", function()
 		for name, value in pairs(STUBS) do
 			_G[name] = value
 		end
+		unknownEvents = {}
 		_G.CreateFrame = function()
 			return setmetatable({}, { __index = function(self, key)
 				if key == "SetScript" then
 					return function(_, _, fn) handler = fn end
+				end
+				if key == "RegisterEvent" then
+					return function(_, event)
+						if unknownEvents[event] then
+							error('Attempt to register unknown event "' .. event .. '"')
+						end
+						registered[event] = true
+					end
 				end
 				return function() return self end
 			end })
@@ -45,10 +65,7 @@ describe("addon lifecycle", function()
 		_G.UIParent = _G.CreateFrame()
 		_G.UISpecialFrames = {}
 
-		local ns = {}
-		for _, path in ipairs(tocFiles()) do
-			helper.loadAddonFile(path, ns)
-		end
+		boot()
 	end)
 
 	after_each(function()
@@ -57,9 +74,43 @@ describe("addon lifecycle", function()
 			_G[name] = nil
 		end
 		for _, name in ipairs({ "CreateFrame", "UIParent", "UISpecialFrames", "LegacyNextDB",
-			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2" }) do
+			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer" }) do
 			_G[name] = nil
 		end
+	end)
+
+	describe("event registration", function()
+		it("registers the lifecycle and snapshot events", function()
+			for _, event in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_LOGOUT", "PLAYER_LEVEL_UP",
+				"SKILL_LINES_CHANGED", "TRAIT_CONFIG_UPDATED" }) do
+				assert.is_true(registered[event], event)
+			end
+			assert.same({}, ns.eventsNotRegistered)
+		end)
+
+		it("still sets up the slash commands when registering an event throws", function()
+			unknownEvents.TRAIT_CONFIG_UPDATED = true
+			_G.SlashCmdList = {}
+
+			boot()
+
+			assert.is_function(_G.SlashCmdList.LEGACYNEXT)
+			assert.is_function(handler)
+			assert.is_true(registered.PLAYER_LOGOUT)
+			assert.equals(1, #ns.eventsNotRegistered)
+			assert.truthy(ns.eventsNotRegistered[1]:find("TRAIT_CONFIG_UPDATED (", 1, true))
+			assert.truthy(ns.ReadRosterInput().eventsNotRegistered[1]:find("unknown event", 1, true))
+		end)
+
+		it("skips an event the client reports invalid without trying it", function()
+			_G.C_EventUtils = { IsEventValid = function(event) return event ~= "SKILL_LINES_CHANGED" end }
+
+			boot()
+
+			assert.is_nil(registered.SKILL_LINES_CHANGED)
+			assert.is_true(registered.PLAYER_LEVEL_UP)
+			assert.same({ "SKILL_LINES_CHANGED (unknown to this client)" }, ns.eventsNotRegistered)
+		end)
 	end)
 
 	it("lists Model/Roster.lua in the TOC before Core.lua, which stays last", function()
