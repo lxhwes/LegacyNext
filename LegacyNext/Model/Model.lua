@@ -437,6 +437,7 @@ local function pointsText(points)
 	end
 	return tostring(points) .. "pt"
 end
+Model.PointsText = pointsText
 
 local function progressText(progress)
 	if progress.measurable then
@@ -485,6 +486,17 @@ local function headerLines(summary, reason)
 	return { first, second }
 end
 
+-- The reward-track header both tabs draw.
+function Model.Header(rewardTrack, rewardTrackReason)
+	local summary, summaryReason = Model.RewardSummary(rewardTrack)
+	return {
+		lines = headerLines(summary, rewardTrackReason or summaryReason),
+		summary = summary,
+		state = summary and "ok" or "error",
+		reason = summary and nil or (rewardTrackReason or summaryReason),
+	}
+end
+
 -- Tooltip content for one row: the description, then one line per criterion.
 local function detailLines(entry)
 	local challenge, progress = entry.challenge, entry.progress
@@ -527,13 +539,7 @@ function Model.BuildView(input)
 		stats = nil,
 	}
 
-	local summary, summaryReason = Model.RewardSummary(input.rewardTrack)
-	view.header = {
-		lines = headerLines(summary, input.rewardTrackReason or summaryReason),
-		summary = summary,
-		state = summary and "ok" or "error",
-		reason = summary and nil or (input.rewardTrackReason or summaryReason),
-	}
+	view.header = Model.Header(input.rewardTrack, input.rewardTrackReason)
 
 	if type(input.challenges) ~= "table" then
 		view.state = "error"
