@@ -65,9 +65,11 @@ cross-account or guild sync, writing to trait configs.
   and the guard is active** [verified in game 2026-09-19 via `/lgn probe`], and no API on our
   surface returned a secret. That is a tested negative, not an assumption — but it is a
   per-build one, so re-run the probe after any bump.
-- **BUG: SavedVariables are written but never loaded back.** Blizzard-side, confirmed by
-  other addon authors. v1 depends on a workaround — see Thunderz96/forever-addon-kit
-  `sv_bridge`, Wicksmods/WickCore Profiles.
+- **SavedVariables: reported fixed 2026-09-30, unverified** — S1 in
+  `docs/ingame-commands.md`. Until then the old fact stands: written but never loaded back,
+  Blizzard-side, confirmed by other addon authors. The workarounds were Thunderz96/forever-addon-kit
+  `sv_bridge` and Wicksmods/WickCore Profiles. `Store/` is the only file that names
+  `LegacyNextDB`, so either outcome stays a one-file change.
 - `ReloadUI()` is protected; users type `/reload`. Client stops surfacing Lua errors after 100.
 
 ## Legacy API surface [verified: used by Blizzard_LegacySystem / Blizzard_LegacyChallengeTracker]
@@ -199,7 +201,12 @@ Character state, for the dump and for v1's roster:
 different things. Never name the slots; iterate every return.
 `GetProfessionInfo(index)` → `name, texture, rank, maxRank, numSpells, spellOffset, skillLine,
 rankModifier, specializationIndex, specializationOffset, skillLineName`
-(`Blizzard_ProfessionsFrame.lua:55`).
+(`Blizzard_ProfessionsFrame.lua:56` at `bd2470a`).
+**That `skillLine` is likely the parent profession line, not the one tradeskill challenges
+name** [source, unverified in game — S1]. The same frame compares it against
+`parentProfessionID or professionID` (`:41-43`), and Alchemy's challenges name 2937, not
+Classic's 171. Join through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID`
+as well as directly, never by name. `GetServerTime` stamps roster snapshots.
 
 Reference source, read-only, on the forever branch: the directories `vendor/PINS.md` lists
 (the Legacy addons, the generated API docs, `Blizzard_AchievementUI`, and the UI template,
@@ -214,7 +221,7 @@ vendor/wow-ui-source/Interface/AddOns` is the check.
 | `Model/` | Pure Lua: ranking, reward-track math, roster mapping. **No WoW globals at all.** This is where the tests live. |
 | `UI/` | Frames. Talks to `Model`, never to `Api` directly: `Core.lua` injects `ns.ReadViewInput` as its data source, and `/lgn uidump` reads through the same function. Frame templates and font objects are looked up by name with `pcall`/`rawget` and a plain-frame fallback; the citations are in `docs/ui-templates.md`. |
 | `Store/` | SavedVariables behind an interface, so the SV-bug workaround (or its removal) is a one-file change. |
-| `Debug/` | `/lgn dump`: serializes `Api` output into a copyable multiline EditBox so I can paste real client data back as test fixtures. Needed because SavedVariables are broken. `/lgn uidump`: the frame's content as text via the pure `Debug.RenderView`, golden-tested in `spec/golden/`. |
+| `Debug/` | `/lgn dump`: serializes `Api` output into a copyable multiline EditBox so I can paste real client data back as test fixtures. Built because SavedVariables were broken, and still the capture path. `/lgn roster`: v1's stored characters and tradeskill candidates as text. `/lgn uidump`: the frame's content as text via the pure `Debug.RenderView`, golden-tested in `spec/golden/`. |
 
 **Adding a source file means editing `LegacyNext.toc`.** Load order is explicit and `Core.lua`
 must stay last — it registers the slash commands and reads `ns.Debug`. A file missing from the

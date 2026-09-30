@@ -1,8 +1,13 @@
 # Status
 
-Last updated 2026-09-26.
+Last updated 2026-09-30.
 
-**Where we are: Phase 3 is built and the frame has been drawn by the client. A review pass on
+**Where we are, 2026-09-30: Phase 4 (v1 roster) has started on the report that SavedVariables
+now load back. That report is untested here, and S1 tests it. Store, per-character snapshots,
+the roster and tradeskill-candidate model, and `/lgn roster` are built and tested (123 tests,
+2 pending on S1). No roster frame yet, and none of it has run in game. Phase 3 is as below.**
+
+**As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
 `CRITERIA_UPDATE` refresh to 5 s and hardened the read path. All of it is tested here and
 none of it has been seen in game yet. 3c is done except the CurseForge check and the TOC
@@ -17,8 +22,9 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Open in the queue, in order: **U3**, **U1** and **U2** (under five minutes together), then
-**C3**, with **D4** and **C2** in the same Alchemy session. C3 is the first real data for the
+Open in the queue, in order: **S1** (v1 rests on it), **U3**, **U1** and **U2** (under five
+minutes together), then **C3**, with **D4**, **C2** and the second half of S1 in the same
+Alchemy session. C3 is the first real data for the
 "in progress" tier. See `docs/ingame-commands.md`.
 
 ## Review pass — 2026-09-26
@@ -363,7 +369,7 @@ way: the dry run cost twenty minutes and closed two blockers.
 | 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
 | 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Done** — drawn in the client 2026-09-19 (U1 uidump). Screenshot still open; the 2026-09-26 changes are unseen |
 | 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except CurseForge check, TOC version line |
-| 4 | v1 roster. Blocked on SavedVariables, **and its stated approach is known broken** — see below. | Blocked |
+| 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, unverified in game (S1); roster frame not started |
 
 Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
 that I can finish and prove alone, `UI/` cannot be verified without Alex looking at it, and
@@ -475,7 +481,9 @@ don't expose a usable criteria type. They don't, for half the target:
 
 So the honest options are to parse the description for a level (the thing the brief forbids,
 and it breaks on localisation), to ship profession mapping only, or to drop the class half.
-**Alex's call, not taken yet.** It does not block Phase 3.
+~~**Alex's call, not taken yet.** It does not block Phase 3.~~ **Decided 2026-09-30, Alex:
+professions only.** Class challenges appear in the roster data but get no candidate alt. If a
+later build exposes a machine-readable level, reopen this.
 
 Added 2026-09-26, from Blizzard's overview article: profession mapping only ever targets the
 six crafting professions — Alchemy, Blacksmithing, Enchanting, Engineering, Leatherworking,
@@ -483,6 +491,51 @@ Tailoring — since those are the only Tradeskills children and the unlock rule 
 "non-gathering primary tradeskill". A roster snapshot should still record every profession
 slot (the seven-return rule stands), but the mapper skips any skill line with no challenge.
 The same article states the reason v1 exists: one character tops out at 29 of the 65 points.
+
+## Phase 4 — started, 2026-09-30
+
+Started on Alex's report that Blizzard fixed the SavedVariables bug. The report comes from
+patch notes, not a test, so **S1** is the check. It is built so it answers from our own table,
+with no second addon needed: `Store.Diagnostics()` records what came off disk before this
+session touches anything.
+
+Built and tested here, none of it run in game:
+
+- **`Store/`**: schema 1, `LegacyNextDB.characters["Name-Realm"]`, and a session counter that
+  is the S1 evidence. A table saved under a newer schema is left untouched and read-only, so a
+  downgrade cannot wipe an alt list. `LegacyNextCharDB` is still declared and still unused.
+- **Snapshots** (`Model/Roster.lua`): class, level, every profession slot, per-tree spend,
+  unspent, cap. They are taken at `PLAYER_LOGIN` and `PLAYER_LOGOUT`, and 5 s after
+  `PLAYER_LEVEL_UP`, `SKILL_LINES_CHANGED` or `TRAIT_CONFIG_UPDATED`. Whether those three fire
+  is unverified (C2), and logout is the backstop. **A failed part never overwrites a good
+  one**: `MergeSnapshot` keeps the last good trees or professions with their old timestamp.
+- **Roster order**: current character first, then level, then key.
+- **Tradeskill candidates**: for each incomplete type-7 challenge, every stored character
+  with the profession, closest first. Class challenges get none, per the decision above.
+- **`/lgn roster`** prints all of it as copyable text with a `== RAW ==` block, and
+  `/lgn roster forget <Name-Realm>` drops a deleted alt. This is a stand-in until the frame,
+  and S1 needs it.
+- `spec/core/lifecycle_spec.lua` loads every TOC file in TOC order and plays
+  `ADDON_LOADED` → `PLAYER_LOGIN` → `PLAYER_LOGOUT` at them, so a file left out of the TOC now
+  fails a test instead of failing silently in game.
+
+**Found while building: the tradeskill join is probably not direct.** Tradeskill criteria name
+skill line 2937 for Alchemy, not Classic's 171. At the pin, Forever's own profession frame
+compares `GetProfessionInfo`'s `skillLine` against `parentProfessionID or professionID`
+(`Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:41-43`, `:56`). That suggests
+`GetProfessionInfo` reports the parent line and 2937 is a child. Matching the two numbers
+directly would then never find anyone. The mapper accepts either a direct match or a match
+through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(2937).parentProfessionID`, so it is
+right either way. Whether that lookup answers for a line the character never learned is S1.
+Both pending tests cite it.
+
+Toolchain note: this session's network policy blocks lua.org and luarocks.org, so `hererocks`
+could not build `tools/lua51`. Ubuntu's `lua5.1`, `lua-busted` (2.2.0) and `lua-check`
+packages ran the same two gates (`busted --lua=lua5.1`, `luacheck LegacyNext spec`). CI is
+unchanged.
+
+Next, in order: S1 → the roster frame (a second view in the existing window, or its own; not
+decided) → candidate lines in the Next Up detail for tradeskill rows.
 
 ## Research questions
 
@@ -724,7 +777,11 @@ returns and never names a slot.
 
 ## Known risks
 
-- **SavedVariables are written but never loaded back** on the beta — Blizzard-side. v1's roster
+- ~~**SavedVariables are written but never loaded back** on the beta — Blizzard-side.~~
+  **Reported fixed, 2026-09-30** (Alex, from Blizzard's notes). Not tested in game yet, so
+  **S1** tests it with a `/reload` and a full restart. `Store/` is still the single place that
+  names `LegacyNextDB`, so if the fix does not hold, the workaround is still a one-file
+  change. Original entry: v1's roster
   depends on a workaround. Blizzard's own Challenge Tracker uses
   `SavedVariablesPerCharacter`, so if its unviewed dots survive a relog the bug is narrower
   than it looks. Cheap thing to watch.
