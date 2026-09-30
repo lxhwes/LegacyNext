@@ -427,4 +427,72 @@ describe("Api", function()
 			assert.equals(111, total)
 		end)
 	end)
+
+	describe("GetServerTime", function()
+		it("returns nil and a reason when the function is missing", function()
+			local Api = loadApi().Api
+
+			local now, reason = Api.GetServerTime()
+
+			assert.is_nil(now)
+			assert.equals("GetServerTime unavailable", reason)
+		end)
+
+		it("passes a number through", function()
+			local Api = loadApi().Api
+			inject("GetServerTime", function() return 12345 end)
+
+			assert.equals(12345, Api.GetServerTime())
+		end)
+	end)
+
+	-- The stubbed ProfessionInfo below uses only field names from
+	-- TradeSkillUITypesDocumentation.lua:361, with trivial values. It tests the guard, not what
+	-- the client says about any real skill line -- that is S1.
+	describe("GetSkillLineParents", function()
+		it("fails the whole read when the function is missing", function()
+			local Api = loadApi().Api
+
+			local parents, reason = Api.GetSkillLineParents({ 1 })
+
+			assert.is_nil(parents)
+			assert.truthy(reason:find("missing", 1, true))
+		end)
+
+		it("keeps the lines that read and names the ones that threw", function()
+			local Api = loadApi().Api
+			inject("C_TradeSkillUI", {
+				GetProfessionInfoBySkillLineID = function(id)
+					if id == 2 then
+						error("boom")
+					end
+					return { professionID = id, professionName = "child", parentProfessionID = 10,
+						parentProfessionName = "parent" }
+				end,
+			})
+
+			local parents, reason = Api.GetSkillLineParents({ 1, 2 })
+
+			assert.same({ parentId = 10, parentName = "parent", name = "child" }, parents[1])
+			assert.is_nil(parents[2])
+			assert.truthy(reason:find("2: error", 1, true))
+		end)
+
+		it("reads a zero or absent parent as no parent", function()
+			local Api = loadApi().Api
+			inject("C_TradeSkillUI", {
+				GetProfessionInfoBySkillLineID = function(id)
+					return { professionID = id, professionName = "top", parentProfessionID = id == 1 and 0 or nil }
+				end,
+			})
+
+			local parents, reason = Api.GetSkillLineParents({ 1, 2 })
+
+			assert.is_nil(reason)
+			assert.is_nil(parents[1].parentId)
+			assert.is_nil(parents[2].parentId)
+		end)
+
+		pending("S1: what the client returns for a tradeskill challenge's skill line (2937 on 1.60.1)")
+	end)
 end)

@@ -65,6 +65,8 @@ read_globals = {
 	"GetRealmName",
 	"GetProfessions",
 	"GetProfessionInfo",
+	"C_TradeSkillUI",
+	"GetServerTime",
 
 	-- UI and Debug (reached through rawget; listed so the manifest stays honest)
 	"GameTooltip",

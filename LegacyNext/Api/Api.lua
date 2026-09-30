@@ -743,6 +743,61 @@ function Api.GetCharacterInfo()
 	}
 end
 
+--- Wall-clock seconds, for stamping roster snapshots.
+-- GetServerTime() -> time                     doc: SystemTimeDocumentation.lua:30
+-- pin:  bd2470a (1.60.1.70009)
+function Api.GetServerTime()
+	local result = call("GetServerTime")
+	local now = result and result[1]
+	if type(now) ~= "number" then
+		return nil, "GetServerTime unavailable"
+	end
+	return now
+end
+
+--- For each skill line asked about, the parent profession it belongs to.
+-- C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID) -> ProfessionInfo
+--                                              doc: TradeSkillUIDocumentation.lua:488
+-- ProfessionInfo.professionID, .professionName, .parentProfessionID (Nilable),
+-- .parentProfessionName (Nilable)              doc: TradeSkillUITypesDocumentation.lua:361
+-- GetProfessionInfo's skillLine is compared against `parentProfessionID or professionID`
+--                                              used: Blizzard_Professions/Camelot/
+--                                                    Blizzard_ProfessionsFrame.lua:41-43
+-- pin:  bd2470a (1.60.1.70009)
+--
+-- Why this exists: tradeskill challenges name skill line 2937 for Alchemy, which is not
+-- Classic's 171, and Blizzard's own frame treats GetProfessionInfo's skillLine as the parent.
+-- If that holds, a character's profession never equals the challenge's skill line directly.
+-- Whether this function answers for a profession the character has not learned is S1.
+--
+-- Returns { [skillLineId] = { parentId, parentName, name } }. A line that failed to read is
+-- absent, and the reasons are in the second return; a missing function fails the whole read.
+function Api.GetSkillLineParents(skillLineIds)
+	if type(resolve("C_TradeSkillUI.GetProfessionInfoBySkillLineID")) ~= "function" then
+		record("C_TradeSkillUI.GetProfessionInfoBySkillLineID", "missing")
+		return nil, "C_TradeSkillUI.GetProfessionInfoBySkillLineID missing"
+	end
+
+	local parents, failures = {}, {}
+	for _, skillLineId in ipairs(skillLineIds or {}) do
+		local result, reason = call("C_TradeSkillUI.GetProfessionInfoBySkillLineID", skillLineId)
+		local info = result and result[1]
+		if type(info) == "table" then
+			local parentId = info.parentProfessionID
+			parents[skillLineId] = {
+				-- 0 is a plausible "no parent" encoding for a Nilable number; treat it as none.
+				parentId = (type(parentId) == "number" and parentId > 0) and parentId or nil,
+				parentName = info.parentProfessionName,
+				name = info.professionName,
+			}
+		else
+			failures[#failures + 1] = tostring(skillLineId) .. ": " .. (reason or "no info")
+		end
+	end
+
+	return parents, failures[1] and table.concat(failures, "; ") or nil
+end
+
 --------------------------------------------------------------------------------------------
 -- Probe
 --------------------------------------------------------------------------------------------
