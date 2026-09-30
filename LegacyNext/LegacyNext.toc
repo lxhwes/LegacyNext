@@ -9,6 +9,7 @@
 Store\Store.lua
 Api\Api.lua
 Model\Model.lua
+Model\Roster.lua
 UI\UI.lua
 Debug\Debug.lua
 Core.lua

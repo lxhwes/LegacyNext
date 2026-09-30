@@ -469,6 +469,128 @@ function Debug.UIDump(filterName)
 end
 
 --------------------------------------------------------------------------------------------
+-- /lgn roster: the v1 data as text, until the roster frame exists
+--------------------------------------------------------------------------------------------
+
+local function professionText(professions)
+	if professions == nil then
+		return "professions ?"
+	end
+	if #professions == 0 then
+		return "no professions"
+	end
+	local parts = {}
+	for _, profession in ipairs(professions) do
+		parts[#parts + 1] = ("%s %s/%s [%s]"):format(tostring(profession.name), tostring(profession.skill),
+			tostring(profession.max), tostring(profession.skillLineId))
+	end
+	return table.concat(parts, ", ")
+end
+
+local function treeText(snapshot)
+	if snapshot.trees == nil then
+		return "trees ?"
+	end
+	local parts = {}
+	for _, tree in ipairs(snapshot.trees) do
+		parts[#parts + 1] = tostring(tree.name) .. " " .. tostring(tree.spent)
+	end
+	return ("%s | unspent %s, cap %s"):format(table.concat(parts, ", "), tostring(snapshot.unspent),
+		tostring(snapshot.cap))
+end
+
+-- Pure: renders the roster, the profession candidates and the store's own diagnostics.
+-- input = { roster = Model.Roster, candidates = Model.ProfessionCandidates, diagnostics,
+-- parents, parentsReason, snapshotResult, now }.
+function Debug.RenderRoster(input)
+	local out = {}
+	local function w(line) out[#out + 1] = line end
+
+	w("LegacyNext roster" .. (input.label and ("  " .. input.label) or ""))
+
+	w("== STORE ==")
+	local d = input.diagnostics or {}
+	w(("attached=%s loadedType=%s loadedSessions=%s loadedCharacters=%s sessions=%s characters=%s")
+		:format(tostring(d.attached), tostring(d.loadedType), tostring(d.loadedSessions),
+			tostring(d.loadedCharacters), tostring(d.sessions), tostring(d.characters)))
+	if d.readOnly then
+		w("READ ONLY: " .. tostring(d.reason))
+	end
+	if input.snapshotResult then
+		w("this snapshot: " .. input.snapshotResult)
+	end
+
+	local roster = input.roster or { rows = {} }
+	w("== CHARACTERS (" .. #roster.rows .. ") ==")
+	for _, row in ipairs(roster.rows) do
+		local age = ""
+		if type(input.now) == "number" and type(row.takenAt) == "number" then
+			age = ("  %dm ago"):format(math.floor((input.now - row.takenAt) / 60))
+		end
+		w(("%s%s  L%s %s%s"):format(row.key == roster.currentKey and "* " or "  ", row.key,
+			tostring(row.level), tostring(row.class), age))
+		w("    " .. treeText(row))
+		w("    " .. professionText(row.professions))
+	end
+	if (roster.skipped or 0) > 0 then
+		w("skipped " .. roster.skipped .. " unreadable snapshots")
+	end
+
+	w("== TRADESKILL CANDIDATES ==")
+	if input.parentsReason then
+		w("parent lookup: " .. input.parentsReason)
+	end
+	for _, entry in ipairs(input.candidates or {}) do
+		local parent = input.parents and input.parents[entry.skillLineId]
+		w(("%s  [line %s, parent %s]  need %s"):format(tostring(entry.challenge.name),
+			tostring(entry.skillLineId), tostring(parent and parent.parentId), tostring(entry.need)))
+		if #entry.candidates == 0 then
+			w("    no stored character has this profession")
+		end
+		for _, candidate in ipairs(entry.candidates) do
+			w(("    %s  skill %s, %s to go%s"):format(candidate.key, tostring(candidate.skill),
+				tostring(candidate.remaining), candidate.reached and "  (already reached)" or ""))
+		end
+	end
+
+	return table.concat(out, "\n") .. "\n"
+end
+
+-- Reads through ns.ReadRosterInput (Core), then appends the raw inputs as a Lua literal so the
+-- paste doubles as S1's fixture.
+function Debug.BuildRoster()
+	local Model = ns.Model
+	local input = ns.ReadRosterInput()
+
+	local text = Debug.RenderRoster({
+		label = tostring(clientInfo().buildString or "?"),
+		roster = Model.Roster(input.snapshots, input.currentKey),
+		candidates = Model.ProfessionCandidates(input.challenges, input.snapshots, input.parents),
+		diagnostics = input.diagnostics,
+		parents = input.parents,
+		parentsReason = input.parentsReason,
+		snapshotResult = input.snapshotResult,
+		now = input.now,
+	})
+
+	return text .. "== RAW ==\n" .. Debug.Serialize({
+		diagnostics = input.diagnostics,
+		skillLines = input.skillLines,
+		parents = withReason(input.parents, input.parentsReason),
+		snapshots = input.snapshots,
+	}) .. "\n"
+end
+
+function Debug.Roster()
+	local ok, text = pcall(Debug.BuildRoster)
+	if not ok then
+		say("roster failed: " .. tostring(text))
+		return
+	end
+	Debug.Show(text, "roster")
+end
+
+--------------------------------------------------------------------------------------------
 -- The copyable window
 --------------------------------------------------------------------------------------------
 

@@ -11,6 +11,10 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 
 ### Added
 
+- Roster groundwork (v1): each character's class, level, professions and Legacy tree spend is
+  saved at login, at logout, and after a level-up, skill or talent change. `/lgn roster` lists
+  every saved character and, for each tradeskill challenge, which of them is closest.
+  `/lgn roster forget <Name-Realm>` removes a deleted character.
 - `/lgn` and `/legacynext` open the Next Up window: incomplete Legacy challenges ranked by
   closeness to completion. Each row shows the name, category, points awarded and criteria
   remaining. `/lgn help` lists the commands.

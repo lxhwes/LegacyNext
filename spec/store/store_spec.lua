@@ -1,0 +1,98 @@
+local helper = require("spec.spec_helper")
+
+-- Store's only global is LegacyNextDB, which the client assigns before ADDON_LOADED. These
+-- tests play the client: set the global, load the file, attach.
+local function loadStore()
+	return helper.loadAddonFile("LegacyNext/Store/Store.lua").Store
+end
+
+describe("Store", function()
+	after_each(function()
+		_G.LegacyNextDB = nil
+	end)
+
+	it("starts a fresh table when nothing was saved, and says so", function()
+		local Store = loadStore()
+
+		assert.is_true(Store.Attach())
+
+		local d = Store.Diagnostics()
+		assert.equals("nil", d.loadedType)
+		assert.equals(0, d.loadedSessions)
+		assert.equals(1, d.sessions)
+		assert.equals(1, _G.LegacyNextDB.schema)
+	end)
+
+	it("keeps what was saved and counts the session", function()
+		_G.LegacyNextDB = { schema = 1, sessions = 4, characters = { ["A-R"] = { key = "A-R" } } }
+		local Store = loadStore()
+
+		Store.Attach()
+
+		local d = Store.Diagnostics()
+		assert.equals("table", d.loadedType)
+		assert.equals(4, d.loadedSessions)
+		assert.equals(1, d.loadedCharacters)
+		assert.equals(5, d.sessions)
+		assert.equals("A-R", Store.GetSnapshot("A-R").key)
+	end)
+
+	it("round-trips a snapshot through the global, as a copy", function()
+		local Store = loadStore()
+		Store.Attach()
+		local snapshot = { key = "A-R", level = 10 }
+
+		assert.is_true(Store.PutSnapshot("A-R", snapshot))
+		snapshot.level = 99
+
+		assert.equals(10, _G.LegacyNextDB.characters["A-R"].level)
+		local read = Store.GetSnapshot("A-R")
+		read.level = 50
+		assert.equals(10, Store.GetSnapshot("A-R").level)
+	end)
+
+	it("lists and forgets characters", function()
+		local Store = loadStore()
+		Store.Attach()
+		Store.PutSnapshot("A-R", { key = "A-R" })
+		Store.PutSnapshot("B-R", { key = "B-R" })
+
+		assert.equals(2, #Store.GetSnapshots())
+		assert.is_true(Store.Forget("A-R"))
+		assert.is_false(Store.Forget("A-R"))
+		assert.equals(1, #Store.GetSnapshots())
+	end)
+
+	it("refuses writes before attach", function()
+		local Store = loadStore()
+
+		local ok, reason = Store.PutSnapshot("A-R", {})
+
+		assert.is_false(ok)
+		assert.equals("store not attached", reason)
+		assert.same({}, Store.GetSnapshots())
+	end)
+
+	it("leaves a newer schema untouched and read-only", function()
+		_G.LegacyNextDB = { schema = 2, characters = { ["A-R"] = { key = "A-R" } }, future = true }
+		local Store = loadStore()
+
+		local ok, reason = Store.Attach()
+
+		assert.is_false(ok)
+		assert.truthy(reason:find("schema 2", 1, true))
+		assert.is_false((Store.PutSnapshot("B-R", {})))
+		assert.is_false((Store.Forget("A-R")))
+		assert.equals(2, _G.LegacyNextDB.schema)
+		assert.is_true(_G.LegacyNextDB.future)
+		assert.is_nil(_G.LegacyNextDB.sessions)
+	end)
+
+	it("repairs a table whose characters field is junk", function()
+		_G.LegacyNextDB = { schema = 1, characters = "oops" }
+		local Store = loadStore()
+
+		assert.is_true(Store.Attach())
+		assert.is_true(Store.PutSnapshot("A-R", { key = "A-R" }))
+	end)
+end)
