@@ -9,7 +9,7 @@ the roster and tradeskill-candidate model, and `/lgn roster` are built, tested a
 and none of it has run in game. Later the same day the client's own data tables (DB2) backed
 the tradeskill join, and another addon's uploads closed the CurseForge check. S1 gained a
 fallback step. The vendor pin then moved to `1.60.1.70124`, and nothing we call changed. Then
-the Roster tab landed, and a pushed `v*` tag now packages a release. 184 tests, 2 pending on
+the Roster tab landed, and a pushed `v*` tag now packages a release. 190 tests, 2 pending on
 S1. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
@@ -71,6 +71,27 @@ Open for Alex from this:
 
 - The zip ships a `CHANGELOG.md` generated from git history, overwriting the hand-written one.
   `manual-changelog: CHANGELOG.md` in `.pkgmeta` keeps ours. Recommended, not done.
+
+**Review, the same evening.** A read-only review of the branch found no path that throws on
+junk from Store or Api, and four real bugs. All four are fixed, each with a test that failed
+first:
+
+- **Footnotes printed over the first two rows.** The status line was anchored once, at the top
+  of the list. Next Up's "N other-class challenges hidden" has done this since 2026-09-26, and
+  no screenshot since has shown it. The line now anchors below the last row on every draw.
+- **An empty or done state dropped its footnote.** The frame now shows both, as uidump did.
+- **A tab or filter switch in combat read at once**, skipping the combat deferral that a first
+  open gets. `SetFilter` had this gap before the tab existed. Both now wait for
+  `PLAYER_REGEN_ENABLED`.
+- **"No saved character has this profession" when the skill-line lookup failed.** With no
+  parent id, only a direct match can join, so an empty list proved nothing. That is the S1
+  unknown. Both tabs now say a match may be missing.
+
+The widget double now records anchors, mouse and highlight, so the heading row's
+`EnableMouse(false)` and the tab highlight are pinned. So is what `/lgn uidump` prints on each
+tab end to end. Not fixed, and harmless: a window opened within 5 s of login snapshots before
+the delayed login snapshot does. If trait data is not ready, tree spend can read 0 for those
+seconds until the delayed one corrects it.
 
 ## Vendor pin moved to 1.60.1.70124 — 2026-09-30
 
