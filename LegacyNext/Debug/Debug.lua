@@ -507,7 +507,7 @@ end
 
 -- Pure: renders the roster, the profession candidates and the store's own diagnostics.
 -- input = { roster = Model.Roster, candidates = Model.ProfessionCandidates, diagnostics,
--- parents, parentsReason, snapshotResult, eventsNotRegistered, now }.
+-- parents, parentsReason, snapshotResult, snapshotLog, eventsNotRegistered, now }.
 function Debug.RenderRoster(input)
 	local out = {}
 	local function w(line) out[#out + 1] = line end
@@ -525,6 +525,24 @@ function Debug.RenderRoster(input)
 	if input.snapshotResult then
 		w("this snapshot: " .. input.snapshotResult)
 	end
+	local function logLines(title, log, withSession)
+		if type(log) ~= "table" or not log[1] then
+			return
+		end
+		w(title)
+		for _, entry in ipairs(log) do
+			if type(entry) == "table" then
+				local age = ""
+				if type(input.now) == "number" and type(entry.at) == "number" then
+					age = ("%dm ago  "):format(math.floor((input.now - entry.at) / 60))
+				end
+				local session = withSession and ("session " .. tostring(entry.session) .. "  ") or ""
+				w("  " .. session .. age .. tostring(entry.text))
+			end
+		end
+	end
+	logLines("snapshots this session:", input.snapshotLog, false)
+	logLines("snapshots saved by earlier sessions:", d.loadedLog, true)
 	if input.eventsNotRegistered and input.eventsNotRegistered[1] then
 		w("events not registered: " .. table.concat(input.eventsNotRegistered, ", "))
 	end
@@ -579,6 +597,7 @@ function Debug.BuildRoster()
 		parents = input.parents,
 		parentsReason = input.parentsReason,
 		snapshotResult = input.snapshotResult,
+		snapshotLog = input.snapshotLog,
 		eventsNotRegistered = input.eventsNotRegistered,
 		now = input.now,
 	})

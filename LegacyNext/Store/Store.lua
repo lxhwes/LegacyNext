@@ -9,13 +9,17 @@ local _, ns = ...
 --     schema = 1,
 --     sessions = <number of times the addon loaded with this table>,
 --     characters = { ["Name-Realm"] = <Model.BuildSnapshot output>, ... },
+--     snapshotLog = { { session, at, text }, ... },   -- last LOG_LIMIT snapshot results
 --   }
+--
+-- snapshotLog is additive, so schema stays 1: an older build ignores it.
 --
 -- Store never interprets a snapshot. Merging, validating and rendering them is Model's job.
 ns.Store = ns.Store or {}
 local Store = ns.Store
 
 Store.SCHEMA = 1
+Store.LOG_LIMIT = 10
 local GLOBAL_NAME = "LegacyNextDB"
 
 local db = nil
@@ -59,6 +63,8 @@ function Store.Attach()
 		loadedSchema = saved.schema,
 		loadedSessions = type(saved.sessions) == "number" and saved.sessions or 0,
 		loadedCharacters = type(saved.characters) == "table" and countKeys(saved.characters) or 0,
+		-- Earlier sessions' snapshot results, logout included: the one write nobody sees.
+		loadedLog = type(saved.snapshotLog) == "table" and copy(saved.snapshotLog) or {},
 	}
 
 	if saved.schema ~= nil and saved.schema ~= Store.SCHEMA then
@@ -122,6 +128,23 @@ function Store.Forget(key)
 		return false, "no character " .. tostring(key)
 	end
 	db.characters[key] = nil
+	return true
+end
+
+--- Appends one snapshot result for a later session to read, keeping the last LOG_LIMIT.
+function Store.LogSnapshot(at, text)
+	local ok, reason = writable()
+	if not ok then
+		return false, reason
+	end
+	if type(db.snapshotLog) ~= "table" then
+		db.snapshotLog = {}
+	end
+	local log = db.snapshotLog
+	log[#log + 1] = { session = db.sessions, at = at, text = tostring(text) }
+	while #log > Store.LOG_LIMIT do
+		table.remove(log, 1)
+	end
 	return true
 end
 

@@ -88,6 +88,33 @@ describe("Store", function()
 		assert.is_nil(_G.LegacyNextDB.sessions)
 	end)
 
+	it("logs snapshot results for the next session, keeping the last LOG_LIMIT", function()
+		_G.LegacyNextDB = { schema = 1, sessions = 2, snapshotLog = { { session = 2, at = 1, text = "old" } } }
+		local Store = loadStore()
+		Store.Attach()
+
+		for index = 1, Store.LOG_LIMIT + 2 do
+			assert.is_true(Store.LogSnapshot(100 + index, "result " .. index))
+		end
+
+		local log = _G.LegacyNextDB.snapshotLog
+		assert.equals(Store.LOG_LIMIT, #log)
+		assert.same({ session = 3, at = 100 + Store.LOG_LIMIT + 2, text = "result " .. (Store.LOG_LIMIT + 2) },
+			log[#log])
+		assert.same({ { session = 2, at = 1, text = "old" } }, Store.Diagnostics().loadedLog)
+	end)
+
+	it("refuses to log before attach or into a newer schema", function()
+		local Store = loadStore()
+		assert.is_false((Store.LogSnapshot(1, "x")))
+
+		_G.LegacyNextDB = { schema = 2 }
+		Store = loadStore()
+		Store.Attach()
+		assert.is_false((Store.LogSnapshot(1, "x")))
+		assert.is_nil(_G.LegacyNextDB.snapshotLog)
+	end)
+
 	it("repairs a table whose characters field is junk", function()
 		_G.LegacyNextDB = { schema = 1, characters = "oops" }
 		local Store = loadStore()

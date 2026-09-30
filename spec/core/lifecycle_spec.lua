@@ -108,7 +108,8 @@ describe("addon lifecycle", function()
 			runTimers()
 
 			assert.equals(10, stored().level)
-			assert.equals("PLAYER_LEVEL_UP -> written", ns.lastSnapshot)
+			-- No C_Traits stub, so the result names the part it could not read.
+			assert.equals("PLAYER_LEVEL_UP -> written; trees: unspent points not read", ns.lastSnapshot)
 		end)
 
 		it("restarts the wait on each event and snapshots once, after the last", function()
@@ -123,7 +124,7 @@ describe("addon lifecycle", function()
 
 			runTimers()
 			assert.equals(12, stored().level)
-			assert.equals("SKILL_LINES_CHANGED+PLAYER_LEVEL_UP -> written", ns.lastSnapshot)
+			assert.truthy(ns.lastSnapshot:find("SKILL_LINES_CHANGED+PLAYER_LEVEL_UP -> written", 1, true))
 		end)
 
 		it("delays the login snapshot the same way", function()
@@ -140,6 +141,23 @@ describe("addon lifecycle", function()
 			handler(nil, "TRAIT_CONFIG_UPDATED")
 
 			assert.equals(10, stored().level)
+		end)
+
+		it("shows the last session's logout result, and keeps /lgn roster out of the log", function()
+			handler(nil, "PLAYER_LOGOUT")
+			assert.equals(1, #_G.LegacyNextDB.snapshotLog)
+
+			boot() -- a /reload: same global, fresh addon
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			local input = ns.ReadRosterInput()
+
+			local earlier = input.diagnostics.loadedLog
+			assert.equals(1, #earlier)
+			assert.equals(1, earlier[1].session)
+			assert.truthy(earlier[1].text:find("PLAYER_LOGOUT -> written", 1, true))
+			assert.same({}, input.snapshotLog)
+			assert.truthy(input.snapshotResult:find("roster command -> written", 1, true))
+			assert.equals(1, #_G.LegacyNextDB.snapshotLog)
 		end)
 	end)
 

@@ -50,10 +50,15 @@ ns.UI.SetDataSource(ns.ReadViewInput)
 -- v1 roster: this character's snapshot, written through Store
 --------------------------------------------------------------------------------------------
 
+-- This session's snapshot results, for /lgn roster. Each is also logged through Store, so the
+-- logout result -- written after the last chance to see chat -- shows up next session.
+ns.snapshotLog = {}
+
 -- Reads this character, merges over what Store already holds, writes it back. Never throws:
 -- it runs inside PLAYER_LOGOUT, where an error costs the one write that matters most.
--- Returns a one-line result, kept for /lgn roster to show.
-function ns.TakeSnapshot(trigger)
+-- Returns a one-line result. `fromCommand` keeps /lgn roster's own snapshot out of the log,
+-- which would otherwise fill with commands and push out the logout results it exists for.
+function ns.TakeSnapshot(trigger, fromCommand)
 	local ok, result = pcall(function()
 		local Api, Model, Store = ns.Api, ns.Model, ns.Store
 		local character, characterReason = Api.GetCharacterInfo()
@@ -76,9 +81,22 @@ function ns.TakeSnapshot(trigger)
 		if not written then
 			return "not written: " .. tostring(writeReason)
 		end
-		return "written"
+		-- A part that failed to read was kept from before; say which, and why.
+		local notes = {}
+		for _, part in ipairs({ "trees", "professions" }) do
+			local partReason = merged[part .. "Reason"]
+			if partReason then
+				notes[#notes + 1] = part .. ": " .. tostring(partReason)
+			end
+		end
+		return notes[1] and ("written; " .. table.concat(notes, "; ")) or "written"
 	end)
 	ns.lastSnapshot = tostring(trigger) .. " -> " .. (ok and result or ("error: " .. tostring(result)))
+	if not fromCommand then
+		local at = ns.Api.GetServerTime()
+		ns.snapshotLog[#ns.snapshotLog + 1] = { at = at, text = ns.lastSnapshot }
+		pcall(ns.Store.LogSnapshot, at, ns.lastSnapshot)
+	end
 	return ns.lastSnapshot
 end
 
@@ -123,7 +141,7 @@ end
 -- The challenge sweep is the ~900-call one, so this runs on command only, never on an event.
 function ns.ReadRosterInput()
 	local Api, Model, Store = ns.Api, ns.Model, ns.Store
-	local snapshotResult = ns.TakeSnapshot("roster command")
+	local snapshotResult = ns.TakeSnapshot("roster command", true)
 	local challenges = Api.GetChallenges(Api.GetCategories())
 	local skillLines = Model.ChallengeSkillLines(challenges)
 	local parents, parentsReason = Api.GetSkillLineParents(skillLines)
@@ -136,6 +154,7 @@ function ns.ReadRosterInput()
 		parentsReason = parentsReason,
 		diagnostics = Store.Diagnostics(),
 		snapshotResult = snapshotResult,
+		snapshotLog = ns.snapshotLog,
 		eventsNotRegistered = ns.eventsNotRegistered,
 		now = Api.GetServerTime(),
 	}

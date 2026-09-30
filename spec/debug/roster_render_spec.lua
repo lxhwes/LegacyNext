@@ -28,12 +28,17 @@ describe("Debug.RenderRoster", function()
 			roster = Model.Roster({ snapshot }, snapshot.key),
 			candidates = Model.ProfessionCandidates(challenges, { snapshot }, nil),
 			diagnostics = { attached = true, loadedType = "table", loadedSessions = 2,
-				loadedCharacters = 1, sessions = 3, characters = 1 },
+				loadedCharacters = 1, sessions = 3, characters = 1,
+				loadedLog = { { session = 2, at = 1000 - 120, text = "PLAYER_LOGOUT -> written" } } },
+			snapshotLog = { { at = 1000, text = "PLAYER_LOGIN -> written" } },
 			parentsReason = "2937: missing",
 			now = 1000 + 600,
 		})
 
 		assert.truthy(text:find("sessions=3 characters=1", 1, true))
+		assert.truthy(text:find("snapshots this session:\n  10m ago  PLAYER_LOGIN -> written", 1, true))
+		assert.truthy(text:find("snapshots saved by earlier sessions:\n  session 2  12m ago  PLAYER_LOGOUT -> written",
+			1, true))
 		assert.truthy(text:find("* Bong Wrip-Classic Beta PvP  L1 Shaman  10m ago", 1, true))
 		assert.truthy(text:find("Professions 0, Adventure 0, Resourcefulness 0 | unspent 0, cap 16", 1, true))
 		assert.truthy(text:find("no professions", 1, true))
