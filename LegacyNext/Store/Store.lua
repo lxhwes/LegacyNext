@@ -87,7 +87,35 @@ function Store.Attach()
 	return true
 end
 
+-- Keys this session wrote (true) or forgot (false), replayed if the table is swapped.
+local touched = {}
+
+-- The client should assign SavedVariables before ADDON_LOADED, but the beta bug behind S1 was
+-- never explained. If a different table turns up in the global later, it came from disk: adopt
+-- it rather than keep writing to an orphan the client saves over, and replay this session's
+-- character writes onto it. The log is not replayed; Core holds this session's copy.
+local function sync()
+	if not db then
+		return
+	end
+	local current = rawget(_G, GLOBAL_NAME)
+	if current == db or type(current) ~= "table" then
+		return
+	end
+	local orphan = db
+	local lateLoads = (diagnostics.lateLoads or 0) + 1
+	Store.Attach()
+	diagnostics.lateLoads = lateLoads
+	if diagnostics.readOnly or type(orphan.characters) ~= "table" then
+		return
+	end
+	for key, wrote in pairs(touched) do
+		db.characters[key] = wrote and orphan.characters[key] or nil
+	end
+end
+
 local function writable()
+	sync()
 	if not db then
 		return false, "store not attached"
 	end
@@ -99,6 +127,7 @@ end
 
 --- The stored snapshot for one character key, as a copy, or nil.
 function Store.GetSnapshot(key)
+	sync()
 	if not db or type(db.characters) ~= "table" then
 		return nil
 	end
@@ -115,6 +144,7 @@ function Store.PutSnapshot(key, snapshot)
 		return false, "bad key or snapshot"
 	end
 	db.characters[key] = copy(snapshot)
+	touched[key] = true
 	return true
 end
 
@@ -128,6 +158,7 @@ function Store.Forget(key)
 		return false, "no character " .. tostring(key)
 	end
 	db.characters[key] = nil
+	touched[key] = false
 	return true
 end
 
@@ -150,6 +181,7 @@ end
 
 --- Every stored snapshot, as copies, in no particular order. Model sorts.
 function Store.GetSnapshots()
+	sync()
 	local out = {}
 	if not db or type(db.characters) ~= "table" then
 		return out
@@ -163,8 +195,11 @@ function Store.GetSnapshots()
 end
 
 function Store.Diagnostics()
+	sync()
 	local out = copy(diagnostics)
 	if db then
+		-- False means writes are landing in a table the client will not save.
+		out.globalIsOurs = rawget(_G, GLOBAL_NAME) == db
 		out.sessions = db.sessions
 		out.characters = type(db.characters) == "table" and countKeys(db.characters) or 0
 	end

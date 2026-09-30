@@ -52,9 +52,12 @@ describe("Debug.RenderRoster", function()
 		local roster = ns.Model.Roster({ { key = "A-R", level = 5, class = "Druid" } }, nil)
 
 		local text = ns.Debug.RenderRoster({ roster = roster, diagnostics = { readOnly = true,
-			reason = "saved schema 2" }, eventsNotRegistered = { "TRAIT_CONFIG_UPDATED (unknown to this client)" } })
+			reason = "saved schema 2", lateLoads = 1, globalIsOurs = false },
+			eventsNotRegistered = { "TRAIT_CONFIG_UPDATED (unknown to this client)" } })
 
 		assert.truthy(text:find("READ ONLY: saved schema 2", 1, true))
+		assert.truthy(text:find("LATE LOAD: the client replaced LegacyNextDB after ADDON_LOADED 1 time(s)", 1, true))
+		assert.truthy(text:find("NOT SAVED: LegacyNextDB is no longer the table being written", 1, true))
 		assert.truthy(text:find("events not registered: TRAIT_CONFIG_UPDATED (unknown to this client)", 1, true))
 		assert.truthy(text:find("trees ?", 1, true))
 		assert.truthy(text:find("professions ?", 1, true))

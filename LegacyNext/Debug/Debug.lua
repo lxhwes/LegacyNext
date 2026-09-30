@@ -522,6 +522,13 @@ function Debug.RenderRoster(input)
 	if d.readOnly then
 		w("READ ONLY: " .. tostring(d.reason))
 	end
+	if d.lateLoads then
+		w("LATE LOAD: the client replaced LegacyNextDB after ADDON_LOADED " .. d.lateLoads
+			.. " time(s); the loaded* numbers are from the replacement")
+	end
+	if d.globalIsOurs == false then
+		w("NOT SAVED: LegacyNextDB is no longer the table being written")
+	end
 	if input.snapshotResult then
 		w("this snapshot: " .. input.snapshotResult)
 	end

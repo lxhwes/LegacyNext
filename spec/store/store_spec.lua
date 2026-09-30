@@ -122,4 +122,49 @@ describe("Store", function()
 		assert.is_true(Store.Attach())
 		assert.is_true(Store.PutSnapshot("A-R", { key = "A-R" }))
 	end)
+
+	-- Hypothetical until S1: the client assigning the loaded table after ADDON_LOADED.
+	describe("a table assigned after attach", function()
+		it("is adopted, with this session's writes replayed onto it", function()
+			local Store = loadStore()
+			Store.Attach()
+			Store.PutSnapshot("Me-R", { key = "Me-R", level = 10 })
+
+			_G.LegacyNextDB = { schema = 1, sessions = 3,
+				characters = { ["Alt-R"] = { key = "Alt-R" }, ["Me-R"] = { key = "Me-R", level = 9 } } }
+			local adopted = _G.LegacyNextDB
+			local d = Store.Diagnostics()
+
+			assert.equals(1, d.lateLoads)
+			assert.equals("table", d.loadedType)
+			assert.equals(3, d.loadedSessions)
+			assert.equals(4, d.sessions)
+			assert.is_true(d.globalIsOurs)
+			assert.equals(adopted, _G.LegacyNextDB)
+			assert.equals(10, adopted.characters["Me-R"].level)
+			assert.is_table(adopted.characters["Alt-R"])
+		end)
+
+		it("replays a forget too", function()
+			local Store = loadStore()
+			Store.Attach()
+			Store.PutSnapshot("Gone-R", { key = "Gone-R" })
+			Store.Forget("Gone-R")
+
+			_G.LegacyNextDB = { schema = 1, characters = { ["Gone-R"] = { key = "Gone-R" } } }
+			Store.PutSnapshot("Me-R", { key = "Me-R" })
+
+			assert.is_nil(_G.LegacyNextDB.characters["Gone-R"])
+			assert.is_table(_G.LegacyNextDB.characters["Me-R"])
+		end)
+
+		it("reports a global cleared under it", function()
+			local Store = loadStore()
+			Store.Attach()
+
+			_G.LegacyNextDB = nil
+
+			assert.is_false(Store.Diagnostics().globalIsOurs)
+		end)
+	end)
 end)
