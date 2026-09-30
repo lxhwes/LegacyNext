@@ -215,8 +215,8 @@ Whether a plain frame needs any handling: the docs point to "no", but only by in
 protection flags are per-function and per-object. `Show` and `Hide`
 (`SimpleScriptRegionAPIDocumentation.lua:751`, `:357`) and FontString `SetText` carry no
 `IsProtectedFunction`; `SetPoint`, `SetSize`, `SetParent`, `SetScrollChild`, `SetVerticalScroll`,
-`EnableMouseWheel` do (`SimpleScriptRegionResizingAPIDocumentation.lua:137`, `:165`;
-`SimpleScriptRegionAPIDocumentation.lua:653`, `:97`; `SimpleScrollFrameAPIDocumentation.lua:93`,
+`EnableMouseWheel` and `EnableMouse` do (`SimpleScriptRegionResizingAPIDocumentation.lua:137`,
+`:165`; `SimpleScriptRegionAPIDocumentation.lua:653`, `:97`, `:75`; `SimpleScrollFrameAPIDocumentation.lua:93`,
 `:105`). Those flags gate on the object being protected: `IsProtected()` and
 `CanChangeProtectedState()` are per-region (`SimpleScriptRegionAPIDocumentation.lua:540`, `:10`),
 and `C_RestrictedActions.CheckAllowProtectedFunctions(object, silent)` is documented as

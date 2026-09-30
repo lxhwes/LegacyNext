@@ -72,7 +72,7 @@ Four commands exist for that:
 |---|---|
 | `/lgn probe` | One chat line per API: `ok`, `partial`, `nil`, `missing`, `error`, `secret` or `skipped` |
 | `/lgn dump [section] [page]` | A copyable `return { ... }` literal. Sections: `all`, `summary`, `challenges`, `categories`, `rewards`, `trees`, `character`, `probe` |
-| `/lgn uidump [category]` | What the window would show, as text: header lines, filter bar with counts, every row, the state line and the names that overflow the row. Compare it to `spec/golden/uidump_combined.txt` |
+| `/lgn uidump [category]` | What the Next Up tab would show, as text: header lines, filter bar with counts, every row, the state line and the names that overflow the row. Compare it to `spec/golden/uidump_combined.txt`. `/lgn uidump roster` renders the Roster tab; compare it to `spec/golden/uidump_roster.txt` |
 | `/lgn roster` | v1's stored characters and tradeskill candidates as text. The `== STORE ==` line records what came back from disk this session, and `== RAW ==` is the fixture. `/lgn roster forget <Name-Realm>` drops an alt |
 
 `/lgn dump challenges` is paged 20 at a time. Every dump is pure data with no comment lines, so

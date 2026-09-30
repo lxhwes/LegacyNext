@@ -13,6 +13,11 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 
 - Tagged releases: a pushed `v*` tag is linted, tested and packaged into a GitHub release, and
   the tag becomes `## Version`. A copy straight from the repo reports its version as `dev`.
+- Roster tab (v1): the window has a second tab listing every saved character with Legacy points
+  spent per tree and points unspent, then each tradeskill challenge a saved character has the
+  profession for, closest character first. Next Up's tooltip on a tradeskill row names the saved
+  characters with that profession. `/lgn uidump roster` prints the tab as text. **Not yet seen
+  in game.**
 - Roster groundwork (v1): each character's class, level, professions and Legacy tree spend is
   saved at login, at logout, and after a level-up, skill or talent change. `/lgn roster` lists
   every saved character and, for each tradeskill challenge, which of them is closest.

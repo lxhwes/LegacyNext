@@ -64,10 +64,10 @@ API, so they sit below it rather than being drawn as 0%.
 
 | Command | What it does |
 |---|---|
-| `/lgn` or `/legacynext` | Open or close the Next Up window. Escape closes it |
+| `/lgn` or `/legacynext` | Open or close the window. It has two tabs, Next Up and Roster. Escape closes it |
 | `/lgn show` / `/lgn hide` | The same, without the toggle |
 | `/lgn help` | List every command |
-| `/lgn uidump [category]` | What the window would show, as copyable text |
+| `/lgn uidump [category]` | What the Next Up tab would show, as copyable text. `/lgn uidump roster` does the same for the Roster tab |
 | `/lgn probe` | One line per API call: ok, partial, nil, missing, error, secret, skipped |
 | `/lgn dump [section] [page]` | Everything the addon reads, as a Lua literal |
 | `/lgn roster` | Preview of v1: every character this addon has seen, their Legacy tree spend and professions, and which of them is closest to each tradeskill challenge. As text for now |
@@ -116,7 +116,7 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
 | | Version | What |
 |---|---|---|
 | ▰▰▰▱ | **v0 "Next Up"** | The ranked list, category filter and reward track above |
-| ▰▱▱▱ | v1 "Roster" | A snapshot of each character on login and logout (class, level, professions, points spent per tree, unspent points), a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Class-levelling challenges get no match: the game doesn't give addons their level to read. Started; `/lgn roster` shows the data as text |
+| ▰▱▱▱ | v1 "Roster" | A snapshot of each character on login and logout (class, level, professions, points spent per tree, unspent points), a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Class-levelling challenges get no match: the game doesn't give addons their level to read. Started: the window's Roster tab lists every saved character and the tradeskill challenges each is closest to. Not yet seen in game |
 
 Changes are listed in [CHANGELOG.md](https://github.com/lxhwes/LegacyNext/blob/main/CHANGELOG.md).
 
