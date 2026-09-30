@@ -241,6 +241,18 @@ local function matches(profession, skillLineId, parent)
 	return parent ~= nil and parent.parentId ~= nil and id == parent.parentId
 end
 
+-- Snapshots arrive straight from Store, which never validates: a newer schema's table, or a
+-- hand-edited one, can hold anything. Only a keyed snapshot with a professions list joins.
+local function professionsOf(snapshot)
+	if type(snapshot) ~= "table" or type(snapshot.key) ~= "string" then
+		return nil
+	end
+	if type(snapshot.professions) ~= "table" then
+		return nil
+	end
+	return snapshot.professions
+end
+
 --- For each incomplete tradeskill challenge, every stored character with that profession,
 -- closest first. `parents` is Api.GetSkillLineParents output and may be nil.
 -- Returns a list in the challenges' order:
@@ -257,8 +269,9 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 		if criterion then
 			local candidates = {}
 			for _, snapshot in ipairs(snapshots or {}) do
-				for _, profession in ipairs(type(snapshot) == "table" and snapshot.professions or {}) do
-					if matches(profession, criterion.assetId, parents[criterion.assetId])
+				for _, profession in ipairs(professionsOf(snapshot) or {}) do
+					if type(profession) == "table"
+						and matches(profession, criterion.assetId, parents[criterion.assetId])
 						and type(profession.skill) == "number" then
 						local remaining = criterion.need - profession.skill
 						candidates[#candidates + 1] = {

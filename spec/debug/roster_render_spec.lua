@@ -53,4 +53,17 @@ describe("Debug.RenderRoster", function()
 		assert.truthy(text:find("trees ?", 1, true))
 		assert.truthy(text:find("professions ?", 1, true))
 	end)
+
+	it("renders a junk stored row instead of failing the paste", function()
+		local ns = loadStack()
+		local roster = ns.Model.Roster({ { key = "A-R", professions = "oops", trees = 7 },
+			{ key = "B-R", professions = { 7 }, trees = { "x" } } }, nil)
+
+		local text = ns.Debug.RenderRoster({ roster = roster })
+
+		assert.truthy(text:find("A-R", 1, true))
+		assert.truthy(text:find("professions ?", 1, true))
+		assert.truthy(text:find("trees ?", 1, true))
+		assert.truthy(text:find("B-R", 1, true))
+	end)
 end)

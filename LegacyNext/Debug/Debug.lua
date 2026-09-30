@@ -472,8 +472,10 @@ end
 -- /lgn roster: the v1 data as text, until the roster frame exists
 --------------------------------------------------------------------------------------------
 
+-- Stored snapshots are unvalidated (Store never interprets them), so every field is
+-- type-checked here: one junk row must not cost the whole paste.
 local function professionText(professions)
-	if professions == nil then
+	if type(professions) ~= "table" then
 		return "professions ?"
 	end
 	if #professions == 0 then
@@ -481,19 +483,23 @@ local function professionText(professions)
 	end
 	local parts = {}
 	for _, profession in ipairs(professions) do
-		parts[#parts + 1] = ("%s %s/%s [%s]"):format(tostring(profession.name), tostring(profession.skill),
-			tostring(profession.max), tostring(profession.skillLineId))
+		if type(profession) == "table" then
+			parts[#parts + 1] = ("%s %s/%s [%s]"):format(tostring(profession.name),
+				tostring(profession.skill), tostring(profession.max), tostring(profession.skillLineId))
+		end
 	end
 	return table.concat(parts, ", ")
 end
 
 local function treeText(snapshot)
-	if snapshot.trees == nil then
+	if type(snapshot.trees) ~= "table" then
 		return "trees ?"
 	end
 	local parts = {}
 	for _, tree in ipairs(snapshot.trees) do
-		parts[#parts + 1] = tostring(tree.name) .. " " .. tostring(tree.spent)
+		if type(tree) == "table" then
+			parts[#parts + 1] = tostring(tree.name) .. " " .. tostring(tree.spent)
+		end
 	end
 	return ("%s | unspent %s, cap %s"):format(table.concat(parts, ", "), tostring(snapshot.unspent),
 		tostring(snapshot.cap))
@@ -548,7 +554,7 @@ function Debug.RenderRoster(input)
 			w("    no stored character has this profession")
 		end
 		for _, candidate in ipairs(entry.candidates) do
-			w(("    %s  skill %s, %s to go%s"):format(candidate.key, tostring(candidate.skill),
+			w(("    %s  skill %s, %s to go%s"):format(tostring(candidate.key), tostring(candidate.skill),
 				tostring(candidate.remaining), candidate.reached and "  (already reached)" or ""))
 		end
 	end

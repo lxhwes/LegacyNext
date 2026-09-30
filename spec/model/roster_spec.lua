@@ -305,6 +305,21 @@ describe("Roster model", function()
 			assert.equals(65, byName(result, "Expert Alchemist").candidates[1].remaining)
 		end)
 
+		it("skips stored snapshots it cannot read instead of failing the whole list", function()
+			local keyless = alt("X", 30, { { skillLineId = 2937, skill = 100 } })
+			keyless.key = nil
+			local junkList = alt("Junk-R", 30, "oops")
+			local junkEntry = alt("Entry-R", 30, { 7, { skillLineId = 2937, skill = 120 } })
+			local good = alt("Good-R", 30, { { skillLineId = 2937, skill = 140 } })
+
+			local result = Model.ProfessionCandidates(challenges, { keyless, junkList, junkEntry, good }, nil)
+
+			local journeyman = byName(result, "Journeyman Alchemist").candidates
+			assert.equals(2, #journeyman)
+			assert.equals("Good-R", journeyman[1].key)
+			assert.equals("Entry-R", journeyman[2].key)
+		end)
+
 		it("leaves out completed challenges", function()
 			for _, challenge in ipairs(challenges) do
 				challenge.completed = true -- derived: captured false, varied
