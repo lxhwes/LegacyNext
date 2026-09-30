@@ -171,6 +171,31 @@ describe("addon lifecycle", function()
 		assert.equals("categories: GetCategoryList unavailable", input.challengesReason)
 	end)
 
+	it("gives the window the roster and the current character, outside the snapshot log", function()
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadViewInput()
+
+		assert.equals("Tester-Realm", input.currentKey)
+		assert.equals("Tester-Realm", input.snapshots[1].key)
+		assert.same({}, input.candidates)
+		assert.equals(5000, input.now)
+		assert.equals(0, #(_G.LegacyNextDB.snapshotLog or {}))
+	end)
+
+	it("runs /lgn uidump on both tabs without a failure message", function()
+		local printed = {}
+		_G.print = function(message) printed[#printed + 1] = tostring(message) end
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		_G.SlashCmdList.LEGACYNEXT("uidump")
+		_G.SlashCmdList.LEGACYNEXT("uidump roster")
+
+		for _, line in ipairs(printed) do
+			assert.is_nil(line:find("failed", 1, true), line)
+		end
+	end)
+
 	it("uses and keeps the saved skill-line map when this session's lookup is missing", function()
 		_G.LegacyNextDB = { schema = 1, skillLineParents = { [2937] = { parentId = 171 } } }
 		handler(nil, "ADDON_LOADED", "LegacyNext")

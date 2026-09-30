@@ -285,4 +285,115 @@ describe("UI", function()
 		assert.is_true(ns.UI.frame.status.shown)
 		assert.equals("3 other-class challenges hidden", ns.UI.frame.status.text)
 	end)
+
+	describe("roster tab", function()
+		local categories = fixture("categories_full").categories
+
+		local function loadWithRoster()
+			local ns = loadUI()
+			helper.loadAddonFile("LegacyNext/Model/Roster.lua", ns)
+			return ns
+		end
+
+		local function shamanSource(ns)
+			local shaman = ns.Model.BuildSnapshot({
+				character = fixture("dump_character_shaman").character,
+				treeSpend = fixture("dump_trees_fresh").treeSpend,
+				now = 1000,
+			})
+			return function()
+				return {
+					challenges = fixture("dump_challenges_page1_fresh").challenges,
+					categories = categories,
+					snapshots = { shaman },
+					currentKey = shaman.key,
+					now = 1000,
+				}
+			end
+		end
+
+		local function shownNames(frame)
+			local names = {}
+			for _, row in ipairs(frame.rows) do
+				if row.shown then
+					names[#names + 1] = row.name.text
+				end
+			end
+			return names
+		end
+
+		it("opens on Next Up, switches to the roster and back", function()
+			local ns = loadWithRoster()
+			ns.UI.SetDataSource(shamanSource(ns))
+			ns.UI.Show()
+			assert.equals("nextup", ns.UI.Describe().tab)
+			local nextUp = shownNames(ns.UI.frame)
+
+			ns.UI.SetTab("roster")
+			local frame = ns.UI.frame
+			assert.equals("roster", ns.UI.Describe().tab)
+			assert.same({ "Character", "Bong Wrip  L1 Shaman" }, shownNames(frame))
+			assert.equals("0/0/0", frame.rows[2].figure.text)
+			assert.is_nil(frame.rows[1].data) -- a heading has no tooltip
+			for _, button in ipairs(frame.filterBar.buttons) do
+				assert.is_false(button.shown)
+			end
+
+			ns.UI.SetTab("nextup")
+			assert.same(nextUp, shownNames(frame))
+		end)
+
+		it("switches tab from the tab buttons", function()
+			local ns = loadWithRoster()
+			ns.UI.SetDataSource(shamanSource(ns))
+			ns.UI.Show()
+			local roster = ns.UI.frame.tabs[2]
+
+			roster.script_OnClick(roster)
+
+			assert.equals("roster", ns.UI.tab)
+			assert.equals("Roster", roster.text)
+		end)
+
+		it("keeps the Next Up filter across a trip to the roster", function()
+			local ns = loadWithRoster()
+			ns.UI.SetDataSource(shamanSource(ns))
+			local tradeskills
+			for _, category in ipairs(categories) do
+				if category.name == "Tradeskills" then tradeskills = category.id end
+			end
+			ns.UI.Show()
+			ns.UI.SetFilter(tradeskills)
+
+			ns.UI.SetTab("roster")
+			ns.UI.SetTab("nextup")
+
+			assert.equals(tradeskills, ns.UI.view.filter)
+			assert.same({ "Journeyman Alchemist", "Expert Alchemist", "Artisan Alchemist" }, shownNames(ns.UI.frame))
+		end)
+
+		it("shows the roster's own error state when the read throws", function()
+			local ns = loadWithRoster()
+			local source, fail = shamanSource(ns), false
+			ns.UI.SetDataSource(function()
+				if fail then error("boom") end
+				return source()
+			end)
+			ns.UI.Show()
+			fail = true
+
+			ns.UI.SetTab("roster")
+
+			assert.is_true(ns.UI.frame.status.shown)
+			assert.matches("^Could not read the roster: .*boom", ns.UI.frame.status.text)
+		end)
+
+		it("ignores an unknown tab", function()
+			local ns = loadWithRoster()
+
+			ns.UI.SetTab("bogus")
+
+			assert.equals("nextup", ns.UI.tab)
+		end)
+	end)
 end)
