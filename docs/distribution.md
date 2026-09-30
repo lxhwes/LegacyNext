@@ -1,8 +1,10 @@
 # Distribution
 
 Packaging is [BigWigsMods/packager](https://github.com/BigWigsMods/packager) (`release.sh`),
-configured in `.pkgmeta`. CI (`.github/workflows/ci.yml`) only lints and tests; nothing
-packages or uploads yet.
+configured in `.pkgmeta`. CI (`.github/workflows/ci.yml`) only lints and tests; ~~nothing
+packages or uploads yet.~~ since 2026-09-30, `.github/workflows/release.yml` packages on a
+pushed `v*` tag and creates a GitHub release. CurseForge upload stays off until the TOC has a
+project ID and the `CF_API_KEY` secret exists (§4).
 
 Everything below was checked on 2026-09-19 against `release.sh` from `master`
 (`curl https://raw.githubusercontent.com/BigWigsMods/packager/master/release.sh`, 3374 lines,
@@ -125,6 +127,67 @@ interface. Nothing to publish into; the packager already skips it with a warning
 Wago, verified: `curl https://addons.wago.io/api/data/game | jq '.patches.forever'` →
 `["1.60.1"]`. Wago already has the category, and the packager's version string matches it.
 
+## 4. Release workflow: wired 2026-09-30
+
+`.github/workflows/release.yml` runs when a tag matching `v*` is pushed. Job `lint-and-test`
+is a copy of `ci.yml`'s job. Job `package` needs it, checks out with `fetch-depth: 0` for the
+changelog, and runs `BigWigsMods/packager@v2` with no arguments, so no `-g`. It has
+`permissions: contents: write` so the packager can create the GitHub release.
+
+`gh api repos/BigWigsMods/packager/commits/v2 --jq '.sha'` →
+`e50a250f8705041e40f2fa1ddcb280a686d65aa0`, the same commit as §1 and as `master`. Line
+numbers below are from `release.sh` at that commit.
+
+Secrets, by name: `CF_API_KEY: ${{ secrets.CF_API_KEY }}` (read at line 494) and
+`GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}` (line 496), which Actions provides. `WAGO_API_TOKEN`
+is left out: the packager README says only that Wago uploads require it.
+
+CurseForge stays off until both `## X-Curse-Project-ID` in the TOC and the `CF_API_KEY` secret
+exist. Line 1329 reads the ID from the TOC, and line 1481 sets `project_site` only when it is
+numeric. Then `upload_curseforge` returns before any request (line 2818):
+
+```sh
+if [[ -n "$skip_cf_upload" || -z "$slug" || -z "$cf_token" || -z "$project_site" ]]; then
+```
+
+Dry run on the branch, in a throwaway clone:
+
+```sh
+git clone --branch chore/release-packaging <worktree> $TMPDIR/lgn-pack-relwf
+git -C $TMPDIR/lgn-pack-relwf tag v0.1.0-drytest
+/opt/homebrew/bin/bash $TMPDIR/release.sh -d -e -t $TMPDIR/lgn-pack-relwf -r $TMPDIR/lgn-release-relwf
+unzip -p $TMPDIR/lgn-release-relwf/LegacyNext-v0.1.0-drytest-forever.zip LegacyNext/LegacyNext.toc | grep '^## Version'
+```
+
+Header, verbatim, with no `CurseForge ID:` line after it (lines 1480-1482 print one only when
+the TOC has an ID):
+
+```
+Packaging LegacyNext
+Current version: v0.1.0-drytest
+Build type: non-retail version-forever non-alpha non-debug
+Game version: 1.60.1
+```
+
+Then `Creating archive: LegacyNext-v0.1.0-drytest-forever.zip (v0.1.0-drytest-forever)`. The
+packaged TOC reads `## Version: v0.1.0-drytest`. That is its only content change; the packager
+also writes CRLF line endings.
+
+Also seen in that run:
+
+- The token is replaced in every copied file, not just the TOC. A `Core.lua` comment naming it
+  came out as `v0.1.0-drytest`. That is why `getVersion` tests for a leading `@` instead of
+  comparing against the token, which would be rewritten too.
+- The zip's `CHANGELOG.md` is generated from git history (the whole log, as no earlier tag
+  exists). The hand-written file is copied, then overwritten. A manual changelog is used only
+  when `.pkgmeta` sets `manual-changelog` (lines 1039, 2422). Not decided.
+- `.claude/` is absent from the zip. Line 1829 prunes every dot-path before `ignore` is read.
+- The BSD `sed` warning from §2 appeared again.
+
+Unverified until the first real tag: the GitHub release. The clone's origin was a local path,
+so the packager found no GitHub slug (line 829 wants an `https://github.com` URL), and `-d`
+skips uploads anyway.
+
 ## Related: wow-build-tools
 
 `McTalian-WoW-Addons/wow-build-tools` added Forever in `1188581a` "support the WoW Forever
@@ -137,8 +200,13 @@ repos/McTalian-WoW-Addons/wow-build-tools/commits`). The earlier note that it wo
 - ~~CurseForge type 88568 needs the browser or token check above before the first upload.~~
   Answered 2026-09-30 by Legacy Forever's uploads landing under `1.60.1` (§3). Our first
   upload is the remaining check.
-- `BigWigsMods/packager@v2` is not wired into CI. When it is, `-g` is unnecessary; the TOC
-  alone yields `forever` / `1.60.1`.
-- `.pkgmeta`'s ignore list did not include `.claude/` at dry-run time, and whether the packager
+- ~~`BigWigsMods/packager@v2` is not wired into CI. When it is, `-g` is unnecessary; the TOC
+  alone yields `forever` / `1.60.1`.~~ Wired 2026-09-30 in `release.yml`, without `-g` (§4).
+- ~~`.pkgmeta`'s ignore list did not include `.claude/` at dry-run time, and whether the packager
   skipped it was not recorded. `.claude` is being added to the ignore list on 2026-09-19; the
-  next dry run should confirm it is absent from the zip.
+  next dry run should confirm it is absent from the zip.~~ Confirmed absent 2026-09-30 (§4).
+  The packager prunes dot-paths before reading `ignore`.
+- The zip ships a generated `CHANGELOG.md`, not the hand-written one, unless `.pkgmeta` sets
+  `manual-changelog` (§4).
+- The first real `v*` tag is the check for the GitHub release. The first upload with a project
+  ID and `CF_API_KEY` is the check for CurseForge.
