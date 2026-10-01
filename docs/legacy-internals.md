@@ -955,8 +955,9 @@ in `spec/fixtures/` have to come from a live dump.
 
 ## Professions — joining a character to a tradeskill challenge (2026-09-30)
 
-Source reading at `bd2470a` (1.60.1.70009), for v1's candidate-alt mapping. **Not verified in
-game; queue row S1.**
+Source reading at `bd2470a` (1.60.1.70009), for v1's candidate-alt mapping. ~~**Not verified in
+game; queue row S1.**~~ The lookup and the parent reading were verified in game 2026-10-01; see
+"S1, first paste" below. A crafting profession is still unread.
 
 - Tradeskill challenges are `criteriaType` 7. `assetId` is a skill line and `need` is the skill
   level: `Journeyman Alchemist` is 2937 / 150 (`spec/fixtures/dump_challenges_page1_fresh.lua`).
@@ -984,6 +985,65 @@ Consequence: `Model.ProfessionCandidates` accepts a direct match **or** a match 
 parent, which is correct whichever way the client answers. S1 answers two questions. Does the
 lookup work for a line the character never learned? And which number does an Alchemy
 character's `GetProfessionInfo` report?
+
+## S1, first paste — 2026-10-01
+
+One `/lgn roster` from Alex on build 1.60.1 (70124), saved as `spec/fixtures/roster_geo.lua`
+with the printed text verbatim at the bottom. It ran on Geo-Classic Beta PvP, a level 5 Druid
+with Herbalism 13/75 and Cooking 1/75. That was session 2. Session 1 was Bong (level 1
+Shaman), about a minute long, then a logout to character select. It answers the first of
+S1's two questions and half of the second.
+
+**SavedVariables came back** [verified in game]. `== STORE ==` read `attached=true
+loadedType=table loadedSessions=1 loadedCharacters=1 sessions=2 characters=2`. The addon
+loaded again from scratch on Geo's login, and the table it found was session 1's: Bong's
+snapshot and both of session 1's log entries (`SKILL_LINES_CHANGED+PLAYER_LOGIN`, then
+`PLAYER_LOGOUT`). No `LATE LOAD`, and `globalIsOurs = true`. The original bug report was
+about the read after a restart, so S1 step 4 is still the paste that closes it.
+
+**The lookup answers for lines the character never learned** [verified in game]. All six, on
+a character with no crafting profession:
+
+| Line | `parentProfessionID` | `professionName` | `profession` |
+|---|---|---|---|
+| 2937 | 171 | Alchemy | 3 |
+| 2938 | 164 | Blacksmithing | 1 |
+| 2940 | 333 | Enchanting | 9 |
+| 2941 | 202 | Engineering | 8 |
+| 2945 | 165 | Leatherworking | 2 |
+| 2948 | 197 | Tailoring | 7 |
+
+That is the DB2 map exactly. Each struct carries the eleven fields
+`TradeSkillUITypesDocumentation.lua:361-376` documents at `966519c`, and no others.
+`professionID` echoes the line asked for. `skillLevel` and `maxSkillLevel` read 0,
+`isPrimaryProfession` true, `sourceCounter` 2 on all six, and `expansionName` repeats the
+profession's name. Any character's lookup now answers, so the saved account-wide map is a
+backstop rather than a necessity.
+
+**`GetProfessionInfo` reports the Classic line** [verified in game for two lines]. Geo's
+Herbalism read 182 and Cooking 185. In `SkillLine` at 70124 both have Forever tier-4
+children, 2944 Herbalism and 2939 Cooking, built like the six crafting lines
+(`curl "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70124"`, rows 182, 185, 2939,
+2944). So where a line has a Forever child, the client reports the parent. No crafting
+profession has been read. If Alchemy follows the same rule, it reads 171 and joins through
+`parentProfessionID`, which `Model.ProfessionCandidates` already does.
+
+**Tree spend cannot be read at logout** [verified in game]. Bong's `PLAYER_LOGOUT` snapshot
+reads `written; trees: unspent points not read`. The login read was kept with its own time,
+`treesAt` 58 s before `takenAt`, which is what the PR #2 review fix was for. Logout never
+carries spend. Login and events do.
+
+**Events** [verified in game]. In about 45 minutes on Geo, `SKILL_LINES_CHANGED` set off 51
+snapshots, roughly one per Herbalism skill-up, and four of them also carried
+`PLAYER_LEVEL_UP`, for levels 2 to 5. Each event restarted the 5 s wait. The paste has no
+`events not registered:` line, so `TRAIT_CONFIG_UPDATED` registered. The 51 log lines were
+noise in the paste, so `/lgn roster` now prints the first entry and the last nine.
+
+**A contradiction with an older fixture.** The Shaman's name reads `Bong`.
+`spec/fixtures/dump_character_shaman.lua` (2026-09-19) has `"Bong Wrip"`, while a criterion's
+`charName` in that same capture reads `"Bong"`. A player name cannot hold a space, so the
+older file's name probably changed somewhere between the client and the fixture. Tests use it
+only as a label. The fixture is left as it is until Alex says what happened.
 
 ---
 

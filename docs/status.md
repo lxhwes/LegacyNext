@@ -3,15 +3,18 @@
 Last updated 2026-10-01.
 
 **Where we are, 2026-10-01: Phase 4 (v1 roster) has started on the report that SavedVariables
-now load back. That report is untested here, and S1 tests it. Store, per-character snapshots,
+now load back. ~~That report is untested here, and S1 tests it.~~ S1's first paste came back
+the same day: the saved file loaded across a logout and a character switch, and the
+skill-line lookup answered for all six lines. A full restart and an Alchemy character are
+what S1 still wants. Store, per-character snapshots,
 the roster and tradeskill-candidate model, and `/lgn roster` are built, tested and merged
 (PR #2: 158 tests, 2 pending on S1). ~~No roster frame yet~~ The window now has a Roster tab,
-and none of it has run in game. Later the same day the client's own data tables (DB2) backed
+~~and none of it has run in game~~ and the data layer has now run in game. The tab has not. Later the same day the client's own data tables (DB2) backed
 the tradeskill join, and another addon's uploads closed the CurseForge check. S1 gained a
 fallback step. The vendor pin then moved to `1.60.1.70124`, and nothing we call changed. Then
 the Roster tab landed, and a pushed `v*` tag now packages a release. A review of that branch
-(PR #4) on 2026-10-01 found 15 problems. 14 are fixed, and one is fixed in part. 206 tests, 2
-pending on S1. Phase 3 is as below.**
+(PR #4) on 2026-10-01 found 15 problems. 14 are fixed, and one is fixed in part. ~~206 tests, 2
+pending on S1.~~ 211 tests, 1 pending on S1's Alchemy half. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -29,9 +32,37 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Blocking: **S1** (all of v1, and both pending tests, one with **D4**), **U4** (needs S1's
-second character), and **C3** (the first real data for the "in progress" tier). The queue is
-`docs/ingame-commands.md`.
+Blocking: **S1**'s restart and Alchemy halves (the last pending test), **U4** (S1's two
+characters now exist, so it can run), **D4** (30 s on Geo now), and **C3** (the first real
+data for the "in progress" tier). The queue is `docs/ingame-commands.md`.
+
+## S1, first paste — 2026-10-01
+
+Alex ran `/lgn roster` on Geo, a level 5 Druid with Herbalism and Cooking, after a short
+session on Bong. The paste is `spec/fixtures/roster_geo.lua`. The findings are in `CLAUDE.md`
+and in `docs/legacy-internals.md`, "S1, first paste".
+
+What it settled:
+
+- **The saved file loads back** across a logout and a character switch. A full restart, S1
+  step 4, is the last check, and the `LoadSavedVariablesFirst` fallback stays unused unless
+  that fails.
+- **The lookup answers for unlearned lines**, with exactly the DB2 parents. The `Api` test
+  that waited on it now runs against the captured structs.
+- **`GetProfessionInfo` reports the Classic line** for Herbalism and Cooking, which have
+  Forever children. The crafting join through `parentProfessionID` is now the expected case,
+  and an Alchemy character confirms it.
+- **Tree spend cannot be read at logout.** The kept-part logic from the PR #2 review held in
+  game.
+- `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire. The second fired 51 times in 45 minutes,
+  which flooded the paste, so `/lgn roster` now shows the first and last nine log lines.
+
+Spent on: one fixture, the un-pended `Api` test, a captured-gatherer join test, a roster view
+test, and a check that `Debug.RenderRoster` reproduces the captured lines exactly. The crafting
+join test stays pending, and says why.
+
+Open for Alex: the 2026-09-19 fixture names the Shaman `"Bong Wrip"`, and this paste says
+`"Bong"`. Was the old one edited?
 
 ## PR #4 review — 2026-10-01
 
@@ -596,7 +627,7 @@ way: the dry run cost twenty minutes and closed two blockers.
 | 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
 | 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Done** — drawn in the client 2026-09-19 (U1 uidump). Screenshot still open; the 2026-09-26 changes are unseen |
 | 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except ~~CurseForge check~~ (answered 2026-09-30, `docs/distribution.md` §3), ~~TOC version line~~ (2026-09-30). Tag-triggered packaging added the same day |
-| 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, unverified in game (S1); ~~roster frame not started~~ Roster tab built 2026-09-30, unseen (U4) |
+| 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, ~~unverified in game (S1)~~ ran in game 2026-10-01, with S1's restart and Alchemy halves still open; ~~roster frame not started~~ Roster tab built 2026-09-30, unseen (U4) |
 
 Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
 that I can finish and prove alone, `UI/` cannot be verified without Alex looking at it, and
@@ -1018,8 +1049,9 @@ returns and never names a slot.
 ## Known risks
 
 - ~~**SavedVariables are written but never loaded back** on the beta — Blizzard-side.~~
-  **Reported fixed, 2026-09-30** (Alex, from Blizzard's notes). Not tested in game yet, so
-  **S1** tests it with a `/reload` and a full restart. `Store/` is still the single place that
+  **Reported fixed, 2026-09-30** (Alex, from Blizzard's notes). ~~Not tested in game yet, so
+  **S1** tests it with a `/reload` and a full restart.~~ Loaded back across a logout and a
+  character switch, 2026-10-01. A full restart is S1's last check. `Store/` is still the single place that
   names `LegacyNextDB`, so if the fix does not hold, the workaround is still a one-file
   change. Original entry: v1's roster
   depends on a workaround. Blizzard's own Challenge Tracker uses

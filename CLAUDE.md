@@ -65,9 +65,11 @@ cross-account or guild sync, writing to trait configs.
   and the guard is active** [verified in game 2026-09-19 via `/lgn probe`], and no API on our
   surface returned a secret. That is a tested negative, not an assumption — but it is a
   per-build one, so re-run the probe after any bump.
-- **SavedVariables: reported fixed 2026-09-30, unverified** — S1 in
-  `docs/ingame-commands.md`. Until then the old fact stands: written but never loaded back,
-  Blizzard-side, confirmed by other addon authors. The workarounds were Thunderz96/forever-addon-kit
+- **SavedVariables load back across a logout and a character switch** [verified in game
+  2026-10-01, build 70124]. Session 2, on a second character, read session 1's table:
+  `loadedType=table`, its character and its logout log entry, with no `LATE LOAD`. A full
+  client restart is the last check, S1 step 4. The fact this replaces, kept because step 4 is
+  still open: written but never loaded back, Blizzard-side, confirmed by other addon authors. The workarounds were Thunderz96/forever-addon-kit
   `sv_bridge` and Wicksmods/WickCore Profiles. `Store/` is the only file that names
   `LegacyNextDB`, so either outcome stays a one-file change. Blizzard's own challenge tracker
   sets `## LoadSavedVariablesFirst: 1` (`Blizzard_LegacyChallengeTracker.toc:6`), and so does
@@ -213,14 +215,25 @@ different things. Never name the slots; iterate every return.
 `GetProfessionInfo(index)` → `name, texture, rank, maxRank, numSpells, spellOffset, skillLine,
 rankModifier, specializationIndex, specializationOffset, skillLineName`
 (`Blizzard_ProfessionsFrame.lua:56` at `bd2470a`).
-**That `skillLine` is likely the parent profession line, not the one tradeskill challenges
-name** [source, unverified in game — S1]. The same frame compares it against
+**That `skillLine` is the parent profession line, not the one tradeskill challenges name**
+[verified in game 2026-10-01] for Herbalism (182) and Cooking (185), whose Forever children
+2944 and 2939 exist in the client data. For a crafting line it is still inferred, and the
+Alchemy half of S1 settles it. The same frame compares it against
 `parentProfessionID or professionID` (`:41-43`), and Alchemy's challenges name 2937, not
 Classic's 171. Join through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID`
 as well as directly, never by name. `GetServerTime` stamps roster snapshots.
 The client data backs the parent reading [DB2, 2026-09-30]. All six tradeskill lines are
 tier-4 children of the Classic lines: 2937 → 171, 2938 → 164, 2940 → 333, 2941 → 202,
-2945 → 165, 2948 → 197. What the live call returns is still S1's to answer.
+2945 → 165, 2948 → 197. **The live lookup returns exactly that map** [verified in game
+2026-10-01], on a character who knows none of the six. Each answer is a full `ProfessionInfo`
+with all eleven documented fields (`TradeSkillUITypesDocumentation.lua:361-376`), with
+`professionID` echoing the line and `skillLevel` 0.
+**Tree spend cannot be read at `PLAYER_LOGOUT`** [verified in game 2026-10-01]. The logout
+snapshot came back "unspent points not read", and the login read was kept. Spend reaches the
+roster at login and on events, never at logout.
+`PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and the second fires on every skill-up
+[verified in game 2026-10-01]. `TRAIT_CONFIG_UPDATED` registers without error. Whether it
+fires is C2.
 
 Reference source, read-only, on the forever branch: the directories `vendor/PINS.md` lists
 (the Legacy addons, the generated API docs, `Blizzard_AchievementUI`, and the UI template,
