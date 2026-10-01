@@ -957,7 +957,8 @@ in `spec/fixtures/` have to come from a live dump.
 
 Source reading at `bd2470a` (1.60.1.70009), for v1's candidate-alt mapping. ~~**Not verified in
 game; queue row S1.**~~ The lookup and the parent reading were verified in game 2026-10-01; see
-"S1, first paste" below. A crafting profession is still unread.
+"S1, first paste" below. ~~A crafting profession is still unread.~~ Alchemy was read the same
+day and reports 171; see "S1 closed" below.
 
 - Tradeskill challenges are `criteriaType` 7. `assetId` is a skill line and `need` is the skill
   level: `Journeyman Alchemist` is 2937 / 150 (`spec/fixtures/dump_challenges_page1_fresh.lua`).
@@ -1053,6 +1054,55 @@ sparse checkout. The roster keys characters as `Name-Realm`, so a build that mov
 surname in or out of `UnitName` again would give one character two rows. D10's probe now
 reads `UnitName`, `UnitFullName`, `UnitNameUnmodified`, `UnitGUID` and
 `ShouldDisplaySurname` side by side.
+
+## S1 closed, and D4 and D10 — 2026-10-01, later the same morning
+
+Five more captures from Alex on build 1.60.1 (70124), after a full client restart, on Geo
+Prizm (Geo is the first name), now a level 6 Druid who has trained Alchemy:
+
+- `/lgn roster` → `spec/fixtures/roster_geo_restart.lua`
+- `/lgn uidump roster`, the same login, verbatim at the bottom of that file
+- `/lgn dump character` → `spec/fixtures/dump_character_geo.lua`
+- `/lgn dump probe`, written up here and not fixtured, as with D2 and D5
+- two screenshots, the Roster tab and Next Up with a tooltip
+
+**SavedVariables come back off disk** [verified in game]. The first read after a full restart:
+`loadedType=table loadedSessions=2 loadedCharacters=2 sessions=3`, no `LATE LOAD`. The saved
+log carried session 2's last ten entries, ending in its `PLAYER_LOGOUT`. S1's fallback step,
+`## LoadSavedVariablesFirst`, is not needed.
+
+**Alchemy reports the Classic line, 171** [verified in game]. `GetProfessionInfo`'s
+`skillLine` for Alchemy is 171, not the 2937 the challenges name, so all three lines seen in
+game report the parent. Geo joined Journeyman, Expert and Artisan Alchemist through
+`parentProfessionID`, at 1/150, 1/225 and 1/300. With no parent map the same snapshot joins
+nothing, and a test pins that.
+
+**`GetProfessions` slots** [verified in game, D4]. Alchemy in slot 1, Herbalism in 2, Cooking
+in 5, at `GetProfessionInfo` indexes 4, 5 and 6. Slot 5 is where Mainline puts cooking too.
+Each entry carried `icon`, `modifier` and `skillLineName` besides the four the snapshot keeps.
+How many values `GetProfessions` returns in all is not in the dump, and Api iterates them all
+either way.
+
+**Professions cannot be read at logout either** [verified in game]. Session 2's
+`PLAYER_LOGOUT` snapshot read `trees: unspent points not read; professions: empty read, kept
+stored`. `GetProfessions` returned nothing at logout, and the empty-read rule from the PR #2
+review kept the login list.
+
+**D10: no secrets on 70124** [verified in game]. Every probe row read `ok`, apart from
+`GetMajorFactionData`'s expected `partial`, which drops the same 14 ColorMixin methods as D5.
+No row and no tally entry read `secret`, `error` or `missing`. `issecretvalue` read `guard
+active`, and all six constants and both flags read `(runtime)`. The trait config handle was
+11385528 this time, another transient value. `wowProjectId` read 1, Mainline. The probe had no
+name rows, since the installed build came from main rather than the branch that adds them.
+That half of D10 is still open.
+
+**The frame, seen** [verified in game, U1 and U4]. On Next Up the header's middle dot renders
+as a dot. The filter bar wraps to two lines at `All (41)`, and the three Alchemy rows sit in
+their own "in progress" tier, ordered by fraction. The tooltip carried every line, down to
+"Geo 1/150, 149 to go". On Roster the `P/A/R` and `Free` headings sit over their columns, Geo
+is in gold, and the footnote draws below the rows. The selected tab shows as white text on
+the same red button, which reads, but faintly. The roster uidump said `read took 37 ms`
+against U1's 21 ms. The window read now takes a snapshot and reads the roster too.
 
 ---
 

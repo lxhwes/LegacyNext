@@ -20,15 +20,10 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
-| S1 | **Partly answered 2026-10-01** (`spec/fixtures/roster_geo.lua`): the saved file came back across a logout and a character switch, and the lookup answered for all six lines. Still open: **step 4**, one `/lgn roster` after a full client restart, and **step 3 on an Alchemy character**, whose bracketed skill line settles the crafting join. Section S1 below | Whether a restart reads the file off disk, which is what the original bug was about. Whether a crafting profession reports 2937 or its parent 171. Unblocks the last `pending` test | ~2 min for the restart; the Alchemy half is free with C3 |
-| D10 | `/lgn dump probe` on build 1.60.1.70124, **at the start of the S1 session**. Section D10 below | Whether "no secrets on our surface" still holds. Also, since 2026-10-01, which name call carries Forever's surname and whether `UnitGUID` reads, for a roster key that cannot shift. It is a per-build finding, last tested on 69913, and the pin is now two builds past that | 30 s |
-| U4 | `/lgn uidump roster`, then three screenshots: the Roster tab, the same tab scrolled to the bottom, and Next Up with the mouse over Journeyman Alchemist. **After S1's step 3**, so two characters are saved. Section U4 below | Whether the Roster tab reads right: the `P/A/R` and `Free` headings over their columns, the current character in gold, a tradeskill row naming the Alchemy character, the collapsed filter bar, and the footnote's last line in view. Content is checkable against `spec/golden/uidump_roster.txt`. Only the look needs your eyes | 2 min, same login as S1 |
-| U1 | **Partly answered 2026-09-19** — the uidump came back and is written up in `docs/status.md`. Still open for the one thing it cannot show: **one screenshot of the window**, after a `/reload` on a build with the OnHide fix | Look only: spacing, alignment, whether the inset crops anything. Row content is already checked against `spec/golden/`. Section U1 below | 1 min |
-| U3 | Look at the AddOns list at character select (or Escape > AddOns) after installing this build | Whether `## IconTexture` draws our 64x64 TGA at 20 px beside the addon name instead of the question mark. Section U3 below | 30 s |
-| U2 | The WoWLua block under U2 below | Whether a one-line FontString with word wrap off draws `...` or just clips (Tier C in `docs/ui-templates.md`), `IsTruncated()` on it, and `IsProtected()` on our frame | 2 min |
-| C3 | A criterion sitting part-done. **Cheap way: train Alchemy and craft a few potions**, then `/lgn dump challenges 1` (Alchemy is on page 1). Section C3/D4 below | The mid-progress ranking fixture, and the first real "in progress" row for the three-tier ranking. Every captured criterion so far reads 0 | ~10 min, same session as D4. Forever's level requirement for training a profession is unchecked |
-| D4 | `/lgn dump character` on any character with a profession. Geo (Herbalism, Cooking) will do, so this no longer waits for C3 | `GetProfessions`' seven Forever slots, still unseen as a layout. **Partly answered 2026-10-01**: on Geo it returned Herbalism and Cooking, and `GetProfessionInfo` read both (182, 185). `/lgn roster` keeps no slot numbers, so where they sit among the seven is still open | 30 s |
-| C2 | `/etrace` on the five events in section C2 below, during the C3 session | Which fire. **Partly answered 2026-10-01 for the roster's own events**: `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and `TRAIT_CONFIG_UPDATED` registers without error. None of the five below has been seen yet. The frame depends on `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE`, and neither has been seen firing on Forever. The other three decide whether trait and faction events are worth adding | Free with C3 |
+| D10 | **Partly answered 2026-10-01**: the secrets half is done, with no row `secret`, `error` or `missing` on 70124. Still open: **the five name rows**, which the installed build did not have. Install from the branch that adds them (or from main once it merges), `/reload`, then `/lgn dump probe` on a character with a surname. Section D10 below | Which name call carries Forever's surname, and whether `UnitGUID` reads, for a roster key that cannot shift | 30 s |
+| U2 | The WoWLua block under U2 below, also in Alex's gist "LegacyNext U2: truncation and protection" | Whether a one-line FontString with word wrap off draws `...` or just clips (Tier C in `docs/ui-templates.md`), `IsTruncated()` on it, and `IsProtected()` on our frame | 2 min |
+| C3 | **Geo now has Alchemy at 1**, so this is two commands: `/lgn dump challenges 1` and `/lgn uidump`, on Geo. The in-progress tier was already seen in a screenshot 2026-10-01. Section C3 below | The mid-progress ranking fixture: a real type-7 criterion with `have` above 0, to replace the derived values in the Model tests | 1 min |
+| C2 | `/etrace` on the five events in section C2 below, during any session that raises a skill or earns a challenge | Which fire. **Partly answered 2026-10-01 for the roster's own events**: `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and `TRAIT_CONFIG_UPDATED` registers without error. None of the five below has been seen yet. The frame depends on `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE`, and neither has been seen firing on Forever. The other three decide whether trait and faction events are worth adding | Free with C3 |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees**, then `/lgn dump trees` | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
 | C4 | A completed challenge, then `/lgn dump challenges` on its page | `wasEarnedByMe` true on a real completion | needs play |
@@ -46,6 +41,11 @@ Closed — kept so a citation still resolves:
 | D6 | 2026-09-19 | Reward track alive. Legacy Track 0/90, four thresholds (15/25/40/55), all four rewards named with items. `isCollected` true on an unreached tier, confirming it is collection state | `spec/fixtures/dump_rewards_fresh.lua` |
 | D7 | 2026-09-19 | Full `section = "all"` dump, all 111 challenges. Found **five undocumented `criteriaType` values** and the type-243 progress trap; plus the character shape and a part-done challenge | `spec/fixtures/dump_criteria_types.lua`, `dump_character_shaman.lua`, `CLAUDE.md` |
 | D9 | 2026-09-19 | All 29 categories in client order, summing to 111. Confirms every row of the assembled partial field for field, and adds the 13 class and tradeskill ids the sweep never recorded | `spec/fixtures/categories_full.lua` (replaces `categories_partial.lua`), the un-pended test in `spec/api/api_spec.lua` |
+| S1 | 2026-10-01 | SavedVariables load back across a character switch and off disk after a full restart. The skill-line lookup answers for all six lines on any character. `GetProfessionInfo` reports the Classic line for Alchemy (171), Herbalism and Cooking, so the join runs through `parentProfessionID` | `spec/fixtures/roster_geo.lua`, `roster_geo_restart.lua`, `CLAUDE.md`, the two un-pended tests |
+| D4 | 2026-10-01 | `GetProfessions` on a character with three professions: primaries in slots 1 and 2, Cooking in slot 5 | `spec/fixtures/dump_character_geo.lua`, `CLAUDE.md` |
+| U1 | 2026-10-01 | Screenshot of Next Up: the header's middle dot renders, the filter bar wraps to two lines, nothing is cropped. Also the first real "in progress" tier | `docs/status.md` |
+| U3 | 2026-10-01 | The gold ring icon draws in the AddOns list | `docs/status.md` |
+| U4 | 2026-10-01 | `/lgn uidump roster` and two screenshots: headings over their columns, the current character in gold, the footnote below the rows, and the tradeskill tooltip naming Geo | `roster_geo_restart.lua`, `docs/status.md` |
 
 See `docs/status.md` for what each finding changed.
 
@@ -60,13 +60,6 @@ over `_classic_beta_/Interface/AddOns/LegacyNext/`, then `/reload`. If the clien
 error, paste the first one. It stops reporting after 100.
 
 ---
-
-## U1 — one screenshot of the window
-
-The uidump half closed 2026-09-19 (`docs/status.md`, "U1 — the frame drew"). Still wanted:
-`/lgn`, then a screenshot of the open window. I am judging the look only, since row content is
-already checked against `spec/golden/`. Say if the middle dot in the header renders as a box.
-`Model.SEPARATOR` is one line to change.
 
 ## U2 — truncation and protection
 
@@ -98,78 +91,6 @@ It prints one chat line and leaves a 120-pixel-wide test string near the top of 
 or is cut off mid-word. That decides whether rows get an ellipsis for free or rely on the
 tooltip alone. `IsProtected` should read `false,false`.
 
-## U4 — the Roster tab
-
-Do this after S1's step 3, on character B, so the roster holds two characters.
-
-1. `/lgn uidump roster`. Paste it.
-2. `/lgn`, click **Roster**, and take a screenshot. Then scroll to the bottom and take a second
-   one, so the footnote's last line shows.
-3. Click **Next Up**, hover Journeyman Alchemist, and take a screenshot with the tooltip showing.
-
-What I am reading it for: in the paste, both characters with a tree figure and a `Free` number
-instead of `?`, and a tradeskill row naming B if B trained Alchemy. In the screenshots, the
-headings sitting over their columns, and whether a long tradeskill row is cut off. Since
-2026-10-01 the footnote under the list is sized from its wrapped height, so its last line
-should scroll fully into view. The tooltip should list B under "Saved characters with this profession". The middle dot in a
-tradeskill row is the same `Model.SEPARATOR` as U1's header, so one answer covers both.
-
-## U3 — the icon
-
-Nothing to type. Open the AddOns list at character select, or Escape > AddOns. `LegacyNext`
-should show the gold ring icon at 20 px instead of the question mark. If it is still the
-question mark, or a green square (the client's "texture failed to load"), say which. The file
-is `LegacyNext/Media/icon.tga`, and the TOC line is
-`## IconTexture: Interface\AddOns\LegacyNext\Media\icon`.
-
-## S1 — SavedVariables and the tradeskill join, via `/lgn roster`
-
-**One paste came back 2026-10-01**, on Geo after a session on Bong. It covers steps 1 and 3
-for a gatherer: `loadedType=table`, no `LATE LOAD`, and every parent a number. Write-up in
-`docs/legacy-internals.md`, "S1, first paste". What is still wanted: step 4, after a full
-restart, and step 3 again on a character who has trained Alchemy. Step 2 is optional now,
-since a character switch already reloaded the file.
-
-No script. Each `/lgn roster` opens the copy window; paste all of it each time, `== RAW ==`
-block included. The four pastes are four questions, so label them 1–4. Step 5 is conditional
-and adds two more, 5a and 5b.
-
-1. Log in character A, then `/lgn roster`. On the first run the `== STORE ==` line should read
-   `loadedType=nil` (nothing saved yet) and `sessions=1`.
-2. `/reload`, then `/lgn roster`. **This is the fix, or not:** `loadedType=table`,
-   `loadedSessions=1` and `loadedCharacters=1` mean the file came back. `loadedType=nil` again
-   means the bug is still there. A `snapshots saved by earlier sessions:` block with a
-   `PLAYER_LOGOUT` line means the logout write ran and came back too. A `LATE LOAD` line means
-   the client assigned the table after `ADDON_LOADED`, which would explain the original bug.
-3. Log out to character select and log in character B, ideally the one that trained Alchemy
-   for C3. Then `/lgn roster`. Both characters should be listed. B's professions line shows its
-   skill line number in brackets, and the tradeskill section shows
-   `[line 2937, parent N, profession M]`. Those numbers are the join. `parentsLive` in the RAW
-   block is what the client said this session, zeros included, and is the fixture for the
-   pending `api_spec` test.
-4. Quit the game completely, relaunch, log in either character, then `/lgn roster`. A
-   `/reload` can be served from memory; a restart has to come off disk. The original bug
-   report was about the disk read, so this is the paste that closes the question.
-5. **Only if 2 or 4 read `loadedType=nil` with no `LATE LOAD` line.** Quit the game. In
-   `_classic_beta_/Interface/AddOns/LegacyNext/LegacyNext.toc`, add this line under the
-   `## SavedVariablesPerCharacter:` line:
-
-   ```
-   ## LoadSavedVariablesFirst: 1
-   ```
-
-   Relaunch, log in, then `/lgn roster` (paste 5a). Then `/reload` and `/lgn roster` again
-   (paste 5b). Blizzard's own challenge tracker loads its saved data with this line
-   (`Blizzard_LegacyChallengeTracker.toc:6`), and ours does not have it. `loadedType=table` in
-   5a or 5b means the line is the workaround, and it goes into our TOC. The next install
-   overwrites your edit either way.
-
-What I am reading it for: the `loaded*` fields in 2 and 4 (and in 5a and 5b if step 5 ran), whether `parent` is a number in
-3, and whether B's bracketed skill line equals 2937 or that parent. If the lookup reads
-`missing` or errors for 2937, say so. It means the join needs another route. Any
-`events not registered:` line in any paste is C2 data. It lists an event this build does not
-know.
-
 ## D10 — the probe on 1.60.1.70124
 
 `/lgn dump probe`, then paste the whole window. Do it before S1's first `/lgn roster`, so the
@@ -186,22 +107,18 @@ set, and say which one that is. I am reading which name row carries the surname,
 `UnitGUID` reads `ok` with a `Player-` value rather than `secret`. That decides whether the
 roster can key characters by GUID instead of by a name that has already changed shape once.
 
-## C3 and D4 — one Alchemy session
+## C3 — one dump on an Alchemist
 
 Tradeskill challenges are type-7 skill thresholds (`Journeyman Alchemist` is skill line 2937,
-`need = 150`), so any Alchemy skill above zero is real partial progress. That is the one shape
-C3 needs, and it does not need a long play session.
+`need = 150`), so any Alchemy skill above zero is real partial progress. Geo has Alchemy at 1.
 
-1. Start `/etrace` with the C2 filter below, and leave it running.
-2. Train Alchemy. Craft until the skill reads a few points.
-3. `/lgn dump challenges 1`. Journeyman, Expert and Artisan Alchemist are on page 1. Paste it.
-4. `/lgn dump character`. Paste it. That is D4. If the character also has a second primary or
-   cooking, better still.
-5. `/lgn uidump`. Paste it. It should show Journeyman Alchemist in its own "in progress" tier
-   above everything untouched.
+1. On Geo, `/lgn dump challenges 1`. Journeyman, Expert and Artisan Alchemist are on page 1.
+   Paste it.
+2. `/lgn uidump`. Paste it.
 
-What I am reading it for: `have` above 0 on a type-7 criterion, whether `completed` stays false
-with it, and seven `GetProfessions` slots with the trained ones filled.
+What I am reading it for: `have` above 0 on the three type-7 criteria, and whether `completed`
+stays false with it. The screenshot of 2026-10-01 already showed the three in their own "in
+progress" tier, so the uidump is the text form of what you saw.
 
 ## C2 — events, via `/etrace`
 

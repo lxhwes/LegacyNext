@@ -62,18 +62,14 @@ cross-account or guild sync, writing to trait configs.
 - Forever's API docs differ from live retail 12.1.0 — 26 extra doc files, ~6k line diff.
   **Do not assume retail behavior**; check the forever branch source.
 - Midnight addon restrictions (secret values) apply. **`issecretvalue` exists on this client
-  and the guard is active** [verified in game 2026-09-19 via `/lgn probe`], and no API on our
-  surface returned a secret. That is a tested negative, not an assumption — but it is a
+  and the guard is active** [verified in game 2026-09-19 via `/lgn probe`, and again on 70124
+  on 2026-10-01, D10], and no API on our surface returned a secret. That is a tested negative, not an assumption — but it is a
   per-build one, so re-run the probe after any bump.
-- **SavedVariables load back across a logout and a character switch** [verified in game
-  2026-10-01, build 70124]. Session 2, on a second character, read session 1's table:
-  `loadedType=table`, its character and its logout log entry, with no `LATE LOAD`. A full
-  client restart is the last check, S1 step 4. The fact this replaces, kept because step 4 is
-  still open: written but never loaded back, Blizzard-side, confirmed by other addon authors. The workarounds were Thunderz96/forever-addon-kit
-  `sv_bridge` and Wicksmods/WickCore Profiles. `Store/` is the only file that names
-  `LegacyNextDB`, so either outcome stays a one-file change. Blizzard's own challenge tracker
-  sets `## LoadSavedVariablesFirst: 1` (`Blizzard_LegacyChallengeTracker.toc:6`), and so does
-  another Legacy addon that ships on saved data. Ours does not. S1's fallback step tests it.
+- **SavedVariables load back** [verified in game 2026-10-01, build 70124, queue row S1]:
+  across a logout and a character switch, and off disk after a full client restart, with no
+  `LATE LOAD` either time. The beta bug that wrote them but never loaded them back is fixed,
+  and our TOC needs no `## LoadSavedVariablesFirst`. `Store/` stays the only file that names
+  `LegacyNextDB`, so a regression would still be a one-file change.
 - `ReloadUI()` is protected; users type `/reload`. Client stops surfacing Lua errors after 100.
 
 ## Legacy API surface [verified: used by Blizzard_LegacySystem / Blizzard_LegacyChallengeTracker]
@@ -211,20 +207,21 @@ Character state, for the dump and for v1's roster:
 **`GetProfessions` returns seven values on Forever, not six** — verified on the forever branch at
 `Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:16`, which destructures
 `prim1, prim2, sec1..sec5`. Mainline's six (`prof1, prof2, arch, fish, cook, firstAid`) mean
-different things. Never name the slots; iterate every return.
+different things. Never name the slots; iterate every return. Seen in game 2026-10-01 (D4):
+primaries in slots 1 and 2, Cooking in slot 5, the rest empty on that character.
 `GetProfessionInfo(index)` → `name, texture, rank, maxRank, numSpells, spellOffset, skillLine,
 rankModifier, specializationIndex, specializationOffset, skillLineName`
 (`Blizzard_ProfessionsFrame.lua:56` at `bd2470a`).
 **That `skillLine` is the parent profession line, not the one tradeskill challenges name**
-[verified in game 2026-10-01] for Herbalism (182) and Cooking (185), whose Forever children
-2944 and 2939 exist in the client data. For a crafting line it is still inferred, and the
-Alchemy half of S1 settles it. The same frame compares it against
+[verified in game 2026-10-01] for Alchemy (171), Herbalism (182) and Cooking (185), all three of
+which have Forever children in the client data (2937, 2944, 2939). A character's Alchemy joins
+a challenge's 2937 **only** through the lookup's `parentProfessionID`, never directly. The same frame compares it against
 `parentProfessionID or professionID` (`:41-43`), and Alchemy's challenges name 2937, not
 Classic's 171. Join through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID`
 as well as directly, never by name. `GetServerTime` stamps roster snapshots.
 **Forever characters have a first name and a surname**, a Legacy feature (Alex, 2026-10-01).
 `UnitName("player")` read `"Bong Wrip"` on 69913 and `"Bong"` on 70124 for the same
-character, so **a name is not a stable character key**, and the roster's `Name-Realm` key can
+character, and `"Geo"` for Geo Prizm on 70124, so **a name is not a stable character key**, and the roster's `Name-Realm` key can
 split one character into two rows across builds. `C_PlayerInfo.ShouldDisplaySurname` exists
 at every pin (`PlayerInfoDocumentation.lua:358`).
 `C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator` arrived in 70009
@@ -236,9 +233,10 @@ tier-4 children of the Classic lines: 2937 → 171, 2938 → 164, 2940 → 333, 
 2026-10-01], on a character who knows none of the six. Each answer is a full `ProfessionInfo`
 with all eleven documented fields (`TradeSkillUITypesDocumentation.lua:361-376`), with
 `professionID` echoing the line and `skillLevel` 0.
-**Tree spend cannot be read at `PLAYER_LOGOUT`** [verified in game 2026-10-01]. The logout
-snapshot came back "unspent points not read", and the login read was kept. Spend reaches the
-roster at login and on events, never at logout.
+**Neither tree spend nor professions can be read at `PLAYER_LOGOUT`** [verified in game
+2026-10-01]. Logout snapshots came back "unspent points not read" and "professions: empty
+read, kept stored", and the login reads were kept. Both reach the roster at login and on
+events, never at logout.
 `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and the second fires on every skill-up
 [verified in game 2026-10-01]. `TRAIT_CONFIG_UPDATED` registers without error. Whether it
 fires is C2.
