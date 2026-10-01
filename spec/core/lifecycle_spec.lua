@@ -74,7 +74,8 @@ describe("addon lifecycle", function()
 			_G[name] = nil
 		end
 		for _, name in ipairs({ "CreateFrame", "UIParent", "UISpecialFrames", "LegacyNextDB",
-			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer", "C_AddOns" }) do
+			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer", "C_AddOns",
+			"LegacyNext_OnAddonCompartmentClick" }) do
 			_G[name] = nil
 		end
 	end)
@@ -336,7 +337,7 @@ describe("addon lifecycle", function()
 	end)
 
 	describe("addon compartment", function()
-		-- The compartment calls _G[name] for the name the TOC gives (AddonCompartment.lua:81, :98).
+		-- The compartment calls _G[name] for the name the TOC gives (AddonCompartment.lua:81, :99).
 		local function compartmentFunc()
 			for line in io.lines("LegacyNext/LegacyNext.toc") do
 				local name = line:match("^## AddonCompartmentFunc:%s*(%S+)")
@@ -345,13 +346,6 @@ describe("addon lifecycle", function()
 				end
 			end
 		end
-
-		after_each(function()
-			local name = compartmentFunc()
-			if name then
-				_G[name] = nil
-			end
-		end)
 
 		it("names a global function in the TOC that Core defines", function()
 			local name = compartmentFunc()
