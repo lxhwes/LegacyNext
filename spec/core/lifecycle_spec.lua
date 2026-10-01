@@ -198,6 +198,31 @@ describe("addon lifecycle", function()
 		assert.equals(0, #(_G.LegacyNextDB.snapshotLog or {}))
 	end)
 
+	-- Every window refresh runs this, CRITERIA_UPDATE's included: the character read is up to
+	-- twelve client calls, and the snapshot has already made it.
+	it("reads the character once per window read", function()
+		local reads = 0
+		_G.UnitClass = function() reads = reads + 1 return "Druid", "DRUID", 11 end
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadViewInput()
+
+		assert.equals(1, reads)
+		assert.equals("Druid", input.character.class)
+	end)
+
+	it("leaves the saved skill-line map alone when this session's lookup gave nothing", function()
+		_G.LegacyNextDB = { schema = 1, skillLineParents = { [2937] = { parentId = 171 } } }
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+		local saved = _G.LegacyNextDB.skillLineParents
+
+		ns.ReadViewInput()
+		ns.ReadRosterInput()
+
+		assert.equals(saved, _G.LegacyNextDB.skillLineParents)
+		assert.is_nil(saved[2937].saved)
+	end)
+
 	it("tells the window why this character's snapshot was not written", function()
 		_G.LegacyNextDB = { schema = 2 }
 		handler(nil, "ADDON_LOADED", "LegacyNext")

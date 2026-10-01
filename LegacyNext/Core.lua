@@ -38,7 +38,10 @@ local function readRoster(challenges)
 	local skillLines = Model.ChallengeSkillLines(challenges)
 	local parentsLive, parentsReason = Api.GetSkillLineParents(skillLines)
 	local parents = Model.MergeSkillLineParents(Store.GetSkillLineParents(), parentsLive)
-	Store.PutSkillLineParents(parents)
+	-- With no live answer the merge is the saved map, so there is nothing to write.
+	if type(parentsLive) == "table" and next(parentsLive) ~= nil then
+		Store.PutSkillLineParents(parents)
+	end
 	local snapshots = Store.GetSnapshots()
 	return {
 		skillLines = skillLines,
@@ -55,13 +58,13 @@ end
 function ns.ReadViewInput()
 	local Api = ns.Api
 	-- Keeps this character's roster row current. A window read stays out of the snapshot log.
-	local _, snapshotProblem = ns.TakeSnapshot("window", true)
+	-- The character it read is also for hiding other classes' challenges; a failed read hides
+	-- nothing.
+	local _, snapshotProblem, character = ns.TakeSnapshot("window", true)
 	-- Categories first, then handed to GetChallenges so the list is read once.
 	local categories = Api.GetCategories()
 	local challenges, challengesReason = Api.GetChallenges(categories)
 	local rewardTrack, rewardTrackReason = Api.GetRewardTrack()
-	-- For hiding other classes' challenges. A failed read hides nothing.
-	local character = Api.GetCharacterInfo()
 	local roster = readRoster(challenges)
 	return {
 		challenges = challenges,
@@ -91,13 +94,16 @@ ns.snapshotLog = {}
 
 -- Reads this character, merges over what Store already holds, writes it back. Never throws:
 -- it runs inside PLAYER_LOGOUT, where an error costs the one write that matters most.
--- Returns a one-line result, and the bare reason when nothing was written, for the Roster
--- tab. `fromCommand` keeps /lgn roster's own snapshot out of the log, which would otherwise
--- fill with commands and push out the logout results it exists for.
+-- Returns a one-line result, the bare reason when nothing was written, for the Roster tab,
+-- and the character it read, so a window read does not read it twice. `fromCommand` keeps
+-- /lgn roster's own snapshot out of the log, which would otherwise fill with commands and
+-- push out the logout results it exists for.
 function ns.TakeSnapshot(trigger, fromCommand)
+	local character
 	local ok, result, problem = pcall(function()
 		local Api, Model, Store = ns.Api, ns.Model, ns.Store
-		local character, characterReason = Api.GetCharacterInfo()
+		local characterReason
+		character, characterReason = Api.GetCharacterInfo()
 		if not character then
 			return "skipped: " .. tostring(characterReason), tostring(characterReason)
 		end
@@ -136,7 +142,7 @@ function ns.TakeSnapshot(trigger, fromCommand)
 		ns.snapshotLog[#ns.snapshotLog + 1] = { at = at, text = ns.lastSnapshot }
 		pcall(ns.Store.LogSnapshot, at, ns.lastSnapshot)
 	end
-	return ns.lastSnapshot, problem
+	return ns.lastSnapshot, problem, character
 end
 
 -- Level, skill and trait changes arrive in bursts, and UnitLevel can lag PLAYER_LEVEL_UP, so
