@@ -593,4 +593,41 @@ describe("Api", function()
 			assert.equals(2937, parents[2937].professionId)
 		end)
 	end)
+	-- Forever names have a first name and a surname (Alex, 2026-10-01). The probe reads every
+	-- name call side by side, and the GUID, so D10's paste says which carries the surname and
+	-- whether the GUID could key the roster. Trivial values: this tests the guard, not a shape.
+	describe("Probe's name rows", function()
+		local function row(rows, name)
+			for _, entry in ipairs(rows) do
+				if entry.name == name then return entry end
+			end
+			error("no probe row for " .. name)
+		end
+
+		it("reads each name call, the GUID and the surname setting", function()
+			local Api = loadApi().Api
+			inject("UnitName", function() return "First" end)
+			inject("UnitFullName", function() return "First Last", "Realm" end)
+			inject("UnitNameUnmodified", function() return "First" end)
+			inject("UnitGUID", function() return "Player-1-00000001" end)
+			inject("C_PlayerInfo", { ShouldDisplaySurname = function() return true end })
+
+			local rows = Api.Probe()
+
+			assert.same({ name = "UnitName", status = "ok", detail = "First" }, row(rows, "UnitName"))
+			assert.equals("First Last", row(rows, "UnitFullName").detail)
+			assert.equals("First", row(rows, "UnitNameUnmodified").detail)
+			assert.equals("Player-1-00000001", row(rows, "UnitGUID").detail)
+			assert.equals("true", row(rows, "C_PlayerInfo.ShouldDisplaySurname").detail)
+		end)
+
+		it("reports a name call the client lacks as missing", function()
+			local Api = loadApi().Api
+
+			local rows = Api.Probe()
+
+			assert.equals("missing", row(rows, "UnitGUID").status)
+			assert.equals("missing", row(rows, "C_PlayerInfo.ShouldDisplaySurname").status)
+		end)
+	end)
 end)
