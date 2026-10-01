@@ -587,8 +587,17 @@ describe("Api", function()
 
 			local parents, reason = Api.GetSkillLineParents(captured.skillLines)
 
+			-- Checked against the client's raw fields only. The derived fields beside them in
+			-- the fixture are Api's own output, so comparing with those would be circular.
 			assert.is_nil(reason)
-			assert.same(captured.parentsLive, parents)
+			for _, id in ipairs(captured.skillLines) do
+				local raw = captured.parentsLive[id].raw
+				assert.same(raw, parents[id].raw)
+				assert.equals(raw.parentProfessionID, parents[id].parentId)
+				assert.equals(raw.parentProfessionName, parents[id].parentName)
+				assert.equals(raw.professionName, parents[id].name)
+				assert.equals(raw.professionID, parents[id].professionId)
+			end
 			assert.equals(171, parents[2937].parentId)
 			assert.equals(2937, parents[2937].professionId)
 		end)
