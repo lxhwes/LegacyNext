@@ -606,17 +606,19 @@ describe("Api", function()
 
 		it("reads each name call, the GUID and the surname setting", function()
 			local Api = loadApi().Api
-			inject("UnitName", function() return "First" end)
-			inject("UnitFullName", function() return "First Last", "Realm" end)
-			inject("UnitNameUnmodified", function() return "First" end)
+			inject("UnitName", function() return "First", nil end)
+			inject("UnitFullName", function() return "First", "Realm" end)
+			inject("UnitNameUnmodified", function() return "First", "Last" end)
 			inject("UnitGUID", function() return "Player-1-00000001" end)
 			inject("C_PlayerInfo", { ShouldDisplaySurname = function() return true end })
 
 			local rows = Api.Probe()
 
-			assert.same({ name = "UnitName", status = "ok", detail = "First" }, row(rows, "UnitName"))
-			assert.equals("First Last", row(rows, "UnitFullName").detail)
-			assert.equals("First", row(rows, "UnitNameUnmodified").detail)
+			-- Every return, so a surname or realm in the second slot reaches the paste.
+			assert.same({ name = "UnitName", status = "ok", detail = "First, nil" },
+				row(rows, "UnitName"))
+			assert.equals("First, Realm", row(rows, "UnitFullName").detail)
+			assert.equals("First, Last", row(rows, "UnitNameUnmodified").detail)
 			assert.equals("Player-1-00000001", row(rows, "UnitGUID").detail)
 			assert.equals("true", row(rows, "C_PlayerInfo.ShouldDisplaySurname").detail)
 		end)

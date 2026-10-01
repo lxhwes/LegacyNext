@@ -836,7 +836,7 @@ end
 -- Probe
 --------------------------------------------------------------------------------------------
 
-local function status(path, ...)
+local function probeRow(path, every, ...)
 	local result, reason, dropped = call(path, ...)
 	if not result then
 		if reason == "missing" then
@@ -863,6 +863,14 @@ local function status(path, ...)
 		detail = tostring(first)
 	end
 
+	-- A name call can put the surname or realm past the first return.
+	if every then
+		for index = 2, result.n do
+			local value = result[index]
+			detail = detail .. ", " .. (type(value) == "table" and "table" or tostring(value))
+		end
+	end
+
 	-- Say so on the probe line itself. A dropped field that only shows up in the dump's tally
 	-- is a field nobody notices is gone until the UI renders a blank.
 	if dropped and dropped[1] then
@@ -874,6 +882,16 @@ local function status(path, ...)
 	end
 
 	return { name = path, status = "ok", detail = detail }
+end
+
+-- The first return only.
+local function status(path, ...)
+	return probeRow(path, false, ...)
+end
+
+-- Every return, comma-separated.
+local function statusAll(path, ...)
+	return probeRow(path, true, ...)
 end
 
 local function skipped(path, why)
@@ -926,9 +944,9 @@ function Api.Probe()
 	-- used: none in the sparse checkout. UnitFullName, UnitNameUnmodified and UnitGUID are
 	-- SecretWhenUnitIdentityRestricted; UnitName is SecretWhenUnitNameIdentityRestricted.
 	-- pin:  966519c (1.60.1.70124)
-	add(status("UnitName", "player"))
-	add(status("UnitFullName", "player"))
-	add(status("UnitNameUnmodified", "player"))
+	add(statusAll("UnitName", "player"))
+	add(statusAll("UnitFullName", "player"))
+	add(statusAll("UnitNameUnmodified", "player"))
 	add(status("UnitGUID", "player"))
 	add(status("C_PlayerInfo.ShouldDisplaySurname"))
 
