@@ -13,7 +13,52 @@ local function fixture(name)
 	return dofile("spec/fixtures/" .. name .. ".lua")
 end
 
+-- The text /lgn roster printed in game, kept verbatim at the bottom of the fixture.
+local function capturedText(name)
+	local handle = assert(io.open("spec/fixtures/" .. name .. ".lua", "r"))
+	local source = handle:read("*a")
+	handle:close()
+	return assert(source:match("%-%-%[==%[ Rendered text, verbatim:\n(.-)\n%]==%]"))
+end
+
+-- Lines from `from` up to, not including, the first line starting with `to`.
+local function section(text, from, to)
+	local out, inside = {}, false
+	for line in (text .. "\n"):gmatch("(.-)\n") do
+		if line:find(from, 1, true) == 1 then
+			inside = true
+		elseif inside and line:find(to, 1, true) == 1 then
+			break
+		end
+		if inside then
+			out[#out + 1] = line
+		end
+	end
+	return out
+end
+
 describe("Debug.RenderRoster", function()
+	-- S1, 2026-10-01. The renderer, fed the paste's own RAW block, gives back the lines the
+	-- client printed. `now` is not in the capture; 10 s after Geo's snapshot reproduces every age.
+	it("reproduces the captured store and character lines from the captured raw block", function()
+		local ns = loadStack()
+		local captured = fixture("roster_geo")
+		local printed = capturedText("roster_geo")
+
+		local text = ns.Debug.RenderRoster({
+			label = "1.60.1 (70124)",
+			roster = ns.Model.Roster(captured.snapshots, "Geo-Classic Beta PvP"),
+			diagnostics = captured.diagnostics,
+			now = captured.snapshots[1].takenAt + 10,
+		})
+
+		assert.same(section(printed, "attached=", "this snapshot"), section(text, "attached=", "snapshots"))
+		assert.same(section(printed, "snapshots saved by earlier sessions:", "== CHARACTERS"),
+			section(text, "snapshots saved by earlier sessions:", "== CHARACTERS"))
+		assert.same(section(printed, "== CHARACTERS", "== TRADESKILL"), section(text, "== CHARACTERS", "== TRADESKILL"))
+		assert.equals(7, #section(printed, "== CHARACTERS", "== TRADESKILL")) -- a heading, then three lines each
+	end)
+
 	it("renders the captured character, its trees and the tradeskill challenges", function()
 		local ns = loadStack()
 		local Model = ns.Model

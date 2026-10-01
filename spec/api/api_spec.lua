@@ -574,6 +574,23 @@ describe("Api", function()
 			assert.equals(0, parent.raw.parentProfessionID)
 		end)
 
-		pending("S1: what the client returns for a tradeskill challenge's skill line (2937 on 1.60.1)")
+		-- S1, 2026-10-01: all six lines answered on a character who knows none of them, and
+		-- each struct came back with all eleven documented fields (spec/fixtures/roster_geo.lua).
+		it("reads the captured answers for every tradeskill line into the parent map", function()
+			local captured = dofile("spec/fixtures/roster_geo.lua")
+			local Api = loadApi().Api
+			inject("C_TradeSkillUI", {
+				GetProfessionInfoBySkillLineID = function(id)
+					return captured.parentsLive[id].raw
+				end,
+			})
+
+			local parents, reason = Api.GetSkillLineParents(captured.skillLines)
+
+			assert.is_nil(reason)
+			assert.same(captured.parentsLive, parents)
+			assert.equals(171, parents[2937].parentId)
+			assert.equals(2937, parents[2937].professionId)
+		end)
 	end)
 end)
