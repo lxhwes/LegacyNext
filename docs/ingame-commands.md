@@ -63,33 +63,59 @@ error, paste the first one. It stops reporting after 100.
 
 ## U2 — truncation and protection
 
-One WoWLua block, run with the window open:
+One WoWLua block, run with the window open. **Rewritten 2026-10-01**: the first version printed
+nothing in chat. WoWLua may send `print` to its own output pane, and an error before the last
+line would have stopped it with no message. This one guards every step, writes straight to the
+chat frame as well as through `print`, and names any step that errors instead of stopping.
 
 ```lua
 local out = {};
-local function w(s) out[#out+1] = s; end;
+local function w(s) out[#out+1] = tostring(s); end;
+local function try(label, fn) local ok, v = pcall(fn); w(label .. "=" .. (ok and tostring(v) or ("ERROR " .. tostring(v)))); end;
 local f = LegacyNextFrame;
 w("frame=" .. tostring(f ~= nil));
-if f then local p, e = f:IsProtected(); w("IsProtected=" .. tostring(p) .. "," .. tostring(e)); end;
-local fs = UIParent:CreateFontString(nil, "OVERLAY", "GameFontHighlight");
-fs:SetPoint("CENTER", 0, 200);
-fs:SetWidth(120);
-fs:SetWordWrap(false);
-fs:SetText("Reach exalted reputation with the Frostwolf Clan");
-w("truncated=" .. tostring(fs:IsTruncated()));
-w("stringWidth=" .. tostring(fs:GetStringWidth()));
-w("unbounded=" .. tostring(fs:GetUnboundedStringWidth()));
+if f then
+  try("shown", function() return f:IsShown(); end);
+  try("IsProtected", function() local p, e = f:IsProtected(); return tostring(p) .. "," .. tostring(e); end);
+end;
+local fs;
+try("fontstring", function() fs = UIParent:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fs:SetPoint("CENTER", 0, 200); fs:SetWidth(120); fs:SetWordWrap(false); fs:SetText("Reach exalted reputation with the Frostwolf Clan"); return fs ~= nil; end);
+if fs then
+  try("truncated", function() return fs:IsTruncated(); end);
+  try("stringWidth", function() return fs:GetStringWidth(); end);
+  try("unbounded", function() return fs:GetUnboundedStringWidth(); end);
+end;
 local x = C_XMLUtil and C_XMLUtil.GetTemplateInfo;
-w("WowScrollBoxList=" .. tostring(x and x("WowScrollBoxList") ~= nil));
-w("MinimalScrollBar=" .. tostring(x and x("MinimalScrollBar") ~= nil));
-w("BasicFrameTemplateWithInset=" .. tostring(x and x("BasicFrameTemplateWithInset") ~= nil));
-print(table.concat(out, " | "));
+w("GetTemplateInfo=" .. tostring(x ~= nil));
+if x then
+  for _, name in ipairs({ "WowScrollBoxList", "MinimalScrollBar", "BasicFrameTemplateWithInset" }) do
+    try(name, function() return x(name) ~= nil; end);
+  end;
+end;
+local bar = string.char(124);
+local line = ("LGN U2: " .. table.concat(out, " ; ")):gsub(bar, "!");
+local cf = DEFAULT_CHAT_FRAME;
+if cf and cf.AddMessage then cf:AddMessage(line); end;
+print(line);
 ```
 
-It prints one chat line and leaves a 120-pixel-wide test string near the top of the screen
-(`/reload` clears it). Tell me the chat line, and whether the string on screen ends in `...`
-or is cut off mid-word. That decides whether rows get an ellipsis for free or rely on the
-tooltip alone. `IsProtected` should read `false,false`.
+It writes one line starting `LGN U2:` to the main chat window, and leaves a 120-pixel-wide test
+string near the top of the screen (`/reload` clears it). If chat stays empty, look in WoWLua's
+own output pane. Any `|` comes back as `!`.
+
+**What I need back:** that line, and whether the test string on screen ends in `...` or is cut
+off mid-word.
+
+**What I'm reading it for:**
+
+- `frame=true`, `shown=true` and `IsProtected=false,false`. Anything else means the frame
+  picked up protection, and the combat handling in `UI/` needs another look.
+- `truncated=true`, with `stringWidth` at or under 120 and `unbounded` well over it. Together
+  with your answer about `...`, that decides whether long rows get an ellipsis for free or rely
+  on the tooltip alone.
+- The three template rows `true`. `WowScrollBoxList` and `MinimalScrollBar` are what a later
+  scroll rewrite would use. `BasicFrameTemplateWithInset` is the frame we already draw.
+- Any `ERROR` names the step and the message. That is a finding in its own right.
 
 ## D10 — the probe on 1.60.1.70124
 
