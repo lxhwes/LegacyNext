@@ -146,6 +146,11 @@ describe("Roster model", function()
 			assert.equals(16, merged.cap)
 			assert.same({}, merged.professions)
 			assert.equals(1000, merged.professionsAt)
+			-- One rule for "kept from before", read by the Roster tab and /lgn roster alike.
+			assert.equals(1000, Model.KeptAt(merged, "professions"))
+			assert.equals(1000, Model.KeptAt(merged, "trees"))
+			assert.is_nil(Model.KeptAt(previous, "professions"))
+			assert.is_nil(Model.KeptAt(fresh, "trees"))
 		end)
 
 		-- The shape Api.GetTreeSpend returns when GetConfigIDByTreeID gives nothing: tree ids,
@@ -287,6 +292,28 @@ describe("Roster model", function()
 				assert.equals(2938, merged[2938].professionId)
 			end)
 
+			-- The window merges on every read, on every character. An alt whose lookup names only the
+			-- line, or an id with no parent, must not erase the parent the Alchemist saved.
+			it("keeps a saved parent over a live answer without one", function()
+				local saved = { [2937] = { parentId = 171 } }
+
+				local echo = Model.MergeSkillLineParents(saved, { [2937] = { professionId = 2937 } })
+				local other = Model.MergeSkillLineParents(saved, { [2937] = { professionId = 300 } })
+
+				assert.equals(171, echo[2937].parentId)
+				assert.is_true(echo[2937].saved)
+				assert.equals(171, other[2937].parentId)
+				assert.is_true(other[2937].saved)
+			end)
+
+			it("lets a live id replace a saved answer that names only the line", function()
+				local merged = Model.MergeSkillLineParents({ [2937] = { professionId = 2937 } },
+					{ [2937] = { professionId = 300 } })
+
+				assert.equals(300, merged[2937].professionId)
+				assert.is_nil(merged[2937].saved)
+			end)
+
 			it("reads a missing map on either side as empty", function()
 				assert.same({}, Model.MergeSkillLineParents(nil, nil))
 				assert.same({ [1] = { parentId = 2, saved = true } },
@@ -340,6 +367,18 @@ describe("Roster model", function()
 			assert.equals(50, journeyman.candidates[1].remaining)
 		end)
 
+		-- The S1 unknown: the lookup may name the line itself and no parent. That id adds no way
+		-- to join, so an empty list still proves nothing.
+		it("counts a lookup that names only the challenge's own line as no answer", function()
+			local echo = { [2937] = { professionId = 2937 } } -- derived: shape of Api.GetSkillLineParents
+			local parent = { [2937] = { parentId = 171 } }
+
+			local journeyman = byName(Model.ProfessionCandidates(challenges, {}, echo), "Journeyman Alchemist")
+
+			assert.is_false(journeyman.parentKnown)
+			assert.is_true(byName(Model.ProfessionCandidates(challenges, {}, parent), "Journeyman Alchemist").parentKnown)
+		end)
+
 		it("matches the challenge's skill line directly too", function()
 			local alts = { alt("Direct-R", 30, { { skillLineId = 2937, skill = 160 } }) }
 
@@ -375,5 +414,305 @@ describe("Roster model", function()
 		end)
 
 		pending("S1 + D4: a captured profession joins a captured tradeskill challenge")
+	end)
+
+	describe("BuildRosterView", function()
+		local shaman, challenges, parents
+		local rewardTrack = fixture("dump_rewards_fresh").rewardTrack
+		local NOW = 1000 + 600
+
+		-- Model's own snapshot shape with derived values, like alt() above.
+		local function zug(skill)
+			local snapshot = alt("Zug-Classic Beta PvP", 30,
+				{ { name = "Alchemy", skillLineId = 171, skill = skill or 120, max = 150 } })
+			snapshot.name, snapshot.realm, snapshot.takenAt = "Zug", "Classic Beta PvP", 1000 - 7200
+			snapshot.professionsAt = snapshot.takenAt
+			return snapshot
+		end
+
+		local function rows(view, kind)
+			local out = {}
+			for _, row in ipairs(view.rows) do
+				if row.kind == kind then
+					out[#out + 1] = row
+				end
+			end
+			return out
+		end
+
+		local function build(snapshots, extra)
+			local input = { snapshots = snapshots, currentKey = shaman.key, now = NOW, rewardTrack = rewardTrack }
+			for field, value in pairs(extra or {}) do
+				input[field] = value
+			end
+			return Model.BuildRosterView(input)
+		end
+
+		before_each(function()
+			shaman = Model.BuildSnapshot({
+				character = fixture("dump_character_shaman").character,
+				treeSpend = fixture("dump_trees_fresh").treeSpend,
+				now = 1000,
+			})
+			challenges = fixture("dump_challenges_page1_fresh").challenges
+			-- 2937 -> 171 is the DB2 reading. What the live lookup returns is S1.
+			parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+		end)
+
+		it("draws the same reward-track header as Next Up, and no filter bar", function()
+			local view = build({ shaman })
+
+			assert.same(Model.Header(rewardTrack).lines, view.header.lines)
+			assert.same({}, view.filters)
+			assert.equals("roster", view.tab)
+		end)
+
+		it("lists the current character first, with tree spend and unspent points", function()
+			local view = build({ zug(), shaman })
+			local characters = rows(view, "character")
+
+			assert.equals("ok", view.state)
+			assert.equals("columns", view.rows[1].kind)
+			assert.equals("P/A/R", view.rows[1].progressText) -- initials of the captured tree names
+			assert.equals(2, #characters)
+			assert.equals(shaman.key, characters[1].key)
+			assert.is_true(characters[1].current)
+			assert.equals("Bong Wrip  L1 Shaman", characters[1].name)
+			assert.equals("0/0/0", characters[1].progressText)
+			assert.equals("0", characters[1].pointsText)
+			assert.equals("Zug  L30 Druid", characters[2].name)
+			assert.is_false(characters[2].current)
+		end)
+
+		-- A session whose read missed a tree stores fewer trees. Its figures must still sit under
+		-- the heading's own letters, not shift left into the wrong columns.
+		it("lines each row's tree figures up under the heading's trees", function()
+			local partial = zug()
+			partial.trees = { { treeId = 1189, name = "Resourcefulness", spent = 4 }, -- derived: order and count varied
+				{ treeId = 1187, name = "Professions", spent = 3 } }
+			partial.unspent = 9
+			local view = build({ partial, shaman })
+			local characters = rows(view, "character")
+
+			assert.equals("P/A/R", view.rows[1].progressText)
+			assert.equals("0/0/0", characters[1].progressText)
+			assert.equals("3/?/4", characters[2].progressText)
+		end)
+
+		it("shows ? for a part never read, never zero", function()
+			local characters = rows(build({ zug(), shaman }), "character")
+
+			assert.equals("?", characters[2].progressText)
+			assert.equals("?", characters[2].pointsText)
+		end)
+
+		it("spells out trees, unspent points, professions and age in the tooltip", function()
+			local characters = rows(build({ zug(), shaman }), "character")
+			local shamanDetail = table.concat(characters[1].detail, "\n")
+			local zugDetail = table.concat(characters[2].detail, "\n")
+
+			assert.equals("Classic Beta PvP", characters[1].category)
+			assert.truthy(shamanDetail:find("Spent: Professions 0, Adventure 0, Resourcefulness 0", 1, true))
+			assert.truthy(shamanDetail:find("Unspent: 0 of 16", 1, true))
+			assert.truthy(shamanDetail:find("No professions", 1, true))
+			assert.truthy(shamanDetail:find("Updated 10m ago", 1, true))
+			assert.truthy(zugDetail:find("Alchemy 120/150", 1, true))
+			assert.truthy(zugDetail:find("Tree spend not read", 1, true))
+			assert.truthy(zugDetail:find("Updated 2h ago", 1, true))
+		end)
+
+		it("dates a part kept from an earlier snapshot", function()
+			local kept = Model.MergeSnapshot(zug(), { key = "Zug-Classic Beta PvP", name = "Zug",
+				realm = "Classic Beta PvP", takenAt = NOW, professionsReason = "not read" })
+			local detail = table.concat(rows(build({ kept, shaman }), "character")[2].detail, "\n")
+
+			assert.truthy(detail:find("Alchemy 120/150", 1, true))
+			assert.truthy(detail:find("Professions from 2h ago: not read", 1, true))
+		end)
+
+		it("adds the realm to names only when the roster spans realms", function()
+			local other = zug()
+			other.realm, other.key = "Elsewhere", "Zug-Elsewhere"
+			local characters = rows(build({ other, shaman }), "character")
+
+			assert.equals("Bong Wrip-Classic Beta PvP  L1 Shaman", characters[1].name)
+			assert.equals("Zug-Elsewhere  L30 Druid", characters[2].name)
+		end)
+
+		it("lists tradeskill challenges with the closest character and every candidate", function()
+			local close, far = zug(140), zug(60)
+			far.name, far.key = "Far", "Far-Classic Beta PvP"
+			local snapshots = { close, far, shaman }
+			local view = build(snapshots, { candidates = Model.ProfessionCandidates(challenges, snapshots, parents) })
+			local tradeskills = rows(view, "tradeskill")
+
+			assert.equals("columns", view.rows[#rows(view, "character") + 2].kind)
+			assert.equals(3, #tradeskills) -- Journeyman, Expert and Artisan Alchemist, all on page 1
+			assert.equals("Journeyman Alchemist" .. Model.SEPARATOR .. "Zug", tradeskills[1].name)
+			assert.equals("140/150", tradeskills[1].progressText)
+			assert.equals("1pt", tradeskills[1].pointsText)
+			local detail = table.concat(tradeskills[1].detail, "\n")
+			assert.truthy(detail:find("Reach 150 skill in Alchemy for the first time.", 1, true))
+			assert.truthy(detail:find("Zug  140/150, 10 to go", 1, true))
+			assert.truthy(detail:find("Far  60/150, 90 to go", 1, true))
+		end)
+
+		it("names the realm on tradeskill rows when the roster spans realms", function()
+			local here, there = zug(140), zug(60)
+			there.realm, there.key = "Elsewhere", "Zug-Elsewhere"
+			local snapshots = { here, there, shaman }
+			local tradeskills = rows(build(snapshots,
+				{ candidates = Model.ProfessionCandidates(challenges, snapshots, parents) }), "tradeskill")
+
+			assert.equals("Journeyman Alchemist" .. Model.SEPARATOR .. "Zug-Classic Beta PvP", tradeskills[1].name)
+			local detail = table.concat(tradeskills[1].detail, "\n")
+			assert.truthy(detail:find("Zug-Classic Beta PvP  140/150, 10 to go", 1, true))
+			assert.truthy(detail:find("Zug-Elsewhere  60/150, 90 to go", 1, true))
+		end)
+
+		it("orders tradeskill rows by the closest character, not client order", function()
+			local reversed = {}
+			for index = #challenges, 1, -1 do
+				reversed[#reversed + 1] = challenges[index]
+			end
+			local snapshots = { zug(140), shaman }
+			local tradeskills = rows(build(snapshots,
+				{ candidates = Model.ProfessionCandidates(reversed, snapshots, parents) }), "tradeskill")
+
+			assert.equals("140/150", tradeskills[1].progressText)
+			assert.equals("140/225", tradeskills[2].progressText)
+			assert.equals("140/300", tradeskills[3].progressText)
+		end)
+
+		it("says a character already past the threshold has reached it", function()
+			local snapshots = { zug(160), shaman }
+			local tradeskills = rows(build(snapshots,
+				{ candidates = Model.ProfessionCandidates(challenges, snapshots, parents) }), "tradeskill")
+
+			assert.equals("160/150", tradeskills[1].progressText)
+			assert.truthy(table.concat(tradeskills[1].detail, "\n"):find("Zug  160/150, already reached", 1, true))
+		end)
+
+		it("hides tradeskill challenges nobody saved can work on, with a count", function()
+			local view = build({ shaman }, { candidates = Model.ProfessionCandidates(challenges, { shaman }, parents) })
+
+			assert.equals(0, #rows(view, "tradeskill"))
+			assert.equals(1, #rows(view, "columns"))
+			assert.truthy(view.footnote:find("3 tradeskill challenges have no saved character with the profession",
+				1, true))
+		end)
+
+		it("says when the profession lookup gave no answer for the hidden ones", function()
+			local snapshots = { zug(), shaman }
+			local view = build(snapshots, { candidates = Model.ProfessionCandidates(challenges, snapshots, nil) })
+
+			assert.equals(0, #rows(view, "tradeskill"))
+			assert.truthy(view.footnote:find("3 tradeskill challenges have no saved character with the profession."
+				.. " The profession lookup gave no answer for 3 of them, so a match may be missing", 1, true))
+		end)
+
+		-- A read-only store or a failed realm read leaves the tab empty or stale on a character
+		-- that has logged in. The empty state alone would say it never logged in.
+		it("says first when this character's snapshot was not saved, and why", function()
+			local view = build({}, { snapshotProblem = "saved schema 2, this build reads 1" })
+
+			assert.equals("empty", view.state)
+			assert.equals("This character was not saved: saved schema 2, this build reads 1", view.footnote)
+			local stale = build({ shaman, "junk" }, { snapshotProblem = "no realm" })
+			assert.equals("This character was not saved: no realm\n1 saved character could not be read", stale.footnote)
+		end)
+
+		it("adds no tradeskill count under an empty roster", function()
+			local view = build({}, { candidates = Model.ProfessionCandidates(challenges, {}, parents) })
+
+			assert.equals("empty", view.state)
+			assert.is_nil(view.footnote)
+		end)
+
+		it("says when the tradeskill challenges could not be read", function()
+			local view = build({ shaman }, { challengesReason = "GetCategoryList unavailable" })
+
+			assert.truthy(view.footnote:find("Could not read tradeskill challenges: GetCategoryList unavailable", 1, true))
+			assert.equals(1, #rows(view, "character"))
+		end)
+
+		it("counts stored rows it could not read", function()
+			local view = build({ shaman, "junk", { level = 3 } })
+
+			assert.equals(1, #rows(view, "character"))
+			assert.truthy(view.footnote:find("2 saved characters could not be read", 1, true))
+		end)
+
+		it("has an empty state and an error state", function()
+			local empty = Model.BuildRosterView({ snapshots = {} })
+			local failed = Model.BuildRosterView({ error = "attempt to index nil" })
+
+			assert.equals("empty", empty.state)
+			assert.truthy(empty.message:find("No characters saved yet", 1, true))
+			assert.equals("error", failed.state)
+			assert.equals("Could not read the roster: attempt to index nil", failed.message)
+		end)
+	end)
+
+	describe("Next Up tooltip candidates", function()
+		local challenges
+
+		before_each(function()
+			challenges = fixture("dump_challenges_page1_fresh").challenges
+		end)
+
+		local function journeymanDetail(input)
+			input.challenges = challenges
+			return table.concat(byName(Model.BuildView(input).rows, "Journeyman Alchemist").detail, "\n")
+		end
+
+		it("names the characters with the profession on a tradeskill row", function()
+			local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+			local zug = alt("Zug-R", 30, { { name = "Alchemy", skillLineId = 171, skill = 120, max = 150 } })
+			zug.name = "Zug"
+
+			local detail = journeymanDetail({ candidates = Model.ProfessionCandidates(challenges, { zug }, parents) })
+
+			assert.truthy(detail:find("Zug  120/150, 30 to go", 1, true))
+		end)
+
+		it("names the realm in the tooltip when saved characters span realms", function()
+			local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+			local here = alt("Zug-R", 30, { { name = "Alchemy", skillLineId = 171, skill = 120, max = 150 } })
+			local there = alt("Zug-S", 30, { { name = "Alchemy", skillLineId = 171, skill = 90, max = 150 } })
+			here.name, here.realm, there.name, there.realm = "Zug", "R", "Zug", "S"
+
+			local detail = journeymanDetail({
+				candidates = Model.ProfessionCandidates(challenges, { here, there }, parents),
+			})
+
+			assert.truthy(detail:find("Zug-R  120/150, 30 to go", 1, true))
+			assert.truthy(detail:find("Zug-S  90/150, 60 to go", 1, true))
+		end)
+
+		it("says so when no saved character has the profession", function()
+			local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+			local detail = journeymanDetail({ candidates = Model.ProfessionCandidates(challenges, {}, parents) })
+
+			assert.truthy(detail:find("No saved character has this profession", 1, true))
+		end)
+
+		-- Without the skill-line lookup, a character whose profession reads as the parent line
+		-- cannot match. "Nobody has it" would then be a claim the join cannot make (S1).
+		it("says the lookup gave no answer instead of claiming nobody has the profession", function()
+			local zug = alt("Zug-R", 30, { { name = "Alchemy", skillLineId = 171, skill = 120, max = 150 } })
+
+			local detail = journeymanDetail({ candidates = Model.ProfessionCandidates(challenges, { zug }, nil) })
+
+			assert.is_nil(detail:find("No saved character has this profession", 1, true))
+			assert.truthy(detail:find("No saved character matched, and the profession lookup gave no answer", 1, true))
+		end)
+
+		it("adds nothing when no candidates were passed", function()
+			local detail = journeymanDetail({})
+
+			assert.is_nil(detail:find("saved character", 1, true))
+			assert.is_nil(detail:find("to go", 1, true))
+		end)
 	end)
 end)

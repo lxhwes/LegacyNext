@@ -118,4 +118,37 @@ describe("Debug.RenderView", function()
 		assert.matches("== ROWS %(4%) ==", text) -- three Druid rows plus the divider
 		assert.matches("names over 30 chars: 0", text)
 	end)
+
+	it("matches the golden uidump for the roster tab", function()
+		local ns = loadStack()
+		helper.loadAddonFile("LegacyNext/Model/Roster.lua", ns)
+		local Model = ns.Model
+		local shaman = Model.BuildSnapshot({
+			character = fixture("dump_character_shaman").character,
+			treeSpend = fixture("dump_trees_fresh").treeSpend,
+			now = 1000,
+		})
+		-- Model's own snapshot shape with derived values: no captured character knows a
+		-- profession yet (D4), and 2937 -> 171 is the DB2 reading, not a live answer (S1).
+		local zug = { key = "Zug-Classic Beta PvP", name = "Zug", realm = "Classic Beta PvP", class = "Druid",
+			level = 30, takenAt = 1000 - 7200, professionsAt = 1000 - 7200,
+			professions = { { name = "Alchemy", skillLineId = 171, skill = 140, max = 150 } } }
+		local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+		local snapshots = { zug, shaman }
+		local view = Model.BuildRosterView({
+			snapshots = snapshots,
+			currentKey = shaman.key,
+			now = 1000 + 600,
+			rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
+			candidates = Model.ProfessionCandidates(combinedChallenges(), snapshots, parents),
+		})
+		local text = ns.Debug.RenderView(view,
+			"fixtures: character_shaman + trees_fresh + derived Zug + page1 + criteria types + rewards_fresh")
+
+		local golden = "spec/golden/uidump_roster.txt"
+		if os.getenv("UPDATE_GOLDEN") == "1" then
+			writeFile(golden, text)
+		end
+		assertSameText(readFile(golden), text)
+	end)
 end)

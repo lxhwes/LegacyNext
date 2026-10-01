@@ -1,14 +1,17 @@
 # Status
 
-Last updated 2026-09-30.
+Last updated 2026-10-01.
 
-**Where we are, 2026-09-30: Phase 4 (v1 roster) has started on the report that SavedVariables
+**Where we are, 2026-10-01: Phase 4 (v1 roster) has started on the report that SavedVariables
 now load back. That report is untested here, and S1 tests it. Store, per-character snapshots,
 the roster and tradeskill-candidate model, and `/lgn roster` are built, tested and merged
-(PR #2: 158 tests, 2 pending on S1). No roster frame yet, and none of it has run in game.
-Later the same day the client's own data tables (DB2) backed the tradeskill join, and another
-addon's uploads closed the CurseForge check. S1 gained a fallback step. The vendor pin is still
-`1.60.1.70009`, and wago.tools lists `1.60.1.70124`. Phase 3 is as below.**
+(PR #2: 158 tests, 2 pending on S1). ~~No roster frame yet~~ The window now has a Roster tab,
+and none of it has run in game. Later the same day the client's own data tables (DB2) backed
+the tradeskill join, and another addon's uploads closed the CurseForge check. S1 gained a
+fallback step. The vendor pin then moved to `1.60.1.70124`, and nothing we call changed. Then
+the Roster tab landed, and a pushed `v*` tag now packages a release. A review of that branch
+(PR #4) on 2026-10-01 found 15 problems. 14 are fixed, and one is fixed in part. 206 tests, 2
+pending on S1. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -18,17 +21,134 @@ version line. Phase 4 has not started. The vendor pin is at `1.60.1.70009`.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
-rather than an assumption: `issecretvalue` exists and the guard is active.
+rather than an assumption: `issecretvalue` exists and the guard is active. Tested on 69913.
+**D10** re-tests it on 70124.
 
 `Model/` ranks, groups and summarises against the fixtures (38 tests, run under an environment
 that errors on any non-stdlib global). `UI/` renders through a widget double (10 tests).
 `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Open in the queue, in order: **S1** (v1 rests on it), **U3**, **U1** and **U2** (under five
-minutes together), then **C3**, with **D4**, **C2** and the second half of S1 in the same
-Alchemy session. C3 is the first real data for the
-"in progress" tier. See `docs/ingame-commands.md`.
+Blocking: **S1** (all of v1, and both pending tests, one with **D4**), **U4** (needs S1's
+second character), and **C3** (the first real data for the "in progress" tier). The queue is
+`docs/ingame-commands.md`.
+
+## PR #4 review — 2026-10-01
+
+A code review of the Roster tab branch found 15 problems. 14 are fixed on the same branch, one
+commit each. The 15th, the cost of a window read, is fixed in part, and the last paragraph says
+what was left. Every behavior fix carries a test that failed first. 206 tests, 2 pending on S1.
+
+**The tradeskill join could break itself account-wide.** The window now merges the skill-line
+map on every read, on every character. A live answer with any id beat the saved one, so an
+alt whose lookup answered only `{professionId = 2937}` replaced the Alchemist's saved
+`{parentId = 171}`. That was then written back, and every character's join to 171 failed. Now
+a live answer wins only if it adds at least as much to the join: a parent id, then another
+id, then nothing. Next to it, `parentKnown` counted an answer that names only the challenge's
+own line as a known parent. That id adds no way to join, so "No saved character has this
+profession" was claimed in exactly the S1 case. The `/lgn roster` paste made the same claim
+unconditionally, so S1's evidence would have stated it as fact.
+
+**The Roster tab went stale and could not say why.** A level-up, skill-up or spent point only
+scheduled a snapshot, and the frame redraws on `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE`
+alone. The delayed snapshot now asks for a redraw when the Roster tab is up. Separately, the
+window read dropped the snapshot's result. A read-only store (a newer schema) or a failed realm
+read showed "No characters saved yet" on a character that had logged in. The footnote now
+leads with the reason.
+
+Smaller fixes:
+
+- Tree figures line up under the `P/A/R` heading by tree id, with `?` for a tree a snapshot did
+  not store. A 2-tree snapshot had shifted into the wrong columns.
+- Tradeskill rows and tooltip lines name the realm when the roster spans realms, as character
+  rows already did.
+- A tab or filter switch in combat keeps the header and Next Up's filter bar on screen.
+- The footnote is sized from its wrapped height (`GetStringHeight`, after `SetWidth`, as
+  Blizzard's `ScrollingFontMixin` does). U4 gained a scrolled screenshot to check it.
+- An empty roster no longer repeats itself as "18 tradeskill challenges have no saved character".
+- One `GetCharacterInfo` per window read instead of two. The skill-line map is rewritten only
+  when the live lookup answered. `/lgn roster` reuses the join instead of computing it again.
+  The kept-part rule is one function, `Model.KeptAt`, shared by the tab and the paste.
+- `release.yml` calls `ci.yml` instead of copying it, and a tag runs the gate once.
+- This file stopped re-listing the queue in order, which `CLAUDE.md` forbids. It names the
+  blocking IDs only.
+
+**Not done: caching the skill-line lookup per session.** The review suggested it. It is about
+six client calls on top of the ~900-call sweep. The cache would have to be cleared on
+`SKILL_LINES_CHANGED`, and C2 has not seen that event fire on Forever. If it never fires, an
+answer gained by training a profession mid-session would be missed until a reload.
+
+## Roster tab and release packaging — 2026-09-30
+
+Alex's calls the same evening: the roster lives as a tab in the existing window, and release
+packaging goes in with the TOC version line. Both built and tested here. Neither has run in
+game or on GitHub.
+
+**The Roster tab.** Two buttons under the header switch between Next Up and Roster. Rows,
+dividers, the scroll list, Escape and combat deferral are all shared. The Roster tab lists every
+saved character with points spent per tree and points unspent, the current one first and in
+gold. Below that come the tradeskill challenges some saved character can work on, each naming
+the closest one. Tooltips carry the detail: per-tree names, professions, and how old the
+snapshot is. Next Up's tooltip on a tradeskill row now names the saved characters with the
+profession too. `Model.BuildRosterView` is pure and returns the same view shape as
+`Model.BuildView`, so one renderer and `/lgn uidump roster` cover both tabs. The golden file is
+`spec/golden/uidump_roster.txt`. Its second character is derived (no captured character knows a
+profession yet, D4), and says so.
+
+Choices made while building it. They are Alex's to overturn, and none is a locked decision:
+
+- Tradeskill challenges nobody saved can work on are counted in a footnote, not listed. The
+  same shape as hiding other classes' challenges.
+- Tradeskill rows sort by the closest character's remaining skill, then client order.
+- Column headings are the trees' own initials (`P/A/R`) and `Free` for unspent points. No tree
+  name is hardcoded. Whether they read well is U4.
+- The window read now takes a snapshot of the current character, outside the snapshot log, so
+  ~~the Roster tab never shows it stale~~ a read is never stale. An open tab was, until the
+  PR #4 review (2026-10-01) made level, skill and trait snapshots redraw it. About 25 calls on
+  top of the ~900-call sweep.
+
+**Release packaging.** `.github/workflows/release.yml` runs the CI gate and then
+`BigWigsMods/packager@v2` on any `v*` tag. The TOC reads `## Version: @project-version@`, and a
+copy straight from the repo reports `dev`. A local dry run packaged a TOC reading
+`## Version: v0.1.0-drytest`. CurseForge stays off until the TOC has `## X-Curse-Project-ID`
+and the `CF_API_KEY` secret exists (`release.sh:2818`). Detail in `docs/distribution.md` §4.
+The first real tag is the check for the GitHub release.
+
+Open for Alex from this:
+
+- The zip ships a `CHANGELOG.md` generated from git history, overwriting the hand-written one.
+  `manual-changelog: CHANGELOG.md` in `.pkgmeta` keeps ours. Recommended, not done.
+
+**Review, the same evening.** A read-only review of the branch found no path that throws on
+junk from Store or Api, and four real bugs. All four are fixed, each with a test that failed
+first:
+
+- **Footnotes printed over the first two rows.** The status line was anchored once, at the top
+  of the list. Next Up's "N other-class challenges hidden" has done this since 2026-09-26, and
+  no screenshot since has shown it. The line now anchors below the last row on every draw.
+- **An empty or done state dropped its footnote.** The frame now shows both, as uidump did.
+- **A tab or filter switch in combat read at once**, skipping the combat deferral that a first
+  open gets. `SetFilter` had this gap before the tab existed. Both now wait for
+  `PLAYER_REGEN_ENABLED`.
+- **"No saved character has this profession" when the skill-line lookup failed.** With no
+  parent id, only a direct match can join, so an empty list proved nothing. That is the S1
+  unknown. Both tabs now say a match may be missing.
+
+The widget double now records anchors, mouse and highlight, so the heading row's
+`EnableMouse(false)` and the tab highlight are pinned. So is what `/lgn uidump` prints on each
+tab end to end. Not fixed, and harmless: a window opened within 5 s of login snapshots before
+the delayed login snapshot does. If trait data is not ready, tree spend can read 0 for those
+seconds until the delayed one corrects it.
+
+## Vendor pin moved to 1.60.1.70124 — 2026-09-30
+
+`bd2470a` → `966519c`, which covers 70058 and 70124. One vendored file changed, a gamepad nil
+guard in `GameTooltip.lua`. No Legacy file, API doc or constant moved, and no citation
+shifted. `## Interface: 16001` still matches. All 158 tests stay green. Detail in
+`docs/beta-builds.md`.
+
+The probe had not run since 69913, and no queue row asked for it. That row is now **D10**,
+taken at the start of S1's login.
 
 ## Legacy Forever and the client data (DB2) — 2026-09-30
 
@@ -112,8 +232,10 @@ where the client has it and registered under `pcall` regardless. Skipped events 
 
 **The alt join depended on who ran the command.** If the skill-line lookup answers only for a
 learned profession, a non-Alchemist running `/lgn roster` could never match the Alchemy alt.
-The resolved map is now saved account-wide. A live answer with an id wins. A zeroed answer
-never erases a saved one. Matching also falls back to `professionID`, as Blizzard's frame does
+The resolved map is now saved account-wide. ~~A live answer with an id wins.~~ A live answer
+wins unless it adds less to the join than the saved one: an id-only answer from an alt had
+erased the Alchemist's parent (PR #4 review, 2026-10-01). A zeroed answer never erases a saved
+one. Matching also falls back to `professionID`, as Blizzard's frame does
 (`Blizzard_ProfessionsFrame.lua:41` at `bd2470a`).
 
 Smaller fixes:
@@ -328,9 +450,9 @@ CHANGELOG rewritten with the `v0.1.0` tag scheme, every UI template Tier A at th
 two Tier C items queued as U2) are recorded once, under "Phase 3c — release prep" below.
 The live checklist is "What must be true to ship v0".
 
-**Not done, and why:** ~~the icon~~ (done later the same day, see 3c below); the TOC version
+**Not done, and why:** ~~the icon~~ (done later the same day, see 3c below); ~~the TOC version
 line (Alex's); CI packaging (wire `BigWigsMods/packager@v2` in once the CurseForge check
-passes, no `-g` flag needed).
+passes, no `-g` flag needed).~~ Both done 2026-09-30, see "Roster tab and release packaging".
 
 **Tooling notes for Alex** (the `mktemp` part fixed 2026-09-26, see "Review pass"): `precommit.sh` and `check_script.sh` both use `mktemp -d`, which
 on macOS ignores `TMPDIR` and fails under the Claude sandbox (`Operation not permitted`). The
@@ -415,8 +537,8 @@ tracker existed, which is the whole opportunity — recheck before release, sinc
 with a shelf life.
 
 Beta builds will churn the IDs and may churn the APIs. `beta-build-bump` exists for that; run
-it whenever the forever branch moves, and re-run **D5** after any bump, since "no secrets on
-our surface" is a per-build finding.
+it whenever the forever branch moves, and re-run the probe after any bump, since "no secrets on
+our surface" is a per-build finding. D5 was the first re-run. **D10** is the one for 70124.
 
 ## What must be true to ship v0
 
@@ -437,9 +559,13 @@ that are currently known to be false or unverified.
 - [x] Packager dry-run against a tag — done 2026-09-19; the packager gained Forever support on
       2026-09-17 and emits `forever` / `1.60.1` from the TOC alone
 - [x] `.pkgmeta` `move-folders` — verified by the same dry run, TOC at the zip root
-- [ ] Confirm CurseForge's Forever version type (`88568`) exists — Alex, in a browser or with
-      an API token; steps in `docs/distribution.md`
-- [ ] `## Version: @project-version@` in the TOC, first tag `v0.1.0` — Alex's edit
+- [x] Confirm CurseForge's Forever version type (`88568`) exists — answered 2026-09-30 by
+      another addon's uploads landing under `1.60.1` (`docs/distribution.md` §3). Our own first
+      upload is the real test
+- [x] `## Version: @project-version@` in the TOC — 2026-09-30. The first tag, `v0.1.0`, is
+      Alex's
+- [x] Tag-triggered packaging, `.github/workflows/release.yml` — 2026-09-30, dry-run only.
+      CurseForge upload needs a project ID in the TOC and the `CF_API_KEY` secret
 - [ ] **Repo public.** The README header now carries the CI badge and the icon as absolute
       `github.com` / `raw.githubusercontent.com` URLs. Both 404 while `lxhwes/LegacyNext` is
       private, on GitHub and in the CurseForge listing alike. Alex's
@@ -469,8 +595,8 @@ way: the dry run cost twenty minutes and closed two blockers.
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
 | 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
 | 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Done** — drawn in the client 2026-09-19 (U1 uidump). Screenshot still open; the 2026-09-26 changes are unseen |
-| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except ~~CurseForge check~~ (answered 2026-09-30, `docs/distribution.md` §3), TOC version line |
-| 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, unverified in game (S1); roster frame not started |
+| 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except ~~CurseForge check~~ (answered 2026-09-30, `docs/distribution.md` §3), ~~TOC version line~~ (2026-09-30). Tag-triggered packaging added the same day |
+| 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, unverified in game (S1); ~~roster frame not started~~ Roster tab built 2026-09-30, unseen (U4) |
 
 Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
 that I can finish and prove alone, `UI/` cannot be verified without Alex looking at it, and
@@ -563,7 +689,8 @@ Checked 2026-09-19; these do not exist yet:
       raw HTML, so how CurseForge's editor treats it is unchecked until the listing exists, and
       every image URL is absolute, so it needs the repo public (see the checklist above).
 - [x] Packager dry-run and `.pkgmeta` `move-folders` — both verified 2026-09-19.
-- [ ] CurseForge Forever version type — needs a browser or a token.
+- [x] CurseForge Forever version type — ~~needs a browser or a token.~~ Answered 2026-09-30
+      without either (`docs/distribution.md` §3).
 
 None of this needed Phase 3a or 3b finished, and the dry run was as cheap as predicted.
 
@@ -645,8 +772,10 @@ could not build `tools/lua51`. Ubuntu's `lua5.1`, `lua-busted` (2.2.0) and `lua-
 packages ran the same two gates (`busted --lua=lua5.1`, `luacheck LegacyNext spec`). CI is
 unchanged.
 
-Next, in order: S1 → the roster frame (a second view in the existing window, or its own; not
-decided) → candidate lines in the Next Up detail for tradeskill rows.
+~~Next, in order: S1 → the roster frame (a second view in the existing window, or its own; not
+decided) → candidate lines in the Next Up detail for tradeskill rows.~~ Both built 2026-09-30,
+ahead of S1, since `Store/` hides whether saved data loads back. The frame is a tab in the
+existing window (Alex). S1 and U4 are next.
 
 ## Research questions
 

@@ -74,7 +74,7 @@ describe("addon lifecycle", function()
 			_G[name] = nil
 		end
 		for _, name in ipairs({ "CreateFrame", "UIParent", "UISpecialFrames", "LegacyNextDB",
-			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer" }) do
+			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer", "C_AddOns" }) do
 			_G[name] = nil
 		end
 	end)
@@ -127,6 +127,21 @@ describe("addon lifecycle", function()
 			assert.truthy(ns.lastSnapshot:find("SKILL_LINES_CHANGED+PLAYER_LEVEL_UP -> written", 1, true))
 		end)
 
+		-- The window refreshes on its own two events only. A level-up, skill-up or spent point
+		-- changes the Roster tab, and the delayed snapshot is what knows when.
+		it("asks the window to redraw after a delayed snapshot", function()
+			local asked = 0
+			ns.UI.OnSnapshot = function() asked = asked + 1 end
+
+			handler(nil, "PLAYER_LEVEL_UP")
+			assert.equals(0, asked)
+			runTimers()
+
+			assert.equals(1, asked)
+			handler(nil, "PLAYER_LOGOUT")
+			assert.equals(1, asked)
+		end)
+
 		it("delays the login snapshot the same way", function()
 			handler(nil, "PLAYER_LOGIN")
 			assert.is_nil(stored())
@@ -169,6 +184,79 @@ describe("addon lifecycle", function()
 
 		assert.is_nil(input.challenges)
 		assert.equals("categories: GetCategoryList unavailable", input.challengesReason)
+		assert.same({}, input.candidates)
+	end)
+
+	it("gives the window the roster and the current character, outside the snapshot log", function()
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadViewInput()
+
+		assert.equals("Tester-Realm", input.currentKey)
+		assert.equals("Tester-Realm", input.snapshots[1].key)
+		assert.same({}, input.candidates)
+		assert.equals(5000, input.now)
+		assert.equals(0, #(_G.LegacyNextDB.snapshotLog or {}))
+	end)
+
+	-- Every window refresh runs this, CRITERIA_UPDATE's included: the character read is up to
+	-- twelve client calls, and the snapshot has already made it.
+	it("reads the character once per window read", function()
+		local reads = 0
+		_G.UnitClass = function() reads = reads + 1 return "Druid", "DRUID", 11 end
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadViewInput()
+
+		assert.equals(1, reads)
+		assert.equals("Druid", input.character.class)
+	end)
+
+	it("leaves the saved skill-line map alone when this session's lookup gave nothing", function()
+		_G.LegacyNextDB = { schema = 1, skillLineParents = { [2937] = { parentId = 171 } } }
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+		local saved = _G.LegacyNextDB.skillLineParents
+
+		ns.ReadViewInput()
+		ns.ReadRosterInput()
+
+		assert.equals(saved, _G.LegacyNextDB.skillLineParents)
+		assert.is_nil(saved[2937].saved)
+	end)
+
+	it("tells the window why this character's snapshot was not written", function()
+		_G.LegacyNextDB = { schema = 2 }
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadViewInput()
+
+		assert.equals("saved schema 2, this build reads 1", input.snapshotProblem)
+		assert.truthy(ns.Debug.BuildUIDump("roster"):find("This character was not saved: saved schema 2", 1, true))
+	end)
+
+	it("gives the window no snapshot problem once the write lands", function()
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		assert.is_nil(ns.ReadViewInput().snapshotProblem)
+	end)
+
+	it("runs /lgn uidump on both tabs without a failure message", function()
+		local printed = {}
+		_G.print = function(message) printed[#printed + 1] = tostring(message) end
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		_G.SlashCmdList.LEGACYNEXT("uidump")
+		_G.SlashCmdList.LEGACYNEXT("uidump roster")
+
+		for _, line in ipairs(printed) do
+			assert.is_nil(line:find("failed", 1, true), line)
+		end
+		-- No GetCategoryList stub: Next Up is in its error state, and the roster is not.
+		assert.truthy(ns.Debug.BuildUIDump(nil):find("state=error  Could not read your challenges", 1, true))
+		local roster = ns.Debug.BuildUIDump("roster")
+		assert.truthy(roster:find("tab=roster", 1, true))
+		assert.truthy(roster:find("Tester  L10 Druid", 1, true))
+		assert.truthy(roster:find("state=ok", 1, true))
 	end)
 
 	it("uses and keeps the saved skill-line map when this session's lookup is missing", function()
@@ -214,6 +302,25 @@ describe("addon lifecycle", function()
 			assert.is_nil(registered.SKILL_LINES_CHANGED)
 			assert.is_true(registered.PLAYER_LEVEL_UP)
 			assert.same({ "SKILL_LINES_CHANGED (unknown to this client)" }, ns.eventsNotRegistered)
+		end)
+	end)
+
+	describe("version", function()
+		local function versionAtLogin(metadata)
+			_G.C_AddOns = { GetAddOnMetadata = function(_, key)
+				if key == "Version" then return metadata end
+			end }
+			handler(nil, "PLAYER_LOGIN")
+			return ns.version
+		end
+
+		-- A dev build is LegacyNext/ copied from the repo, so the packager never replaced the token.
+		it("reports dev when ## Version is the unreplaced packager token", function()
+			assert.equals("dev", versionAtLogin("@project-version@"))
+		end)
+
+		it("reports the tag the packager wrote", function()
+			assert.equals("v0.1.0", versionAtLogin("v0.1.0"))
 		end)
 	end)
 

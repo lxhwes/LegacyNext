@@ -167,6 +167,17 @@ function Model.MergeSnapshot(previous, fresh)
 	return merged
 end
 
+--- When MergeSnapshot kept `part` ("trees" or "professions") from an earlier snapshot, the
+-- time that part was read; nil when it came with the latest one. Without this the row's age
+-- is the latest snapshot's, and last week's skill numbers read as current.
+function Model.KeptAt(snapshot, part)
+	local at = snapshot[part .. "At"]
+	if type(at) ~= "number" or at == snapshot.takenAt then
+		return nil
+	end
+	return at
+end
+
 --------------------------------------------------------------------------------------------
 -- Roster
 --------------------------------------------------------------------------------------------
@@ -197,6 +208,21 @@ function Model.Roster(snapshots, currentKey)
 	end)
 
 	return { rows = rows, skipped = skipped, currentKey = currentKey }
+end
+
+-- More than one realm among the keyed snapshots, so a bare name may stand for two characters.
+local function spansRealms(snapshots)
+	local first
+	for _, snapshot in ipairs(snapshots or {}) do
+		if type(snapshot) == "table" and type(snapshot.key) == "string" and type(snapshot.realm) == "string" then
+			if first == nil then
+				first = snapshot.realm
+			elseif snapshot.realm ~= first then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 --------------------------------------------------------------------------------------------
@@ -231,12 +257,31 @@ local function effectiveId(parent)
 	return type(parent) == "table" and (parent.parentId or parent.professionId) or nil
 end
 
+-- The effective id when it adds a way to join: an answer naming the line itself only repeats
+-- the direct match.
+local function joinId(parent, skillLineId)
+	local effective = effectiveId(parent)
+	if effective == skillLineId then
+		return nil
+	end
+	return effective
+end
+
+-- What an answer adds to the join: 2 for a parent id, 1 for another id, 0 for nothing.
+local function joinRank(parent, skillLineId)
+	if joinId(parent, skillLineId) == nil then
+		return 0
+	end
+	return parent.parentId ~= nil and 2 or 1
+end
+
 --- The skill-line map this session reads, laid over the one saved account-wide. The lookup may
 -- answer only on a character who knows the profession (S1), and the join is for finding
 -- *other* characters, so one answer from any character has to outlive its session.
--- A live entry with an id wins, so a build that re-parents a line is picked up on the next
--- read; a live entry with none (a zeroed struct) never erases a saved one. Kept entries carry
--- saved = true.
+-- A live entry wins unless it adds less to the join than the saved one. So a build that
+-- re-parents a line is picked up on the next read, while an alt whose lookup names only the
+-- line, or a zeroed struct, never erases a saved parent. A build that drops a parent keeps the
+-- saved one, which costs nothing: the direct match still runs. Kept entries carry saved = true.
 function Model.MergeSkillLineParents(saved, live)
 	local merged = {}
 	for skillLineId, parent in pairs(type(saved) == "table" and saved or {}) do
@@ -250,7 +295,8 @@ function Model.MergeSkillLineParents(saved, live)
 		end
 	end
 	for skillLineId, parent in pairs(type(live) == "table" and live or {}) do
-		if type(parent) == "table" and (effectiveId(parent) or not effectiveId(merged[skillLineId])) then
+		if type(parent) == "table"
+			and joinRank(parent, skillLineId) >= joinRank(merged[skillLineId], skillLineId) then
 			merged[skillLineId] = parent
 		end
 	end
@@ -288,13 +334,18 @@ end
 --- For each incomplete tradeskill challenge, every stored character with that profession,
 -- closest first. `parents` is Api.GetSkillLineParents output and may be nil.
 -- Returns a list in the challenges' order:
---   { challenge, skillLineId, need, candidates = { { key, name, class, level, skill,
---     remaining, reached } } }
+--   { challenge, skillLineId, need, parentKnown, candidates = { { key, name, label, class,
+--     level, skill, remaining, reached } } }
+-- `label` is the name to show: the key instead when the snapshots span realms, as the
+-- roster's own rows do.
+-- `parentKnown` is false when the skill-line lookup gave no id other than the line's own, so
+-- only a direct match can join and an empty list is not proof that nobody has the profession.
 -- `reached` means the snapshot's skill already meets the threshold while the challenge still
 -- reads incomplete: a stale snapshot, or a credit the client has not given yet.
 function Model.ProfessionCandidates(challenges, snapshots, parents)
 	local out = {}
 	parents = parents or {}
+	local withRealm = spansRealms(snapshots)
 
 	for _, challenge in ipairs(challenges or {}) do
 		local criterion = not challenge.completed and skillCriterion(challenge) or nil
@@ -309,6 +360,7 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 						candidates[#candidates + 1] = {
 							key = snapshot.key,
 							name = snapshot.name,
+							label = (withRealm or type(snapshot.name) ~= "string") and snapshot.key or snapshot.name,
 							class = snapshot.class,
 							level = snapshot.level,
 							skill = profession.skill,
@@ -331,10 +383,296 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 				challenge = challenge,
 				skillLineId = criterion.assetId,
 				need = criterion.need,
+				parentKnown = joinId(parents[criterion.assetId], criterion.assetId) ~= nil,
 				candidates = candidates,
 			}
 		end
 	end
 
 	return out
+end
+
+--------------------------------------------------------------------------------------------
+-- The roster tab
+--------------------------------------------------------------------------------------------
+
+-- Coarse on purpose: the age says how far to trust a snapshot, not when it was taken.
+local function ageText(now, at)
+	if type(now) ~= "number" or type(at) ~= "number" then
+		return nil
+	end
+	local seconds = now - at
+	if seconds < 60 then
+		return "just now"
+	elseif seconds < 3600 then
+		return ("%dm ago"):format(math.floor(seconds / 60))
+	elseif seconds < 86400 then
+		return ("%dh ago"):format(math.floor(seconds / 3600))
+	end
+	return ("%dd ago"):format(math.floor(seconds / 86400))
+end
+
+-- First UTF-8 character, so a localized tree name never splits mid-byte.
+local function initial(name)
+	return type(name) == "string" and name:match("^[%z\1-\127\194-\244][\128-\191]*") or nil
+end
+
+local function readTrees(row)
+	if type(row.trees) ~= "table" or not row.trees[1] then
+		return nil
+	end
+	for _, tree in ipairs(row.trees) do
+		if type(tree) ~= "table" or tree.treeId == nil or type(tree.spent) ~= "number" then
+			return nil
+		end
+	end
+	return row.trees
+end
+
+-- One column per tree any row stored, in the first row's order. Rows normally agree, but a
+-- session whose read missed a tree stores fewer, and its figures must not shift columns.
+local function treeColumns(rows)
+	local columns, byId = {}, {}
+	for _, row in ipairs(rows) do
+		for _, tree in ipairs(readTrees(row) or {}) do
+			local column = byId[tree.treeId]
+			if not column then
+				column = { treeId = tree.treeId }
+				byId[tree.treeId] = column
+				columns[#columns + 1] = column
+			end
+			column.name = column.name or tree.name
+		end
+	end
+	return columns
+end
+
+-- Column heading over the per-tree figures: the trees' own initials when every column
+-- carries a name, so nothing here names a tree.
+local function treeHeading(columns)
+	if not columns[1] then
+		return "Spent"
+	end
+	local letters = {}
+	for _, column in ipairs(columns) do
+		local letter = initial(column.name)
+		if not letter then
+			return "Spent"
+		end
+		letters[#letters + 1] = letter
+	end
+	return table.concat(letters, "/")
+end
+
+local function spendText(row, columns)
+	local trees = readTrees(row)
+	if not trees then
+		return "?"
+	end
+	local spent = {}
+	for _, tree in ipairs(trees) do
+		spent[tree.treeId] = tree.spent
+	end
+	local parts = {}
+	for _, column in ipairs(columns) do
+		parts[#parts + 1] = spent[column.treeId] ~= nil and tostring(spent[column.treeId]) or "?"
+	end
+	return table.concat(parts, "/")
+end
+
+local function characterName(row, withRealm)
+	local name = (withRealm or type(row.name) ~= "string") and row.key or row.name
+	local text = name .. "  L" .. (type(row.level) == "number" and tostring(row.level) or "?")
+	if type(row.class) == "string" and row.class ~= "" then
+		text = text .. " " .. row.class
+	end
+	return text
+end
+
+local function keptLine(lines, row, part, label, now)
+	local at = Model.KeptAt(row, part)
+	if not at then
+		return
+	end
+	local reason = row[part .. "Reason"]
+	lines[#lines + 1] = label .. " from " .. (ageText(now, at) or "an earlier session")
+		.. (reason and (": " .. tostring(reason)) or "")
+end
+
+local function characterDetail(row, now)
+	local lines = {}
+
+	local trees = readTrees(row)
+	if trees then
+		local parts = {}
+		for _, tree in ipairs(trees) do
+			parts[#parts + 1] = tostring(tree.name or tree.treeId) .. " " .. tostring(tree.spent)
+		end
+		lines[#lines + 1] = "Spent: " .. table.concat(parts, ", ")
+		if type(row.unspent) == "number" then
+			lines[#lines + 1] = "Unspent: " .. tostring(row.unspent)
+				.. (type(row.cap) == "number" and (" of " .. tostring(row.cap)) or "")
+		end
+	else
+		lines[#lines + 1] = "Tree spend not read"
+			.. (row.treesReason and (": " .. tostring(row.treesReason)) or "")
+	end
+	keptLine(lines, row, "trees", "Trees", now)
+
+	if type(row.professions) == "table" then
+		if row.professions[1] == nil then
+			lines[#lines + 1] = "No professions"
+		end
+		for _, profession in ipairs(row.professions) do
+			if type(profession) == "table" then
+				lines[#lines + 1] = tostring(profession.name or profession.skillLineId) .. " "
+					.. tostring(profession.skill) .. "/" .. tostring(profession.max)
+			end
+		end
+	else
+		lines[#lines + 1] = "Professions not read"
+			.. (row.professionsReason and (": " .. tostring(row.professionsReason)) or "")
+	end
+	keptLine(lines, row, "professions", "Professions", now)
+
+	local age = ageText(now, row.takenAt)
+	if age then
+		lines[#lines + 1] = "Updated " .. age
+	end
+	return lines
+end
+
+-- Tradeskill challenges some saved character can work on, closest first, then client order.
+-- The rest are counted, not listed: a row that says "nobody" eighteen times is noise.
+local function tradeskillRows(candidates)
+	local shown, hidden, unjoined = {}, 0, 0
+	for index, entry in ipairs(candidates) do
+		if type(entry) == "table" and type(entry.challenge) == "table"
+			and type(entry.candidates) == "table" and entry.candidates[1] then
+			shown[#shown + 1] = { entry = entry, index = index }
+		else
+			hidden = hidden + 1
+			if type(entry) == "table" and entry.parentKnown == false then
+				unjoined = unjoined + 1
+			end
+		end
+	end
+	table.sort(shown, function(a, b)
+		local aLeft, bLeft = a.entry.candidates[1].remaining, b.entry.candidates[1].remaining
+		if aLeft ~= bLeft then
+			return aLeft < bLeft
+		end
+		return a.index < b.index
+	end)
+
+	local rows = {}
+	for _, item in ipairs(shown) do
+		local entry, challenge = item.entry, item.entry.challenge
+		local best = entry.candidates[1]
+		local detail = {}
+		if type(challenge.description) == "string" and challenge.description ~= "" then
+			detail[#detail + 1] = challenge.description
+		end
+		for _, candidate in ipairs(entry.candidates) do
+			detail[#detail + 1] = Model.CandidateLine(candidate, entry.need)
+		end
+		rows[#rows + 1] = {
+			kind = "tradeskill",
+			id = challenge.id,
+			name = tostring(challenge.name or ("Challenge " .. tostring(challenge.id))) .. Model.SEPARATOR
+				.. tostring(best.label or best.name or best.key),
+			category = challenge.categoryName,
+			progressText = tostring(best.skill) .. "/" .. tostring(entry.need),
+			pointsText = Model.PointsText(challenge.points),
+			measurable = true,
+			detail = detail,
+		}
+	end
+	return rows, hidden, unjoined
+end
+
+local function plural(count, one, many)
+	return tostring(count) .. " " .. (count == 1 and one or many)
+end
+
+--- The roster tab's view, in the same shape Model.BuildView returns so one renderer draws both.
+-- input = { snapshots, currentKey, now, candidates = Model.ProfessionCandidates output,
+-- snapshotProblem = why this read's snapshot was not written, challengesReason, rewardTrack,
+-- rewardTrackReason, error }
+function Model.BuildRosterView(input)
+	input = input or {}
+	local view = {
+		tab = "roster",
+		header = Model.Header(input.rewardTrack, input.rewardTrackReason),
+		filters = {},
+		rows = {},
+		state = "ok",
+	}
+
+	if input.error ~= nil or type(input.snapshots) ~= "table" then
+		view.state = "error"
+		view.message = "Could not read the roster"
+			.. (input.error ~= nil and (": " .. tostring(input.error)) or "")
+		return view
+	end
+
+	local notes = {}
+	if input.snapshotProblem ~= nil then
+		notes[1] = "This character was not saved: " .. tostring(input.snapshotProblem)
+	end
+	local roster = Model.Roster(input.snapshots, input.currentKey)
+	if roster.skipped > 0 then
+		notes[#notes + 1] = plural(roster.skipped, "saved character", "saved characters") .. " could not be read"
+	end
+
+	if not roster.rows[1] then
+		view.state = "empty"
+		view.message = "No characters saved yet. Each character joins the roster when it logs in."
+	else
+		local columns = treeColumns(roster.rows)
+		view.rows[1] = { kind = "columns", name = "Character", progressText = treeHeading(columns),
+			pointsText = "Free" }
+		local withRealm = spansRealms(roster.rows)
+		for _, row in ipairs(roster.rows) do
+			view.rows[#view.rows + 1] = {
+				kind = "character",
+				key = row.key,
+				name = characterName(row, withRealm),
+				category = type(row.realm) == "string" and row.realm or nil,
+				progressText = spendText(row, columns),
+				pointsText = type(row.unspent) == "number" and tostring(row.unspent) or "?",
+				measurable = true,
+				current = row.key == roster.currentKey,
+				detail = characterDetail(row, input.now),
+			}
+		end
+	end
+
+	if input.challengesReason then
+		notes[#notes + 1] = "Could not read tradeskill challenges: " .. tostring(input.challengesReason)
+	elseif type(input.candidates) == "table" then
+		local rows, hidden, unjoined = tradeskillRows(input.candidates)
+		if rows[1] then
+			view.rows[#view.rows + 1] = { kind = "columns", name = "Tradeskill challenge", progressText = "Skill",
+				pointsText = "" }
+			for _, row in ipairs(rows) do
+				view.rows[#view.rows + 1] = row
+			end
+		end
+		-- With nobody saved, the empty state already says it; the count would only repeat it.
+		if hidden > 0 and roster.rows[1] then
+			local note = plural(hidden, "tradeskill challenge has", "tradeskill challenges have")
+				.. " no saved character with the profession"
+			if unjoined > 0 then
+				note = note .. ". The profession lookup gave no answer for " .. tostring(unjoined)
+					.. " of them, so a match may be missing"
+			end
+			notes[#notes + 1] = note
+		end
+	end
+
+	if notes[1] then
+		view.footnote = table.concat(notes, "\n")
+	end
+	return view
 end

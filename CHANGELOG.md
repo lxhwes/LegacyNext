@@ -11,6 +11,13 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 
 ### Added
 
+- Tagged releases: a pushed `v*` tag is linted, tested and packaged into a GitHub release, and
+  the tag becomes `## Version`. A copy straight from the repo reports its version as `dev`.
+- Roster tab (v1): the window has a second tab listing every saved character with Legacy points
+  spent per tree and points unspent, then each tradeskill challenge a saved character has the
+  profession for, closest character first. Next Up's tooltip on a tradeskill row names the saved
+  characters with that profession. `/lgn uidump roster` prints the tab as text. **Not yet seen
+  in game.**
 - Roster groundwork (v1): each character's class, level, professions and Legacy tree spend is
   saved at login, at logout, and after a level-up, skill or talent change. `/lgn roster` lists
   every saved character and, for each tradeskill challenge, which of them is closest.
@@ -55,7 +62,7 @@ SemVer `0.x.y` while Forever is in beta; `1.0.0` is the release that targets For
 build on 2026-11-04. The client build is not encoded in the version string. One addon version
 is expected to outlive several beta builds, so each release entry names the build it was
 verified against instead. `LegacyNext.toc` should carry `## Version: @project-version@`, which
-the packager replaces with the git tag at build time, so the tag is the version. The TOC still
-reads `0.0.1`; the first release changes it. The first upload is tagged `v0.1.0`.
+the packager replaces with the git tag at build time, so the tag is the version. The TOC has
+carried the token since 2026-09-30. The first upload is tagged `v0.1.0`.
 
 [Unreleased]: https://github.com/lxhwes/LegacyNext/commits/main

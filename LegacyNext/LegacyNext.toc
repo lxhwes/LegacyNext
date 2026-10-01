@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: LegacyNext
 ## Notes: Which Legacy challenge is closest to done, and which character should finish it.
-## Version: 0.0.1
+## Version: @project-version@
 ## SavedVariables: LegacyNextDB
 ## SavedVariablesPerCharacter: LegacyNextCharDB
 ## IconTexture: Interface\AddOns\LegacyNext\Media\icon

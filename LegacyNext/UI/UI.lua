@@ -56,13 +56,40 @@ local function createFrame(kind, name, parent, template)
 	return CreateFrame(kind, name, parent), false
 end
 
+-- A text button: UIPanelButtonTemplate, or a flat one drawn by hand if the template is gone.
+local function createButton(parent, height)
+	local button, templated = createFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	button:SetHeight(height)
+	if not templated then
+		local bg = button:CreateTexture(nil, "BACKGROUND")
+		bg:SetAllPoints()
+		bg:SetColorTexture(1, 1, 1, 0.1)
+		local label = button:CreateFontString(nil, "OVERLAY")
+		applyFont(label, "GameFontNormal", "ChatFontNormal")
+		label:SetAllPoints()
+		button:SetFontString(label)
+		local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+		highlight:SetAllPoints()
+		highlight:SetColorTexture(1, 1, 1, 0.15)
+	end
+	return button
+end
+
 --------------------------------------------------------------------------------------------
 -- State
 --------------------------------------------------------------------------------------------
 
-UI.filter = nil -- selected group id, nil for All
-UI.source = nil -- function() -> Model.BuildView input, set by Core
+UI.tab = "nextup"
+UI.filter = nil -- selected Next Up group id, nil for All; kept across a trip to the roster
+UI.source = nil -- function() -> Model.BuildView / BuildRosterView input, set by Core
 UI.view = nil -- last view built, for uidump parity checks
+UI.nextUpFilters = nil -- the last Next Up view's filters, drawn while a read waits for combat
+
+local TABS = {
+	{ id = "nextup", label = "Next Up" },
+	{ id = "roster", label = "Roster" },
+}
+local TAB_WIDTH = 80
 
 function UI.SetDataSource(fn)
 	UI.source = fn
@@ -89,6 +116,22 @@ local function buildHeader(frame, top)
 
 	frame.headerLines = { line1, line2 }
 	return top + 20 + 4 + 14
+end
+
+local function buildTabs(frame, top)
+	frame.tabs = {}
+	for index, tab in ipairs(TABS) do
+		local button = createButton(frame, 22)
+		button:SetWidth(TAB_WIDTH)
+		button:SetPoint("TOPLEFT", PAD + (index - 1) * (TAB_WIDTH + FILTER_GAP), -top)
+		button.tab = tab.id
+		button:SetText(tab.label)
+		button:SetScript("OnClick", function(self)
+			UI.SetTab(self.tab)
+		end)
+		frame.tabs[index] = button
+	end
+	return top + 22 + 6
 end
 
 local function buildFilterBar(frame, top)
@@ -299,6 +342,7 @@ local function ensureFrame()
 	frame.templated = templated
 
 	top = buildHeader(frame, top)
+	top = buildTabs(frame, top)
 	top = buildFilterBar(frame, top)
 	buildList(frame, top)
 
@@ -338,21 +382,7 @@ local function layoutFilters(frame, filters)
 	for index, filter in ipairs(filters) do
 		local button = bar.buttons[index]
 		if not button then
-			local templated
-			button, templated = createFrame("Button", nil, bar, "UIPanelButtonTemplate")
-			button:SetHeight(rowHeight)
-			if not templated then
-				local bg = button:CreateTexture(nil, "BACKGROUND")
-				bg:SetAllPoints()
-				bg:SetColorTexture(1, 1, 1, 0.1)
-				local label = button:CreateFontString(nil, "OVERLAY")
-				applyFont(label, "GameFontNormal", "ChatFontNormal")
-				label:SetAllPoints()
-				button:SetFontString(label)
-				local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-				highlight:SetAllPoints()
-				highlight:SetColorTexture(1, 1, 1, 0.15)
-			end
+			button = createButton(bar, rowHeight)
 			button:SetScript("OnClick", function(self)
 				UI.SetFilter(self.groupId)
 			end)
@@ -389,12 +419,69 @@ local function layoutFilters(frame, filters)
 		bar.buttons[index]:Hide()
 	end
 
-	bar:SetHeight(used > 0 and used or rowHeight)
+	-- The roster has no filters; collapse the bar rather than leave a blank band.
+	bar:SetHeight(used > 0 and used or 1)
 	frame.scroll:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -6)
+end
+
+local HEADING_FONTS = { "GameFontNormalSmall", "GameFontNormal", "ChatFontNormal" }
+local VALUE_FONTS = { "GameFontHighlight", "ChatFontNormal" }
+local CURRENT_FONTS = { "GameFontNormal", "GameFontHighlight", "ChatFontNormal" }
+local DIM_FONTS = { "GameFontDisable", "GameFontHighlight", "ChatFontNormal" }
+
+-- Rows are pooled across tabs, so every draw sets all three fonts: a pooled heading row must
+-- not leave its gold small font on the challenge row that reuses it.
+local function styleRow(widget, item)
+	local nameFonts, valueFonts = VALUE_FONTS, VALUE_FONTS
+	if item.kind == "columns" then
+		nameFonts, valueFonts = HEADING_FONTS, HEADING_FONTS
+	elseif item.current then
+		nameFonts = CURRENT_FONTS
+	elseif not item.measurable then
+		nameFonts = DIM_FONTS
+	end
+	applyFont(widget.name, unpack(nameFonts))
+	applyFont(widget.figure, unpack(valueFonts))
+	applyFont(widget.points, unpack(valueFonts))
+end
+
+-- The scroll frame's width, or the built size while its rect is still unresolved (0).
+local function listWidth(frame)
+	local width = frame.scroll:GetWidth()
+	if type(width) ~= "number" or width <= 0 then
+		return WIDTH - PAD * 2 - 22
+	end
+	return width
+end
+
+-- The note's wrapped height, measured the way Blizzard's ScrollingFontMixin sizes its text
+-- (SetWidth, then GetStringHeight: ScrollTemplates.lua:321-325 at 966519c). 28 px a line stays
+-- the floor, and the whole answer when the client cannot measure. The doc marks the height
+-- SecretWhenAnchoringSecret (SimpleFontStringAPIDocumentation.lua:325); ours never is, but
+-- comparing a secret throws, so it is checked.
+local function noteHeight(status, note)
+	local lines = 1
+	for _ in note:gmatch("\n") do
+		lines = lines + 1
+	end
+	local estimate = 28 * lines
+	if type(status.GetStringHeight) ~= "function" then
+		return estimate
+	end
+	local ok, height = pcall(status.GetStringHeight, status)
+	local isSecret = G("issecretvalue")
+	if ok and type(isSecret) == "function" and isSecret(height) then
+		return estimate
+	end
+	if ok and type(height) == "number" and height > estimate then
+		return height
+	end
+	return estimate
 end
 
 local function layoutRows(frame, view)
 	local child = frame.listChild
+	local width = listWidth(frame)
 	local y = 0
 	local rowIndex, dividerIndex = 0, 0
 
@@ -407,15 +494,14 @@ local function layoutRows(frame, view)
 		else
 			rowIndex = rowIndex + 1
 			widget = acquireRow(frame, rowIndex)
-			widget.data = item
+			-- A heading has no tooltip and takes no mouse, so it does not highlight on hover.
+			local heading = item.kind == "columns"
+			widget.data = not heading and item or nil
+			widget:EnableMouse(not heading)
 			widget.name:SetText(item.name)
 			widget.figure:SetText(item.progressText)
 			widget.points:SetText(item.pointsText)
-			if item.measurable then
-				applyFont(widget.name, "GameFontHighlight", "ChatFontNormal")
-			else
-				applyFont(widget.name, "GameFontDisable", "GameFontHighlight", "ChatFontNormal")
-			end
+			styleRow(widget, item)
 		end
 		widget:ClearAllPoints()
 		widget:SetPoint("TOPLEFT", 0, -y)
@@ -432,20 +518,27 @@ local function layoutRows(frame, view)
 		frame.dividers[index]:Hide()
 	end
 
+	-- A state message, a footnote, or both. Anchored below the last row on every draw, since a
+	-- footnote under a list anchored at the top prints over the first two rows.
+	local note = view.footnote
 	if view.state ~= "ok" then
-		frame.status:SetText(view.message or view.state)
-		frame.status:Show()
-		y = y + 40
-	elseif view.footnote then
-		frame.status:SetText(view.footnote)
-		frame.status:Show()
-		y = y + 40
+		note = tostring(view.message or view.state) .. (note and ("\n" .. note) or "")
+	end
+	local status = frame.status
+	if note then
+		-- A set width rather than a RIGHT anchor, so the wrap is known before layout runs.
+		status:ClearAllPoints()
+		status:SetPoint("TOPLEFT", 0, -(y + 4))
+		status:SetWidth(width)
+		status:SetText(note)
+		status:Show()
+		y = y + 12 + noteHeight(status, note)
 	else
-		frame.status:Hide()
+		status:Hide()
 	end
 
 	child:SetHeight(math.max(y, ROW_HEIGHT))
-	child:SetWidth(frame.scroll:GetWidth() or (WIDTH - PAD * 2 - 22))
+	child:SetWidth(width)
 end
 
 function UI.Render(view)
@@ -454,6 +547,14 @@ function UI.Render(view)
 
 	frame.headerLines[1]:SetText(view.header.lines[1] or "")
 	frame.headerLines[2]:SetText(view.header.lines[2] or "")
+
+	for _, button in ipairs(frame.tabs) do
+		if button.tab == UI.tab then
+			button:LockHighlight()
+		else
+			button:UnlockHighlight()
+		end
+	end
 
 	layoutFilters(frame, view.filters or {})
 	layoutRows(frame, view)
@@ -467,27 +568,29 @@ function UI.Refresh()
 	if not UI.source or not ns.Model then
 		return
 	end
+	local roster = UI.tab == "roster"
 	local ok, view = pcall(function()
 		local input = UI.source()
+		if roster then
+			return ns.Model.BuildRosterView(input)
+		end
 		input.filter = UI.filter
 		return ns.Model.BuildView(input)
 	end)
 	if ok then
 		-- BuildView falls back to All when the filtered group has gone; follow it, so the
 		-- next read does not ask for the missing group again.
-		UI.filter = view.filter
+		if not roster then
+			UI.filter = view.filter
+			UI.nextUpFilters = view.filters
+		end
+	elseif roster then
+		view = ns.Model.BuildRosterView({ error = tostring(view) })
 	else
 		view = ns.Model.BuildView({ challengesReason = tostring(view) })
 	end
 	UI.Render(view)
 	return view
-end
-
-function UI.SetFilter(groupId)
-	UI.filter = groupId
-	if UI.frame and UI.frame:IsShown() then
-		UI.Refresh()
-	end
 end
 
 --------------------------------------------------------------------------------------------
@@ -549,6 +652,14 @@ function UI.RequestRefresh(delay)
 	end
 end
 
+-- Core took a snapshot after a level, skill or trait change. Those events are Core's, not the
+-- frame's, and the Roster tab is the view they change.
+function UI.OnSnapshot()
+	if UI.tab == "roster" then
+		UI.RequestRefresh()
+	end
+end
+
 function UI.OnEvent(event)
 	if event == "PLAYER_REGEN_ENABLED" then
 		UI.frame:UnregisterEvent("PLAYER_REGEN_ENABLED")
@@ -562,14 +673,59 @@ function UI.OnEvent(event)
 	UI.RequestRefresh(EVENT_DELAY[event])
 end
 
--- Shown on a first open that lands in combat, until the read can run.
-local WAITING_VIEW = {
-	header = { lines = { "", "" }, state = "ok" },
-	filters = {},
-	rows = {},
-	state = "waiting",
-	message = "Reading your challenges when combat ends",
-}
+-- Shown on a first open or a switch that lands in combat, until the read can run. The header
+-- is the same on both tabs and already read, so it stays. So does Next Up's filter bar, marked
+-- with the choice just made, so another filter can still be picked.
+local function waitingView()
+	local filters = {}
+	if UI.tab == "nextup" then
+		for index, filter in ipairs(UI.nextUpFilters or {}) do
+			filters[index] = { id = filter.id, name = filter.name, count = filter.count,
+				selected = filter.id == UI.filter }
+		end
+	end
+	return {
+		header = UI.view and UI.view.header or { lines = { "", "" }, state = "ok" },
+		filters = filters,
+		rows = {},
+		state = "waiting",
+		message = UI.tab == "roster" and "Reading the roster when combat ends"
+			or "Reading your challenges when combat ends",
+	}
+end
+
+-- A tab or filter switch reads at once, or after combat as a first open does. The old view
+-- stays off screen meanwhile: it would sit under the new tab's highlight.
+local function refreshOrDefer()
+	if not UI.frame or not UI.frame:IsShown() then
+		return
+	end
+	if UI.deferredForCombat or inCombat() then
+		if not UI.deferredForCombat then
+			deferForCombat()
+		end
+		UI.Render(waitingView())
+		return
+	end
+	UI.Refresh()
+end
+
+function UI.SetTab(tab)
+	local known = false
+	for _, entry in ipairs(TABS) do
+		known = known or entry.id == tab
+	end
+	if not known or tab == UI.tab then
+		return
+	end
+	UI.tab = tab
+	refreshOrDefer()
+end
+
+function UI.SetFilter(groupId)
+	UI.filter = groupId
+	refreshOrDefer()
+end
 
 function UI.OnShow()
 	for _, event in ipairs(REFRESH_EVENTS) do
@@ -579,7 +735,7 @@ function UI.OnShow()
 		-- A reopened frame keeps its last view until then; a first open says why it is blank.
 		deferForCombat()
 		if not UI.view then
-			UI.Render(WAITING_VIEW)
+			UI.Render(waitingView())
 		end
 		return
 	end
@@ -627,6 +783,7 @@ function UI.Describe()
 		frameTemplate = frame.templated and "BasicFrameTemplateWithInset" or "plain",
 		scrollTemplate = frame.scrollTemplated and "UIPanelScrollFrameTemplate" or "plain",
 		escapeCloses = frame.escapeCloses and true or false,
+		tab = UI.tab,
 		rows = #frame.rows,
 		shown = frame:IsShown() and true or false,
 	}

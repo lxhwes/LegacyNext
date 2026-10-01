@@ -10,9 +10,9 @@ retail. The checkout itself is gitignored; this file is the record.
 |---|---|
 | Remote | https://github.com/Gethe/wow-ui-source.git |
 | Branch | `forever` |
-| Commit | `bd2470aed543f72697a044e989285b6c83e63f73` |
-| `version.txt` | `1.60.1.70009` |
-| Pinned on | 2026-09-26 (was `70ef1b2`, `1.60.1.69913`, 2026-09-18) |
+| Commit | `966519cf0ad2c10301ea011a88c14b25697c9687` |
+| `version.txt` | `1.60.1.70124` |
+| Pinned on | 2026-09-30 (was `bd2470a`, `1.60.1.70009`, 2026-09-26; before that `70ef1b2`, `1.60.1.69913`, 2026-09-18) |
 
 Sparse checkout (cone mode) covers only:
 
@@ -24,7 +24,7 @@ Interface/AddOns/Blizzard_AchievementUI
 version.txt
 ```
 
-All four directories were present at this commit, and at `bd2470a`.
+All four directories were present at this commit, at `bd2470a`, and at `966519c`.
 
 Widened on 2026-09-19 (then at `70ef1b2`) for the UI template research in
 `docs/ui-templates.md` (22 MB total afterwards):
@@ -49,15 +49,16 @@ Interface/AddOns/Blizzard_AddOnList
 `docs/icon-design.md`. Add them with `git sparse-checkout add <path>...` after the recreate
 step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
 `LegacyNext/UI/UI.lua` resolve only with them present. All seventeen were still present at
-`bd2470a`, checked directory by directory on 2026-09-26.
+`bd2470a`, checked directory by directory on 2026-09-26, and again at `966519c` on 2026-09-30.
 
 Four directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
 `Blizzard_SharedTalentUI` (`docs/legacy-internals.md`), `Blizzard_MajorFactions`
 (`docs/legacy-internals.md`, toast events) and `Blizzard_Professions` (`CLAUDE.md`,
 `docs/status.md`). `Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on this list until the
 widening above brought them in. They were read by running `git sparse-checkout set Interface`
-at this same SHA — 53 MB, 4405 files — and then narrowing back. Widen the same way to re-check
-them; the pin does not move.
+at an earlier pin — 53 MB, 4405 files — and then narrowing back. Widen the same way to re-check
+them; the pin does not move. The whole-tree diff from `bd2470a` to `966519c` touches none of the
+four, so their citations hold at this pin.
 
 ### Recreate
 

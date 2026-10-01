@@ -3,7 +3,9 @@
 Read-only research against `vendor/wow-ui-source`, written 2026-09-19 at pin
 `70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e` (`1.60.1.69913`) and re-checked 2026-09-26 at
 `bd2470aed543f72697a044e989285b6c83e63f73` (`1.60.1.70009`), which is where the line numbers
-below now point. Five of them moved in that bump; see `docs/beta-builds.md` for which.
+below now point. Five of them moved in that bump; see `docs/beta-builds.md` for which. Checked
+again 2026-09-30 at `966519cf0ad2c10301ea011a88c14b25697c9687` (`1.60.1.70124`), where none
+moved.
 Paths are relative to `Interface/AddOns/`. Line numbers are pin-relative; re-run
 `.claude/skills/forever-api-lookup/scripts/verify_citations.py` after a
 bump. That script only resolves `.lua` citations, so the `.xml` lines here were checked by hand.
@@ -190,6 +192,11 @@ FontString methods, all Tier A in
 `:529`, `SetJustifyH` `:560`. All `SecretArguments = "AllowedWhenUntainted"` except `SetText`,
 which is `AllowedWhenTainted`.
 
+`GetStringHeight()` is at `:325` (checked at `966519c`, 1.60.1.70124), marked
+`SecretWhenAnchoringSecret`. Blizzard's `ScrollingFontMixin` sizes wrapped text with it, calling
+`SetWidth` first (`Blizzard_SharedXML/Shared/Scroll/ScrollTemplates.lua:321-325`). The list
+footnote follows that order. A height check in game is part of U4.
+
 Auto-ellipsis is **Tier C**. No documentation line mentions an ellipsis and no Legacy XML sets
 `wordwrap="false"`. Blizzard does treat "truncated" as a queryable state:
 `ShrinkUntilTruncateFontStringMixin` steps fonts down until `IsTruncated()` is false
@@ -213,8 +220,8 @@ Whether a plain frame needs any handling: the docs point to "no", but only by in
 protection flags are per-function and per-object. `Show` and `Hide`
 (`SimpleScriptRegionAPIDocumentation.lua:751`, `:357`) and FontString `SetText` carry no
 `IsProtectedFunction`; `SetPoint`, `SetSize`, `SetParent`, `SetScrollChild`, `SetVerticalScroll`,
-`EnableMouseWheel` do (`SimpleScriptRegionResizingAPIDocumentation.lua:137`, `:165`;
-`SimpleScriptRegionAPIDocumentation.lua:653`, `:97`; `SimpleScrollFrameAPIDocumentation.lua:93`,
+`EnableMouseWheel` and `EnableMouse` do (`SimpleScriptRegionResizingAPIDocumentation.lua:137`,
+`:165`; `SimpleScriptRegionAPIDocumentation.lua:653`, `:97`, `:75`; `SimpleScrollFrameAPIDocumentation.lua:93`,
 `:105`). Those flags gate on the object being protected: `IsProtected()` and
 `CanChangeProtectedState()` are per-region (`SimpleScriptRegionAPIDocumentation.lua:540`, `:10`),
 and `C_RestrictedActions.CheckAllowProtectedFunctions(object, silent)` is documented as

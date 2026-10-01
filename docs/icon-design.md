@@ -6,9 +6,10 @@ the recommendation, and what is sitting in `docs/icon-drafts/` ready to ship.
 ## What the client does with `## IconTexture` [verified at the pin]
 
 Read from `vendor/wow-ui-source` at `70ef1b2fd78061a73f886c4a1e79dc5b5cff6d5e`, and still
-resolving unchanged at the current pin `bd2470aed543f72697a044e989285b6c83e63f73`
-(`1.60.1.70009`, checked 2026-09-26 — `AddonList.lua` changed in that bump, but only at `:660`,
-well below these citations). `Interface/AddOns/Blizzard_AddOnList` was not in the sparse
+resolving unchanged at `bd2470aed543f72697a044e989285b6c83e63f73` (`1.60.1.70009`, checked
+2026-09-26 — `AddonList.lua` changed in that bump, but only at `:660`, well below these
+citations) and at the current pin `966519cf0ad2c10301ea011a88c14b25697c9687` (`1.60.1.70124`,
+checked 2026-09-30, where `Blizzard_AddOnList` did not change). `Interface/AddOns/Blizzard_AddOnList` was not in the sparse
 checkout when this was written, so it was added at `70ef1b2` with `git -C vendor/wow-ui-source
 sparse-checkout add Interface/AddOns/Blizzard_AddOnList`; `rev-parse HEAD` was unchanged before
 and after. `vendor/PINS.md` lists that directory now.

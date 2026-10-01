@@ -374,6 +374,9 @@ function Debug.RenderView(view, label)
 	for _, row in ipairs(view.rows or {}) do
 		if row.kind == "divider" then
 			w("     ----- " .. row.text .. " -----")
+		elseif row.kind == "columns" then
+			w("     " .. pad(row.name, Debug.NAME_CHARS) .. lpad(row.progressText, 9)
+				.. "  " .. lpad(row.pointsText, 4))
 		else
 			rowNumber = rowNumber + 1
 			local name = row.name or ""
@@ -383,7 +386,12 @@ function Debug.RenderView(view, label)
 			if #name > Debug.NAME_CHARS then
 				overflow[#overflow + 1] = name
 			end
-			w(lpad(rowNumber, 3) .. "  " .. pad(name, Debug.NAME_CHARS) .. lpad(row.progressText, 9)
+			-- The current character, which the frame draws in gold.
+			local prefix = lpad(rowNumber, 3)
+			if row.current then
+				prefix = "*" .. prefix:sub(2)
+			end
+			w(prefix .. "  " .. pad(name, Debug.NAME_CHARS) .. lpad(row.progressText, 9)
 				.. "  " .. lpad(row.pointsText, 4))
 		end
 	end
@@ -412,7 +420,8 @@ function Debug.RenderView(view, label)
 end
 
 -- Reads Api once, builds the view through Model, renders it. `filter` is a group name typed
--- on the command line ("classes"), matched case-insensitively against the filter labels.
+-- on the command line ("classes"), matched case-insensitively against the filter labels, or
+-- "roster" for the roster tab. No category is named Roster.
 function Debug.BuildUIDump(filterName)
 	local Model = ns.Model
 
@@ -423,23 +432,29 @@ function Debug.BuildUIDump(filterName)
 	local input = ns.ReadViewInput()
 	local elapsed = started and (clock() - started) or nil
 
-	local filterId
-	if filterName and filterName ~= "" then
-		local probe = Model.BuildView(input)
-		for _, filter in ipairs(probe.filters or {}) do
-			if filter.id and string.lower(filter.name) == string.lower(filterName) then
-				filterId = filter.id
+	local info = clientInfo()
+	local view, label
+	if filterName and string.lower(filterName) == "roster" then
+		view = Model.BuildRosterView(input)
+		label = tostring(info.buildString or "?") .. "  tab=roster"
+	else
+		local filterId
+		if filterName and filterName ~= "" then
+			local probe = Model.BuildView(input)
+			for _, filter in ipairs(probe.filters or {}) do
+				if filter.id and string.lower(filter.name) == string.lower(filterName) then
+					filterId = filter.id
+				end
 			end
 		end
-	end
 
-	input.filter = filterId
-	local view = Model.BuildView(input)
+		input.filter = filterId
+		view = Model.BuildView(input)
 
-	local info = clientInfo()
-	local label = tostring(info.buildString or "?") .. "  filter=" .. (filterName or "all")
-	if filterName and filterName ~= "" and not filterId then
-		label = label .. " (unknown, showing all)"
+		label = tostring(info.buildString or "?") .. "  filter=" .. (filterName or "all")
+		if filterName and filterName ~= "" and not filterId then
+			label = label .. " (unknown, showing all)"
+		end
 	end
 
 	local text = Debug.RenderView(view, label)
@@ -505,15 +520,21 @@ local function treeText(snapshot)
 		tostring(snapshot.cap))
 end
 
--- MergeSnapshot carries a failed part over with its own timestamp. Without this the row's age
--- is the latest snapshot's, and last week's skill numbers read as current.
+-- Minutes, not the tab's coarse age: the paste is evidence, read next to a snapshot log.
+local function minutesAgo(now, at)
+	if type(now) ~= "number" or type(at) ~= "number" then
+		return nil
+	end
+	return ("%dm ago"):format(math.floor((now - at) / 60))
+end
+
 local function keptNote(row, part, now)
-	local at, reason = row[part .. "At"], row[part .. "Reason"]
-	if type(at) ~= "number" or at == row.takenAt then
+	local at, reason = ns.Model.KeptAt(row, part), row[part .. "Reason"]
+	if not at then
 		return reason and ("  (" .. tostring(reason) .. ")") or ""
 	end
-	local age = type(now) == "number" and ("%dm ago"):format(math.floor((now - at) / 60)) or ("at " .. at)
-	return "  (kept from " .. age .. (reason and (": " .. tostring(reason)) or "") .. ")"
+	return "  (kept from " .. (minutesAgo(now, at) or ("at " .. at)) .. (reason and (": " .. tostring(reason)) or "")
+		.. ")"
 end
 
 -- Pure: renders the roster, the profession candidates and the store's own diagnostics.
@@ -551,12 +572,9 @@ function Debug.RenderRoster(input)
 		w(title)
 		for _, entry in ipairs(log) do
 			if type(entry) == "table" then
-				local age = ""
-				if type(input.now) == "number" and type(entry.at) == "number" then
-					age = ("%dm ago  "):format(math.floor((input.now - entry.at) / 60))
-				end
+				local age = minutesAgo(input.now, entry.at)
 				local session = withSession and ("session " .. tostring(entry.session) .. "  ") or ""
-				w("  " .. session .. age .. tostring(entry.text))
+				w("  " .. session .. (age and (age .. "  ") or "") .. tostring(entry.text))
 			end
 		end
 	end
@@ -569,12 +587,9 @@ function Debug.RenderRoster(input)
 	local roster = input.roster or { rows = {} }
 	w("== CHARACTERS (" .. #roster.rows .. ") ==")
 	for _, row in ipairs(roster.rows) do
-		local age = ""
-		if type(input.now) == "number" and type(row.takenAt) == "number" then
-			age = ("  %dm ago"):format(math.floor((input.now - row.takenAt) / 60))
-		end
+		local age = minutesAgo(input.now, row.takenAt)
 		w(("%s%s  L%s %s%s"):format(row.key == roster.currentKey and "* " or "  ", row.key,
-			tostring(row.level), tostring(row.class), age))
+			tostring(row.level), tostring(row.class), age and ("  " .. age) or ""))
 		w("    " .. treeText(row) .. keptNote(row, "trees", input.now))
 		w("    " .. professionText(row.professions) .. keptNote(row, "professions", input.now))
 	end
@@ -597,7 +612,9 @@ function Debug.RenderRoster(input)
 			tostring(entry.skillLineId), tostring(parent and parent.parentId),
 			tostring(parent and parent.professionId), parent and parent.saved and ", saved" or "",
 			tostring(entry.need)))
-		if #entry.candidates == 0 then
+		if #entry.candidates == 0 and entry.parentKnown == false then
+			w("    no stored character matched, and the profession lookup gave no answer, so one may be missing")
+		elseif #entry.candidates == 0 then
 			w("    no stored character has this profession")
 		end
 		for _, candidate in ipairs(entry.candidates) do
@@ -618,7 +635,8 @@ function Debug.BuildRoster()
 	local text = Debug.RenderRoster({
 		label = tostring(clientInfo().buildString or "?"),
 		roster = Model.Roster(input.snapshots, input.currentKey),
-		candidates = Model.ProfessionCandidates(input.challenges, input.snapshots, input.parents),
+		-- The join readRoster made, so the paste and the window cannot disagree.
+		candidates = input.candidates,
 		diagnostics = input.diagnostics,
 		parents = input.parents,
 		parentsReason = input.parentsReason,
