@@ -1,16 +1,17 @@
 # Status
 
-Last updated 2026-09-30.
+Last updated 2026-10-01.
 
-**Where we are, 2026-09-30: Phase 4 (v1 roster) has started on the report that SavedVariables
+**Where we are, 2026-10-01: Phase 4 (v1 roster) has started on the report that SavedVariables
 now load back. That report is untested here, and S1 tests it. Store, per-character snapshots,
 the roster and tradeskill-candidate model, and `/lgn roster` are built, tested and merged
 (PR #2: 158 tests, 2 pending on S1). ~~No roster frame yet~~ The window now has a Roster tab,
 and none of it has run in game. Later the same day the client's own data tables (DB2) backed
 the tradeskill join, and another addon's uploads closed the CurseForge check. S1 gained a
 fallback step. The vendor pin then moved to `1.60.1.70124`, and nothing we call changed. Then
-the Roster tab landed, and a pushed `v*` tag now packages a release. 190 tests, 2 pending on
-S1. Phase 3 is as below.**
+the Roster tab landed, and a pushed `v*` tag now packages a release. A review of that branch
+(PR #4) on 2026-10-01 found 15 problems. 14 are fixed, and one is fixed in part. 206 tests, 2
+pending on S1. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -28,10 +29,54 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Open in the queue, in order: **D10** and **S1** in one login (v1 rests on S1), **U4** once S1
-has two characters saved, **U3**, **U1** and **U2** (under five minutes together), then **C3**,
-with **D4**, **C2** and the second half of S1 in the same Alchemy session. C3 is the first real
-data for the "in progress" tier. See `docs/ingame-commands.md`.
+Blocking: **S1** (all of v1, and both pending tests, one with **D4**), **U4** (needs S1's
+second character), and **C3** (the first real data for the "in progress" tier). The queue is
+`docs/ingame-commands.md`.
+
+## PR #4 review — 2026-10-01
+
+A code review of the Roster tab branch found 15 problems. 14 are fixed on the same branch, one
+commit each. The 15th, the cost of a window read, is fixed in part, and the last paragraph says
+what was left. Every behavior fix carries a test that failed first. 206 tests, 2 pending on S1.
+
+**The tradeskill join could break itself account-wide.** The window now merges the skill-line
+map on every read, on every character. A live answer with any id beat the saved one, so an
+alt whose lookup answered only `{professionId = 2937}` replaced the Alchemist's saved
+`{parentId = 171}`. That was then written back, and every character's join to 171 failed. Now
+a live answer wins only if it adds at least as much to the join: a parent id, then another
+id, then nothing. Next to it, `parentKnown` counted an answer that names only the challenge's
+own line as a known parent. That id adds no way to join, so "No saved character has this
+profession" was claimed in exactly the S1 case. The `/lgn roster` paste made the same claim
+unconditionally, so S1's evidence would have stated it as fact.
+
+**The Roster tab went stale and could not say why.** A level-up, skill-up or spent point only
+scheduled a snapshot, and the frame redraws on `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE`
+alone. The delayed snapshot now asks for a redraw when the Roster tab is up. Separately, the
+window read dropped the snapshot's result. A read-only store (a newer schema) or a failed realm
+read showed "No characters saved yet" on a character that had logged in. The footnote now
+leads with the reason.
+
+Smaller fixes:
+
+- Tree figures line up under the `P/A/R` heading by tree id, with `?` for a tree a snapshot did
+  not store. A 2-tree snapshot had shifted into the wrong columns.
+- Tradeskill rows and tooltip lines name the realm when the roster spans realms, as character
+  rows already did.
+- A tab or filter switch in combat keeps the header and Next Up's filter bar on screen.
+- The footnote is sized from its wrapped height (`GetStringHeight`, after `SetWidth`, as
+  Blizzard's `ScrollingFontMixin` does). U4 gained a scrolled screenshot to check it.
+- An empty roster no longer repeats itself as "18 tradeskill challenges have no saved character".
+- One `GetCharacterInfo` per window read instead of two. The skill-line map is rewritten only
+  when the live lookup answered. `/lgn roster` reuses the join instead of computing it again.
+  The kept-part rule is one function, `Model.KeptAt`, shared by the tab and the paste.
+- `release.yml` calls `ci.yml` instead of copying it, and a tag runs the gate once.
+- This file stopped re-listing the queue in order, which `CLAUDE.md` forbids. It names the
+  blocking IDs only.
+
+**Not done: caching the skill-line lookup per session.** The review suggested it. It is about
+six client calls on top of the ~900-call sweep. The cache would have to be cleared on
+`SKILL_LINES_CHANGED`, and C2 has not seen that event fire on Forever. If it never fires, an
+answer gained by training a profession mid-session would be missed until a reload.
 
 ## Roster tab and release packaging — 2026-09-30
 
@@ -58,7 +103,9 @@ Choices made while building it. They are Alex's to overturn, and none is a locke
 - Column headings are the trees' own initials (`P/A/R`) and `Free` for unspent points. No tree
   name is hardcoded. Whether they read well is U4.
 - The window read now takes a snapshot of the current character, outside the snapshot log, so
-  the Roster tab never shows it stale. About 25 calls on top of the ~900-call sweep.
+  ~~the Roster tab never shows it stale~~ a read is never stale. An open tab was, until the
+  PR #4 review (2026-10-01) made level, skill and trait snapshots redraw it. About 25 calls on
+  top of the ~900-call sweep.
 
 **Release packaging.** `.github/workflows/release.yml` runs the CI gate and then
 `BigWigsMods/packager@v2` on any `v*` tag. The TOC reads `## Version: @project-version@`, and a
@@ -185,8 +232,10 @@ where the client has it and registered under `pcall` regardless. Skipped events 
 
 **The alt join depended on who ran the command.** If the skill-line lookup answers only for a
 learned profession, a non-Alchemist running `/lgn roster` could never match the Alchemy alt.
-The resolved map is now saved account-wide. A live answer with an id wins. A zeroed answer
-never erases a saved one. Matching also falls back to `professionID`, as Blizzard's frame does
+The resolved map is now saved account-wide. ~~A live answer with an id wins.~~ A live answer
+wins unless it adds less to the join than the saved one: an id-only answer from an alt had
+erased the Alchemist's parent (PR #4 review, 2026-10-01). A zeroed answer never erases a saved
+one. Matching also falls back to `professionID`, as Blizzard's frame does
 (`Blizzard_ProfessionsFrame.lua:41` at `bd2470a`).
 
 Smaller fixes:
