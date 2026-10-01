@@ -151,4 +151,27 @@ describe("Debug.RenderView", function()
 		end
 		assertSameText(readFile(golden), text)
 	end)
+
+	-- U4, 2026-10-01: the same login's /lgn uidump roster, kept verbatim in
+	-- roster_geo_restart.lua. Page 1 holds only the three Alchemy challenges, so the footnote's
+	-- count cannot match. Everything from the header to the last row does.
+	it("reproduces the captured roster tab from the captured snapshots", function()
+		local ns = loadStack()
+		helper.loadAddonFile("LegacyNext/Model/Roster.lua", ns)
+		local captured = fixture("roster_geo_restart")
+		local printed = assert(readFile("spec/fixtures/roster_geo_restart.lua")
+			:match("%-%-%[==%[ /lgn uidump roster, same login, verbatim:\n(.-)\n%]==%]"))
+		local view = ns.Model.BuildRosterView({
+			snapshots = captured.snapshots,
+			currentKey = "Geo-Classic Beta PvP",
+			rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
+			candidates = ns.Model.ProfessionCandidates(fixture("dump_challenges_page1_fresh").challenges,
+				captured.snapshots, captured.parents),
+		})
+
+		local function headerToRows(text)
+			return assert(text:match("(== HEADER.-)\n== STATE =="))
+		end
+		assertSameText(headerToRows(printed), headerToRows(ns.Debug.RenderView(view)))
+	end)
 end)

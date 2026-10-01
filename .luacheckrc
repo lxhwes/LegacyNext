@@ -104,4 +104,6 @@ files["spec/"] = {
 files["spec/fixtures/"] = {
 	std = "lua51",
 	max_line_length = false,
+	-- A verbatim paste keeps the padding our renderer printed, trailing spaces included.
+	ignore = { "614" },
 }

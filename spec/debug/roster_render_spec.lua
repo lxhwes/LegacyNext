@@ -40,6 +40,24 @@ end
 describe("Debug.RenderRoster", function()
 	-- S1, 2026-10-01. The renderer, fed the paste's own RAW block, gives back the lines the
 	-- client printed. `now` is not in the capture; 10 s after Geo's snapshot reproduces every age.
+	-- S1 step 4, the first read after a full restart. `now` again sits 10 s after Geo's snapshot.
+	it("reproduces the restart paste's store, saved-log and character lines", function()
+		local ns = loadStack()
+		local captured = fixture("roster_geo_restart")
+		local printed = capturedText("roster_geo_restart")
+
+		local text = ns.Debug.RenderRoster({
+			roster = ns.Model.Roster(captured.snapshots, "Geo-Classic Beta PvP"),
+			diagnostics = captured.diagnostics,
+			now = captured.snapshots[1].takenAt + 10,
+		})
+
+		assert.same(section(printed, "attached=", "this snapshot"), section(text, "attached=", "snapshots"))
+		assert.same(section(printed, "snapshots saved by earlier sessions:", "== CHARACTERS"),
+			section(text, "snapshots saved by earlier sessions:", "== CHARACTERS"))
+		assert.same(section(printed, "== CHARACTERS", "== TRADESKILL"), section(text, "== CHARACTERS", "== TRADESKILL"))
+	end)
+
 	it("reproduces the captured store and character lines from the captured raw block", function()
 		local ns = loadStack()
 		local captured = fixture("roster_geo")

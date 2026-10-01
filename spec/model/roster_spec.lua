@@ -74,6 +74,19 @@ describe("Roster model", function()
 	end)
 
 	describe("BuildSnapshot", function()
+		-- D4, 2026-10-01: Api's read of a character with three professions, and the snapshot
+		-- the addon stored from that character in game the same session. They agree.
+		it("keeps every captured profession, as the addon stored it in game", function()
+			local snapshot = Model.BuildSnapshot({ character = fixture("dump_character_geo").character, now = 1 })
+
+			assert.same({
+				{ name = "Alchemy", skillLineId = 171, skill = 1, max = 75 },
+				{ name = "Herbalism", skillLineId = 182, skill = 20, max = 75 },
+				{ name = "Cooking", skillLineId = 185, skill = 1, max = 75 },
+			}, snapshot.professions)
+			assert.same(fixture("roster_geo_restart").snapshots[1].professions, snapshot.professions)
+		end)
+
 		it("snapshots the captured fresh character and trees", function()
 			local snapshot = Model.BuildSnapshot({
 				character = fixture("dump_character_shaman").character,
@@ -426,11 +439,30 @@ describe("Roster model", function()
 			end
 		end)
 
-		-- Pending: needs a crafting profession read in game. GetProfessionInfo reported the
-		-- Classic lines 182 and 185 for Herbalism and Cooking, which have Forever children 2944
-		-- and 2939 in DB2, so Alchemy should read 171 and join through the parent. The Alchemy
-		-- half of S1, with C3 and D4, in docs/ingame-commands.md.
-		pending("S1 + D4: a captured crafting profession joins a captured tradeskill challenge")
+		-- S1, 2026-10-01 (spec/fixtures/roster_geo_restart.lua): Alchemy reads the Classic line
+		-- 171, and joins the Forever line 2937 only through the captured parent.
+		it("joins a captured Alchemist to the Alchemy challenges through the parent line", function()
+			local captured = fixture("roster_geo_restart")
+			assert.equals(171, captured.snapshots[1].professions[1].skillLineId)
+
+			local result = Model.ProfessionCandidates(challenges, captured.snapshots, captured.parents)
+
+			local journeyman = byName(result, "Journeyman Alchemist")
+			assert.is_true(journeyman.parentKnown)
+			assert.equals(1, #journeyman.candidates)
+			assert.equals("Geo-Classic Beta PvP", journeyman.candidates[1].key)
+			assert.equals(1, journeyman.candidates[1].skill)
+			assert.equals(149, journeyman.candidates[1].remaining)
+			assert.equals(299, byName(result, "Artisan Alchemist").candidates[1].remaining)
+		end)
+
+		it("finds no captured Alchemist without the parent, so the direct match alone is not enough", function()
+			local captured = fixture("roster_geo_restart")
+
+			local result = Model.ProfessionCandidates(challenges, captured.snapshots, nil)
+
+			assert.same({}, byName(result, "Journeyman Alchemist").candidates)
+		end)
 	end)
 
 	describe("BuildRosterView", function()
