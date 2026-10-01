@@ -340,6 +340,18 @@ describe("Roster model", function()
 			assert.equals(50, journeyman.candidates[1].remaining)
 		end)
 
+		-- The S1 unknown: the lookup may name the line itself and no parent. That id adds no way
+		-- to join, so an empty list still proves nothing.
+		it("counts a lookup that names only the challenge's own line as no answer", function()
+			local echo = { [2937] = { professionId = 2937 } } -- derived: shape of Api.GetSkillLineParents
+			local parent = { [2937] = { parentId = 171 } }
+
+			local journeyman = byName(Model.ProfessionCandidates(challenges, {}, echo), "Journeyman Alchemist")
+
+			assert.is_false(journeyman.parentKnown)
+			assert.is_true(byName(Model.ProfessionCandidates(challenges, {}, parent), "Journeyman Alchemist").parentKnown)
+		end)
+
 		it("matches the challenge's skill line directly too", function()
 			local alts = { alt("Direct-R", 30, { { skillLineId = 2937, skill = 160 } }) }
 

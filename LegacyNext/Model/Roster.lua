@@ -231,6 +231,16 @@ local function effectiveId(parent)
 	return type(parent) == "table" and (parent.parentId or parent.professionId) or nil
 end
 
+-- The effective id when it adds a way to join: an answer naming the line itself only repeats
+-- the direct match.
+local function joinId(parent, skillLineId)
+	local effective = effectiveId(parent)
+	if effective == skillLineId then
+		return nil
+	end
+	return effective
+end
+
 --- The skill-line map this session reads, laid over the one saved account-wide. The lookup may
 -- answer only on a character who knows the profession (S1), and the join is for finding
 -- *other* characters, so one answer from any character has to outlive its session.
@@ -290,8 +300,8 @@ end
 -- Returns a list in the challenges' order:
 --   { challenge, skillLineId, need, parentKnown, candidates = { { key, name, class, level,
 --     skill, remaining, reached } } }
--- `parentKnown` is false when the skill-line lookup gave no id, so only a direct match can join
--- and an empty list is not proof that nobody has the profession.
+-- `parentKnown` is false when the skill-line lookup gave no id other than the line's own, so
+-- only a direct match can join and an empty list is not proof that nobody has the profession.
 -- `reached` means the snapshot's skill already meets the threshold while the challenge still
 -- reads incomplete: a stale snapshot, or a credit the client has not given yet.
 function Model.ProfessionCandidates(challenges, snapshots, parents)
@@ -333,7 +343,7 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 				challenge = challenge,
 				skillLineId = criterion.assetId,
 				need = criterion.need,
-				parentKnown = effectiveId(parents[criterion.assetId]) ~= nil,
+				parentKnown = joinId(parents[criterion.assetId], criterion.assetId) ~= nil,
 				candidates = candidates,
 			}
 		end
