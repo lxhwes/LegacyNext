@@ -184,6 +184,7 @@ describe("addon lifecycle", function()
 
 		assert.is_nil(input.challenges)
 		assert.equals("categories: GetCategoryList unavailable", input.challengesReason)
+		assert.same({}, input.candidates)
 	end)
 
 	it("gives the window the roster and the current character, outside the snapshot log", function()

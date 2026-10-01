@@ -205,6 +205,7 @@ function ns.ReadRosterInput()
 		challengesReason = challengesReason,
 		skillLines = roster.skillLines,
 		parents = roster.parents,
+		candidates = roster.candidates,
 		parentsLive = roster.parentsLive,
 		parentsReason = roster.parentsReason,
 		diagnostics = Store.Diagnostics(),

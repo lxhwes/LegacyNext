@@ -635,7 +635,8 @@ function Debug.BuildRoster()
 	local text = Debug.RenderRoster({
 		label = tostring(clientInfo().buildString or "?"),
 		roster = Model.Roster(input.snapshots, input.currentKey),
-		candidates = Model.ProfessionCandidates(input.challenges, input.snapshots, input.parents),
+		-- The join readRoster made, so the paste and the window cannot disagree.
+		candidates = input.candidates,
 		diagnostics = input.diagnostics,
 		parents = input.parents,
 		parentsReason = input.parentsReason,
