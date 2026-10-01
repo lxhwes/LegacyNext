@@ -16,8 +16,10 @@ but defined C-side or elsewhere. **C** not found; needs the game.
 **Two of these are now confirmed in game, not just at the pin** [U1, 2026-09-19]: `/lgn uidump`
 reported `frameTemplate = "BasicFrameTemplateWithInset"` and
 `scrollTemplate = "UIPanelScrollFrameTemplate"`, so neither `pcall` fallback fired on build
-1.60.1 (69913). Tier A held for both. The Tier C items below — auto-ellipsis (U2) and combat
-behaviour — are still open.
+1.60.1 (69913). Tier A held for both. ~~The Tier C items below — auto-ellipsis (U2) and combat
+behaviour — are still open.~~ U2 settled most of them on 70124, 2026-10-01: the frame reads
+`IsProtected() = false, false`, both ScrollBox templates exist at runtime, and truncation is
+detectable. Whether a clipped string draws `...` is the one part still open.
 
 Scope note: this pass widened the sparse checkout (same SHA) with `Blizzard_SharedXML{,Base,Game}`,
 `Blizzard_FrameXML{,Base,Util}`, `Blizzard_Fonts_Shared`, `Blizzard_UIParent{,PanelManager,Util}`,
@@ -37,6 +39,9 @@ All Tier A, all in `Blizzard_SharedXML`, which is `## AllowLoad: Both` with no L
 |---|---|
 | `WowScrollBoxList` (Frame template, mixin `ScrollBoxListMixin`) | `Blizzard_SharedXML/Shared/Scroll/ScrollTemplates.xml:4` |
 | `MinimalScrollBar` (EventFrame template) | `Blizzard_SharedXML/Shared/Scroll/MinimalScrollBar.xml:15` |
+
+Both templates exist at runtime: `C_XMLUtil.GetTemplateInfo` returned a value for each
+[verified in game 2026-10-01, 70124, U2].
 | `CreateScrollBoxListLinearView(top, bottom, left, right, spacing)` | `Blizzard_SharedXML/Shared/Scroll/ScrollBoxLinearView.lua:246` |
 | `view:SetElementInitializer(frameTemplateOrFrameType, initializer)` | `Blizzard_SharedXML/Shared/Scroll/ScrollBoxListView.lua:496` |
 | `view:SetElementExtent(extent)` | `Blizzard_SharedXML/Shared/Scroll/ScrollBoxLinearView.lua:102` |
@@ -204,6 +209,13 @@ Auto-ellipsis is **Tier C**. No documentation line mentions an ellipsis and no L
 `IsTruncated()` (`Blizzard_SharedXML/ListTemplates.lua:119-122`). That proves clipping is
 detectable, not that "..." is drawn. Plan on `IsTruncated()` plus a tooltip.
 
+[verified in game 2026-10-01, 70124, U2] A 120 px, no-wrap `GameFontHighlight` string holding
+"Reach exalted reputation with the Frostwolf Clan" read `IsTruncated() = true`, and
+`GetStringWidth()` and `GetUnboundedStringWidth()` both read 300.67. **So `GetStringWidth`
+reports the full text width on a clipped string, not the drawn width.** Detect truncation with
+`IsTruncated()`, never by comparing widths. Whether the clipped string ends in "..." on screen
+is still open.
+
 GameTooltip: `SetOwner`, `AddLine`, `Show` are absent from the generated docs (no
 `Name = "SetOwner"` anywhere in the 639 files), so **Tier B**. Blizzard's Legacy code does exactly
 our shape: `GameTooltip:SetOwner(self, "ANCHOR_RIGHT")`, `GameTooltip:AddLine(rewardText)`,
@@ -229,7 +241,8 @@ and `C_RestrictedActions.CheckAllowProtectedFunctions(object, silent)` is docume
 (`RestrictedActionsDocumentation.lua:11-27`). A frame we create with no secure template or
 attribute is not protected, so the flagged calls are not blocked on it. The claim "unprotected
 frames are unaffected in combat" itself is client behaviour, **Tier C**, and cheap to confirm:
-`frame:IsProtected()` should return `false, false`.
+`frame:IsProtected()` should return `false, false`. It does: `false,false` on `LegacyNextFrame`
+[verified in game 2026-10-01, 70124, U2].
 
 Separate axis: `Enum.AddOnRestrictionType` (`Combat`, `Encounter`, `ChallengeMode`, `PvPMatch`,
 `Map`, `Chat`; `RestrictedActionsConstantsDocumentation.lua:26-31`) and

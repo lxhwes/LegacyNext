@@ -2,17 +2,28 @@
 
 Last updated 2026-10-01.
 
-**Where we are, 2026-10-01: Phase 4 (v1 roster) has started on the report that SavedVariables
-now load back. That report is untested here, and S1 tests it. Store, per-character snapshots,
+**Where we are, 2026-10-01, late morning: v1's data layer and Roster tab have run in game, and
+S1 is closed.** Saved data loads back off disk after a full restart. The tradeskill join works
+on a real Alchemist, through the parent line. D10 found no secrets on 70124. U1, U3 and U4 saw
+the frame, the icon and the Roster tab drawn as designed. ~~218 tests~~ 221 tests after the
+PR #5 review, none pending. Open in
+game: D10's name rows, which decide the roster key, then C3, U2 and C2. The vendor pin is
+~~`1.60.1.70124`~~ `1.60.1.70170`. Nothing we call changed, but three Blizzard call sites did,
+and the docs were re-cited.
+
+**As of the morning of 2026-10-01: Phase 4 (v1 roster) has started on the report that SavedVariables
+now load back. ~~That report is untested here, and S1 tests it.~~ S1's first paste came back
+the same day: the saved file loaded across a logout and a character switch, and the
+skill-line lookup answered for all six lines. A full restart and an Alchemy character are
+what S1 still wants. Store, per-character snapshots,
 the roster and tradeskill-candidate model, and `/lgn roster` are built, tested and merged
 (PR #2: 158 tests, 2 pending on S1). ~~No roster frame yet~~ The window now has a Roster tab,
-and none of it has run in game. Later the same day the client's own data tables (DB2) backed
+~~and none of it has run in game~~ and the data layer has now run in game. The tab has not. Later the same day the client's own data tables (DB2) backed
 the tradeskill join, and another addon's uploads closed the CurseForge check. S1 gained a
 fallback step. The vendor pin then moved to `1.60.1.70124`, and nothing we call changed. Then
 the Roster tab landed, and a pushed `v*` tag now packages a release. A review of that branch
-(PR #4) on 2026-10-01 found 15 problems. 14 are fixed, and one is fixed in part. 206 tests, 2
-pending on S1. The pin then moved to `1.60.1.70170`. Nothing we call changed, but three Blizzard
-call sites did, and the docs were re-cited. Phase 3 is as below.**
+(PR #4) on 2026-10-01 found 15 problems. 14 are fixed, and one is fixed in part. ~~206 tests, 2
+pending on S1.~~ 211 tests, 1 pending on S1's Alchemy half. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -30,9 +41,124 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Blocking: **S1** (all of v1, and both pending tests, one with **D4**), **U4** (needs S1's
-second character), and **C3** (the first real data for the "in progress" tier). The queue is
+Blocking: **D10**'s name rows (the roster key, 30 s on the branch build) and **C3** (two
+commands on Geo, for the mid-progress fixture). Not blocking: **U2** and **C2**. The queue is
 `docs/ingame-commands.md`.
+
+## Vendor pin moved to 1.60.1.70170 — 2026-10-01
+
+`966519c` → `9a789c0`. Six `Blizzard_LegacySystem` files changed. No constant, signature or API doc
+on our surface moved, and `## Interface: 16001` still matches. The citations that shifted were
+re-derived. Detail in `docs/beta-builds.md`.
+
+Two of the call-site changes bear on open questions:
+
+- Blizzard's summary now reads `GetTreeCurrencyInfo` with `excludeStagedChanges = false`. `Api`
+  keeps `true`, so a snapshot records committed spend and never a player's unsaved tree edits.
+  Open for Alex if the window should match Blizzard's panel instead.
+- `ToggleLegacySystemUI` does nothing at zero points now. The "open Blizzard's panel on one
+  challenge" idea, under the Legacy Forever entry below, would need to hide or disable itself at
+  zero points.
+
+## S1 closed, and the frame seen — 2026-10-01, late morning
+
+Five more captures from Alex, after a full client restart, on Geo Prizm with Alchemy trained.
+The findings are in `CLAUDE.md`, and the detail is in `docs/legacy-internals.md`, "S1 closed".
+
+- **S1 closed.** The first read after a restart found session 2's table. Geo's Alchemy reads
+  171, and Geo joins all three Alchemy challenges through `parentProfessionID`, and not at
+  all without it. Both tests that waited on S1 now run on captures. None is pending.
+- **D4 closed.** Primaries in slots 1 and 2, Cooking in slot 5.
+- **D10, half.** No secrets on 70124: 30 rows `ok`, one expected `partial`. The name rows were
+  missing because the install came from main, not the branch that adds them.
+- **U1, U3 and U4 closed.** The header's dot renders. The filter bar wraps cleanly. The first
+  real "in progress" tier showed the Alchemy rows, ordered by fraction. The Roster tab's
+  headings sit over their columns, Geo is in gold, and the footnote draws below the rows. The
+  icon draws in the AddOns list.
+- **Professions cannot be read at logout either.** The empty-read rule kept the login list.
+- **One look note:** the selected tab shows only as white text on the same red button. It
+  reads, but faintly. A candidate for a later pass, not a bug.
+- **U2, nearly all.** The first block printed nothing, so it was rewritten to guard every step
+  and write to the chat frame. The frame reads `IsProtected() = false, false`, and both
+  ScrollBox templates exist. A clipped string reads `IsTruncated() = true`, but its
+  `GetStringWidth()` equals the full unbounded width, so only `IsTruncated()` can detect
+  clipping. Whether `...` is drawn still needs one look at the screen.
+
+The window read costs 37 ms now that it also snapshots and reads the roster, against U1's 21
+ms. Still well under the 100 ms that would have moved `CRITERIA_UPDATE` off the refresh path.
+
+The AddOns list shows `@project-version@` as the version of a copy from the repo. Expected:
+the client reads the TOC directly, and only our own chat line and dumps map it to `dev`. A
+packaged build shows the tag.
+
+Still Alex's call: key the roster by GUID once D10's name rows come back.
+
+## S1, first paste — 2026-10-01
+
+Alex ran `/lgn roster` on Geo, a level 5 Druid with Herbalism and Cooking, after a short
+session on Bong. The paste is `spec/fixtures/roster_geo.lua`. The findings are in `CLAUDE.md`
+and in `docs/legacy-internals.md`, "S1, first paste".
+
+What it settled:
+
+- **The saved file loads back** across a logout and a character switch. A full restart, S1
+  step 4, is the last check, and the `LoadSavedVariablesFirst` fallback stays unused unless
+  that fails.
+- **The lookup answers for unlearned lines**, with exactly the DB2 parents. The `Api` test
+  that waited on it now runs against the captured structs.
+- **`GetProfessionInfo` reports the Classic line** for Herbalism and Cooking, which have
+  Forever children. The crafting join through `parentProfessionID` is now the expected case,
+  and an Alchemy character confirms it.
+- **Tree spend cannot be read at logout.** The kept-part logic from the PR #2 review held in
+  game.
+- `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire. The second fired 51 times in 45 minutes,
+  which flooded the paste, so `/lgn roster` now shows the first and last nine log lines.
+
+Spent on: one fixture, the un-pended `Api` test, a captured-gatherer join test, a roster view
+test, and a check that `Debug.RenderRoster` reproduces the captured lines exactly. The crafting
+join test stays pending, and says why.
+
+~~Open for Alex: the 2026-09-19 fixture names the Shaman `"Bong Wrip"`, and this paste says
+`"Bong"`. Was the old one edited?~~ **Answered by Alex the same day: Forever names have a first
+name and a surname, a Legacy feature, and Bong is the first name.** The old fixture was a
+faithful capture. `UnitName` returned the full name on 69913 and the first name on 70124.
+
+That makes the roster key a risk. Characters are keyed `Name-Realm`, and that already changed
+shape once for one character, so a build that moves the surname again would split each
+character into two rows. D10's probe now reads every name call and `UnitGUID` side by side.
+**Alex's call once D10 is back:** key the roster by GUID, merging any rows that share one. I
+recommend it if `UnitGUID` reads `ok`. Until then `/lgn roster forget` removes a duplicate.
+
+## PR #5 review — 2026-10-01
+
+A code review of the S1 intake branch found 10 problems, none of them a crash or a broken test.
+Nine are fixed and one is fixed in part. 221 tests, none pending.
+
+**D10's paste would have hidden the second return.** The probe printed only the first return,
+so `UnitFullName`'s realm and any surname `UnitName` or `UnitNameUnmodified` put second would
+not have reached the paste. The three name rows now print every return. `CLAUDE.md`'s
+no-secrets claim also covered those calls, and the probe had never read them. It now says so.
+
+**The session's snapshot log grew all session.** `/lgn roster` showed only ten lines, but Core
+kept every skill-up. Core now holds the log to `Store.LOG_LIMIT`, keeping the login result and
+the latest and counting the middle it drops. The renderer stopped skipping lines itself. The
+saved log from earlier sessions had been cut the same way, which hid its newest entries, and
+it now shows in full.
+
+Smaller fixes:
+
+- `CLAUDE.md` gave two opposite join rules in one paragraph. It now says the direct match
+  never fires for Alchemy, Herbalism and Cooking, and keeps both joins, as `Model/` does.
+- U2's checklist still expected `stringWidth` at or under 120 after v2 showed otherwise.
+- The S1 skill-line test compared `Api`'s output with `Api`'s own earlier output. It checks
+  the raw client fields now.
+- A provenance comment had landed on the wrong test.
+
+**Fixed in part: the U4 footnote.** The capture's note counts 15 tradeskill challenges with
+no saved character, and only page 1's three are captured. The test now compares everything
+from the header to the end of STATE except that line. A second test checks the line's wording
+against the capture, with the count left out. A capture of all 18 tradeskill challenges would
+let the count be checked too.
 
 ## PR #4 review — 2026-10-01
 
@@ -140,20 +266,6 @@ The widget double now records anchors, mouse and highlight, so the heading row's
 tab end to end. Not fixed, and harmless: a window opened within 5 s of login snapshots before
 the delayed login snapshot does. If trait data is not ready, tree spend can read 0 for those
 seconds until the delayed one corrects it.
-
-## Vendor pin moved to 1.60.1.70170 — 2026-10-01
-
-`966519c` → `9a789c0`. Six `Blizzard_LegacySystem` files changed. No constant, signature or API doc
-on our surface moved, and `## Interface: 16001` still matches. The citations that shifted were
-re-derived. Detail in `docs/beta-builds.md`.
-
-Two of the call-site changes bear on open questions:
-
-- Blizzard's summary now reads `GetTreeCurrencyInfo` with `excludeStagedChanges = false`. `Api`
-  keeps `true`, so a snapshot records committed spend and never a player's unsaved tree edits.
-  Open for Alex if the window should match Blizzard's panel instead.
-- `ToggleLegacySystemUI` does nothing at zero points now. The "open Blizzard's panel on one
-  challenge" idea, under the Legacy Forever entry below, would need to hide or disable itself at zero points.
 
 ## Vendor pin moved to 1.60.1.70124 — 2026-09-30
 
@@ -565,8 +677,8 @@ that are currently known to be false or unverified.
 - [x] `Model/` ranking, tested against `spec/fixtures/` — 2026-09-19
 - [x] The v0 frame: reward track header, ranked list, category filter — written 2026-09-19
 - [x] The v0 frame **seen in the client** — U1's uidump, 2026-09-19. Content correct, both
-      templates resolved, 21 ms per read, one OnHide error found and fixed. Screenshot still
-      wanted for the look; U1 stays open for that alone
+      templates resolved, 21 ms per read, one OnHide error found and fixed. ~~Screenshot still
+      wanted for the look; U1 stays open for that alone~~ Screenshot seen 2026-10-01, U1 closed
 - [x] Reward track header actually renders — D6 closed 2026-09-19, header built on it
 
 **Blocking, release mechanics** (`docs/distribution.md`):
@@ -585,7 +697,7 @@ that are currently known to be false or unverified.
       `github.com` / `raw.githubusercontent.com` URLs. Both 404 while `lxhwes/LegacyNext` is
       private, on GitHub and in the CurseForge listing alike. Alex's
 - [x] Icon: `LegacyNext/Media/icon.tga` and the `## IconTexture` line — 2026-09-19, concept A
-      from `docs/icon-design.md`; seen in the AddOns list is **U3**
+      from `docs/icon-design.md`; ~~seen in the AddOns list is **U3**~~ seen in the AddOns list 2026-10-01
 
 **Should be true, not blocking:**
 
@@ -609,9 +721,9 @@ way: the dry run cost twenty minutes and closed two blockers.
 | — | Project skills: `ingame-script`, `api-guard`, `fixture-intake`, `safe-commit` — the authoring loop | **Done** |
 | 2 | `Api/` guard layer and `Debug/` dump+probe. No `Model/`, no `UI/`. | **Done** — ran in game 2026-09-19, one guard bug found and fixed |
 | 3a | `Model/` — ranking, reward-track math, category list. Pure Lua, fully testable here. | **Done** — 2026-09-19 |
-| 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Done** — drawn in the client 2026-09-19 (U1 uidump). Screenshot still open; the 2026-09-26 changes are unseen |
+| 3b | `UI/` — the v0 frame. Needs in-game iteration; see the UI plan below. | **Done** — drawn in the client 2026-09-19 (U1 uidump). ~~Screenshot still open; the 2026-09-26 changes are unseen~~ Seen in screenshots 2026-10-01, with the Roster tab |
 | 3c | Release prep — LICENSE, icon, packager dry-run, version scheme, listing. **Was missing from the plan entirely.** | Done except ~~CurseForge check~~ (answered 2026-09-30, `docs/distribution.md` §3), ~~TOC version line~~ (2026-09-30). Tag-triggered packaging added the same day |
-| 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, unverified in game (S1); ~~roster frame not started~~ Roster tab built 2026-09-30, unseen (U4) |
+| 4 | v1 roster. ~~Blocked on SavedVariables, **and its stated approach is known broken** — see below.~~ Started 2026-09-30 on a report that the SV bug is fixed; mapping is professions only. See "Phase 4 — started" below | **In progress** — data layer built, ~~unverified in game (S1)~~ ran in game 2026-10-01, S1 closed the same day; ~~roster frame not started~~ Roster tab built 2026-09-30, ~~unseen (U4)~~ seen 2026-10-01 |
 
 Phase 3 was one row until 2026-09-19. Splitting it is not bookkeeping: `Model/` is pure Lua
 that I can finish and prove alone, `UI/` cannot be verified without Alex looking at it, and
@@ -693,7 +805,7 @@ Checked 2026-09-19; these do not exist yet:
       publishing at all.
 - [x] **Icon.** Shipped 2026-09-19: `LegacyNext/Media/icon.tga` (64x64 32-bit TGA, original
       vector art, concept A "Almost full" from `docs/icon-design.md`), TOC line uncommented.
-      Unseen in the client — **U3**.
+      ~~Unseen in the client — **U3**.~~ Seen in the AddOns list 2026-10-01.
 - [x] **`CHANGELOG.md`** — added 2026-09-19, Keep a Changelog, `[Unreleased]` populated.
 - [x] **Version scheme.** Decided 2026-09-19: SemVer `0.x.y` in beta, `1.0.0` at launch, tag
       is the version via `@project-version@`. The TOC line itself is still `0.0.1` — Alex's.
@@ -1033,8 +1145,9 @@ returns and never names a slot.
 ## Known risks
 
 - ~~**SavedVariables are written but never loaded back** on the beta — Blizzard-side.~~
-  **Reported fixed, 2026-09-30** (Alex, from Blizzard's notes). Not tested in game yet, so
-  **S1** tests it with a `/reload` and a full restart. `Store/` is still the single place that
+  **Reported fixed, 2026-09-30** (Alex, from Blizzard's notes). ~~Not tested in game yet, so
+  **S1** tests it with a `/reload` and a full restart.~~ Loaded back across a logout and a
+  character switch, and off disk after a full restart, 2026-10-01. **Resolved.** `Store/` is still the single place that
   names `LegacyNextDB`, so if the fix does not hold, the workaround is still a one-file
   change. Original entry: v1's roster
   depends on a workaround. Blizzard's own Challenge Tracker uses
