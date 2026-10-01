@@ -26,8 +26,12 @@ and after. `vendor/PINS.md` lists that directory now.
   Atlases are Blizzard's own art, so it is not an option for us anyway.
 - The path is relative to the WoW directory with no extension, the same form as every other
   texture path in the source. A file data ID would also satisfy `|T|t` markup, but we ship a file.
-- The addon compartment (minimap dropdown) also reads `IconTexture` on retail. That code lives
-  outside the sparse checkout and was not checked here; it does not change the file we ship.
+- The addon compartment (minimap dropdown) reads `IconTexture`, then `IconAtlas`
+  (`Blizzard_Minimap/Mainline/AddonCompartment.lua:86` at `966519c`, outside the sparse
+  checkout). It draws a Texture widget at 16 x 16 on the right of the entry, using `SetAtlas`
+  if the value names an atlas and `SetTexture` otherwise (`:40-52`). So our 64 x 64 TGA shows
+  at 16 px there, smaller than the AddOns list's 20. It does not change the file we ship. U5
+  checks it in game. Added 2026-10-01.
 
 ## File format
 

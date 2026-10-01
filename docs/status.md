@@ -50,6 +50,16 @@ Evidence is source only, at `966519c`. `Blizzard_Minimap.toc` loads `AddonCompar
 is inferred to load it. The compartment lists only addons enabled for every character
 (`AddonCompartment.lua:80`). **U5** checks all of it in 30 s.
 
+**PR #6 review, the same day.** A subagent review found nine problems, none in the code path.
+Eight are fixed on the branch. U5 sent Alex to the clock, but the button is anchored under the
+calendar, which also shows a number. U5 also offered a question mark for a failed icon, which
+the compartment never draws. Two citations named `:98` for the call at `:99`. `Blizzard_Minimap`
+is now on `vendor/PINS.md`'s outside-the-checkout list. `docs/icon-design.md` records the 16 px
+draw, and `README.md` names the dropdown and its all-characters catch. The S1 caveat left
+`CLAUDE.md`, since this section already holds it. Not done: routing the click through the
+slash handler with a nil-`ns.UI` guard. `Core.lua` calls `ns.UI.SetDataSource` at load, so a
+missing UI fails before the handler exists.
+
 ## PR #4 review — 2026-10-01
 
 A code review of the Roster tab branch found 15 problems. 14 are fixed on the same branch, one

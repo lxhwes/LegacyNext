@@ -51,14 +51,16 @@ step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
 `LegacyNext/UI/UI.lua` resolve only with them present. All seventeen were still present at
 `bd2470a`, checked directory by directory on 2026-09-26, and again at `966519c` on 2026-09-30.
 
-Four directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
+Five directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
 `Blizzard_SharedTalentUI` (`docs/legacy-internals.md`), `Blizzard_MajorFactions`
-(`docs/legacy-internals.md`, toast events) and `Blizzard_Professions` (`CLAUDE.md`,
-`docs/status.md`). `Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on this list until the
+(`docs/legacy-internals.md`, toast events), `Blizzard_Professions` (`CLAUDE.md`,
+`docs/status.md`) and `Blizzard_Minimap` (`LegacyNext/Core.lua`, `docs/ingame-commands.md`,
+`docs/icon-design.md`, the addon compartment; read with `git show 966519c:<path>`).
+`Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on this list until the
 widening above brought them in. They were read by running `git sparse-checkout set Interface`
 at an earlier pin — 53 MB, 4405 files — and then narrowing back. Widen the same way to re-check
 them; the pin does not move. The whole-tree diff from `bd2470a` to `966519c` touches none of the
-four, so their citations hold at this pin.
+five, so their citations hold at this pin.
 
 ### Recreate
 
