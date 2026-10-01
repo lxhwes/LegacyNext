@@ -114,19 +114,36 @@ describe("Debug.RenderRoster", function()
 	end)
 
 	-- S1's first paste carried 51 lines of this, one per Herbalism skill-up (roster_geo.lua).
-	it("shows the first snapshot this session and the last nine, and counts the rest", function()
+	-- Core trims the session log and counts what it dropped; the renderer says how many.
+	it("counts the snapshots Core dropped after the first one this session", function()
 		local ns = loadStack()
-		local log = {}
-		for index = 1, 15 do
-			log[index] = { at = 1000, text = "entry " .. index }
+		local log = { { at = 1000, text = "entry 1" } }
+		for index = 7, 15 do
+			log[#log + 1] = { at = 1000, text = "entry " .. index }
 		end
 
-		local text = ns.Debug.RenderRoster({ roster = ns.Model.Roster({}, nil), snapshotLog = log, now = 1000 })
+		local text = ns.Debug.RenderRoster({ roster = ns.Model.Roster({}, nil), snapshotLog = log,
+			snapshotLogSkipped = 5, now = 1000 })
 
 		assert.truthy(text:find("snapshots this session:\n  0m ago  entry 1\n  ... 5 more\n  0m ago  entry 7\n", 1, true))
 		assert.truthy(text:find("  0m ago  entry 15\n", 1, true))
-		assert.is_nil(text:find("entry 2\n", 1, true))
-		assert.is_nil(text:find("entry 6\n", 1, true))
+	end)
+
+	-- Store already trimmed it, and its first entry is just the oldest kept, so all of it shows.
+	it("shows every saved snapshot from earlier sessions", function()
+		local ns = loadStack()
+		local log = {}
+		for index = 1, 11 do
+			log[index] = { session = 1, at = 1000, text = "entry " .. index }
+		end
+
+		local text = ns.Debug.RenderRoster({ roster = ns.Model.Roster({}, nil),
+			diagnostics = { loadedLog = log }, now = 1000 })
+
+		assert.is_nil(text:find("more", 1, true))
+		for index = 1, 11 do
+			assert.truthy(text:find("session 1  0m ago  entry " .. index .. "\n", 1, true))
+		end
 	end)
 
 	it("says when a part of a snapshot was never read", function()

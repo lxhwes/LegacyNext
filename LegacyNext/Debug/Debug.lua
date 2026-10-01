@@ -539,8 +539,8 @@ end
 
 -- Pure: renders the roster, the profession candidates and the store's own diagnostics.
 -- input = { roster = Model.Roster, candidates = Model.ProfessionCandidates, diagnostics,
--- parents, parentsReason, challengesReason, snapshotResult, snapshotLog, eventsNotRegistered,
--- now }.
+-- parents, parentsReason, challengesReason, snapshotResult, snapshotLog, snapshotLogSkipped,
+-- eventsNotRegistered, now }.
 function Debug.RenderRoster(input)
 	local out = {}
 	local function w(line) out[#out + 1] = line end
@@ -565,26 +565,24 @@ function Debug.RenderRoster(input)
 	if input.snapshotResult then
 		w("this snapshot: " .. input.snapshotResult)
 	end
-	-- The first entry is the login result; skill-ups add one each, so the middle is counted.
-	local LOG_SHOWN = 10
-	local function logLines(title, log, withSession)
+	-- Both logs arrive trimmed. `skipped` is how many Core dropped after the first entry.
+	local function logLines(title, log, withSession, skipped)
 		if type(log) ~= "table" or not log[1] then
 			return
 		end
 		w(title)
-		local skipFrom, skipTo = 2, #log - (LOG_SHOWN - 1)
 		for index, entry in ipairs(log) do
-			if index == skipFrom and skipTo >= skipFrom then
-				w("  ... " .. (skipTo - skipFrom + 1) .. " more")
-			end
-			if type(entry) == "table" and (index < skipFrom or index > skipTo) then
+			if type(entry) == "table" then
 				local age = minutesAgo(input.now, entry.at)
 				local session = withSession and ("session " .. tostring(entry.session) .. "  ") or ""
 				w("  " .. session .. (age and (age .. "  ") or "") .. tostring(entry.text))
 			end
+			if index == 1 and (skipped or 0) > 0 then
+				w("  ... " .. skipped .. " more")
+			end
 		end
 	end
-	logLines("snapshots this session:", input.snapshotLog, false)
+	logLines("snapshots this session:", input.snapshotLog, false, input.snapshotLogSkipped)
 	logLines("snapshots saved by earlier sessions:", d.loadedLog, true)
 	if input.eventsNotRegistered and input.eventsNotRegistered[1] then
 		w("events not registered: " .. table.concat(input.eventsNotRegistered, ", "))
@@ -648,6 +646,7 @@ function Debug.BuildRoster()
 		parentsReason = input.parentsReason,
 		snapshotResult = input.snapshotResult,
 		snapshotLog = input.snapshotLog,
+		snapshotLogSkipped = input.snapshotLogSkipped,
 		eventsNotRegistered = input.eventsNotRegistered,
 		challengesReason = input.challengesReason,
 		now = input.now,
