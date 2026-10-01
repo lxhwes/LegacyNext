@@ -130,9 +130,11 @@ Wago, verified: `curl https://addons.wago.io/api/data/game | jq '.patches.foreve
 ## 4. Release workflow: wired 2026-09-30
 
 `.github/workflows/release.yml` runs when a tag matching `v*` is pushed. Job `lint-and-test`
-is a copy of `ci.yml`'s job. Job `package` needs it, checks out with `fetch-depth: 0` for the
-changelog, and runs `BigWigsMods/packager@v2` with no arguments, so no `-g`. It has
-`permissions: contents: write` so the packager can create the GitHub release.
+~~is a copy of `ci.yml`'s job~~ calls `ci.yml` itself through `workflow_call`, since
+2026-10-01 (PR #4 review: two copies of the action pins would drift). `ci.yml`'s `push` trigger
+is now branches-only, so a tag runs the gate once. Job `package` needs it, checks out with
+`fetch-depth: 0` for the changelog, and runs `BigWigsMods/packager@v2` with no arguments, so
+no `-g`. It has `permissions: contents: write` so the packager can create the GitHub release.
 
 `gh api repos/BigWigsMods/packager/commits/v2 --jq '.sha'` →
 `e50a250f8705041e40f2fa1ddcb280a686d65aa0`, the same commit as §1 and as `master`. Line

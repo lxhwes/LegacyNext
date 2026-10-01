@@ -1,8 +1,12 @@
 name: CI
 
 on:
+  # Branches only: a v* tag runs this same gate through release.yml.
   push:
+    branches: ["**"]
   pull_request:
+  # release.yml calls this file, so a tag passes the gate CI enforces, not a copy of it.
+  workflow_call:
 
 jobs:
   lint-and-test:
