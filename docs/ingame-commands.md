@@ -25,6 +25,7 @@ Open, roughly in the order worth doing:
 | U4 | `/lgn uidump roster`, then three screenshots: the Roster tab, the same tab scrolled to the bottom, and Next Up with the mouse over Journeyman Alchemist. **After S1's step 3**, so two characters are saved. Section U4 below | Whether the Roster tab reads right: the `P/A/R` and `Free` headings over their columns, the current character in gold, a tradeskill row naming the Alchemy character, the collapsed filter bar, and the footnote's last line in view. Content is checkable against `spec/golden/uidump_roster.txt`. Only the look needs your eyes | 2 min, same login as S1 |
 | U1 | **Partly answered 2026-09-19** — the uidump came back and is written up in `docs/status.md`. Still open for the one thing it cannot show: **one screenshot of the window**, after a `/reload` on a build with the OnHide fix | Look only: spacing, alignment, whether the inset crops anything. Row content is already checked against `spec/golden/`. Section U1 below | 1 min |
 | U3 | Look at the AddOns list at character select (or Escape > AddOns) after installing this build | Whether `## IconTexture` draws our 64x64 TGA at 20 px beside the addon name instead of the question mark. Section U3 below | 30 s |
+| U5 | Click the minimap's addon dropdown (the small numbered button by the clock), then click `LegacyNext` in it, twice. Section U5 below | Whether Forever shows Blizzard's Addon Compartment at all, and whether our `## AddonCompartmentFunc` entry lists and toggles the window. Read from source only: the TOC loads it for `mainline`, and Forever's `camelot` type is inferred to count as `mainline` | 30 s, any login |
 | U2 | The WoWLua block under U2 below | Whether a one-line FontString with word wrap off draws `...` or just clips (Tier C in `docs/ui-templates.md`), `IsTruncated()` on it, and `IsProtected()` on our frame | 2 min |
 | C3 | A criterion sitting part-done. **Cheap way: train Alchemy and craft a few potions**, then `/lgn dump challenges 1` (Alchemy is on page 1). Section C3/D4 below | The mid-progress ranking fixture, and the first real "in progress" row for the three-tier ranking. Every captured criterion so far reads 0 | ~10 min, same session as D4. Forever's level requirement for training a profession is unchecked |
 | D4 | `/lgn dump character` after training Alchemy for C3. A second primary plus cooking makes it more useful | `GetProfessions`' seven Forever slots, still unverified against a real return. Two characters so far knew none | Free with C3 |
@@ -121,6 +122,21 @@ should show the gold ring icon at 20 px instead of the question mark. If it is s
 question mark, or a green square (the client's "texture failed to load"), say which. The file
 is `LegacyNext/Media/icon.tga`, and the TOC line is
 `## IconTexture: Interface\AddOns\LegacyNext\Media\icon`.
+
+## U5 — the minimap addon dropdown
+
+Nothing to type. Look at the minimap for a small round button with a number on it, just below
+the clock. Click it. `LegacyNext` should be listed with the gold ring icon. Click that entry
+once and the window should open. Open the dropdown and click it again, and the window should
+close. Say which of these happened:
+
+- No numbered button at all. Forever does not load the compartment, or hides it.
+- The button, but no `LegacyNext` in it. The compartment lists only addons enabled for **all
+  characters** (`AddonCompartment.lua:80`), so check the AddOns list's character dropdown first.
+- Listed, but the click does nothing or errors. Paste the error.
+
+Also say whether the icon beside the name is the ring or a question mark. That is U3's question
+from a second place.
 
 ## S1 — SavedVariables and the tradeskill join, via `/lgn roster`
 

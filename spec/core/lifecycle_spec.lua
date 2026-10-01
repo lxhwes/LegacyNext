@@ -335,6 +335,42 @@ describe("addon lifecycle", function()
 		assert.is_true(found)
 	end)
 
+	describe("addon compartment", function()
+		-- The compartment calls _G[name] for the name the TOC gives (AddonCompartment.lua:81, :98).
+		local function compartmentFunc()
+			for line in io.lines("LegacyNext/LegacyNext.toc") do
+				local name = line:match("^## AddonCompartmentFunc:%s*(%S+)")
+				if name then
+					return name
+				end
+			end
+		end
+
+		after_each(function()
+			local name = compartmentFunc()
+			if name then
+				_G[name] = nil
+			end
+		end)
+
+		it("names a global function in the TOC that Core defines", function()
+			local name = compartmentFunc()
+
+			assert.is_string(name)
+			assert.is_function(_G[name])
+		end)
+
+		it("toggles the window on any click", function()
+			local toggles = 0
+			ns.UI.Toggle = function() toggles = toggles + 1 end
+
+			_G[compartmentFunc()]("LegacyNext", "LeftButton")
+			_G[compartmentFunc()]("LegacyNext", "RightButton")
+
+			assert.equals(2, toggles)
+		end)
+	end)
+
 	it("attaches the store on its own ADDON_LOADED and snapshots at login and logout", function()
 		handler(nil, "ADDON_LOADED", "SomeOtherAddon")
 		assert.is_nil(_G.LegacyNextDB)

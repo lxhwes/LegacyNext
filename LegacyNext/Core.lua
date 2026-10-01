@@ -268,6 +268,12 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 	end
 end)
 
+-- Named by ## AddonCompartmentFunc. Blizzard's minimap dropdown calls it by global name with
+-- (addonName, buttonName) (AddonCompartment.lua:98, :103); every button toggles, like /lgn.
+function LegacyNext_OnAddonCompartmentClick()
+	ns.UI.Toggle()
+end
+
 SLASH_LEGACYNEXT1 = "/legacynext"
 SLASH_LEGACYNEXT2 = "/lgn"
 

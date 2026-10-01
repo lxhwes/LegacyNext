@@ -11,7 +11,8 @@ the tradeskill join, and another addon's uploads closed the CurseForge check. S1
 fallback step. The vendor pin then moved to `1.60.1.70124`, and nothing we call changed. Then
 the Roster tab landed, and a pushed `v*` tag now packages a release. A review of that branch
 (PR #4) on 2026-10-01 found 15 problems. 14 are fixed, and one is fixed in part. 206 tests, 2
-pending on S1. Phase 3 is as below.**
+pending on S1. Later that day the window got an entry in the minimap's addon dropdown, unseen
+in game (U5). 208 tests, 2 pending on S1. Phase 3 is as below.**
 
 **As of 2026-09-26: Phase 3 is built and the frame has been drawn by the client. A review pass on
 2026-09-26 changed the ranking to three tiers, hid other classes' challenges, slowed the
@@ -32,6 +33,22 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 Blocking: **S1** (all of v1, and both pending tests, one with **D4**), **U4** (needs S1's
 second character), and **C3** (the first real data for the "in progress" tier). The queue is
 `docs/ingame-commands.md`.
+
+## Minimap entry — 2026-10-01
+
+Alex asked for a minimap button and chose Blizzard's Addon Compartment over a draggable icon.
+The TOC names `LegacyNext_OnAddonCompartmentClick`, a global in `Core.lua`, and any click
+toggles the window as `/lgn` does. The entry reuses `## IconTexture`.
+
+Why not a draggable icon. Its position has to be saved, and SavedVariables are S1's open
+question. It would also parent a frame to Blizzard's Minimap, which v0's scope rules out.
+LibDBIcon would add the project's first external libs. Revisit after S1 if the dropdown is not
+enough.
+
+Evidence is source only, at `966519c`. `Blizzard_Minimap.toc` loads `AddonCompartment.lua` for
+`mainline`. The same TOC excludes `camelot` from another `mainline` line, which is why Forever
+is inferred to load it. The compartment lists only addons enabled for every character
+(`AddonCompartment.lua:80`). **U5** checks all of it in 30 s.
 
 ## PR #4 review — 2026-10-01
 
