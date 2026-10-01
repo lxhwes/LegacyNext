@@ -222,6 +222,14 @@ Alchemy half of S1 settles it. The same frame compares it against
 `parentProfessionID or professionID` (`:41-43`), and Alchemy's challenges name 2937, not
 Classic's 171. Join through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID`
 as well as directly, never by name. `GetServerTime` stamps roster snapshots.
+**Forever characters have a first name and a surname**, a Legacy feature (Alex, 2026-10-01).
+`UnitName("player")` read `"Bong Wrip"` on 69913 and `"Bong"` on 70124 for the same
+character, so **a name is not a stable character key**, and the roster's `Name-Realm` key can
+split one character into two rows across builds. `C_PlayerInfo.ShouldDisplaySurname` exists
+at every pin (`PlayerInfoDocumentation.lua:358`).
+`C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator` arrived in 70009
+(`NameUtilDocumentation.lua:11`), and its doc says full names carry a "surname separator".
+Which call carries the surname now, and whether `UnitGUID` reads, is D10.
 The client data backs the parent reading [DB2, 2026-09-30]. All six tradeskill lines are
 tier-4 children of the Classic lines: 2937 → 171, 2938 → 164, 2940 → 333, 2941 → 202,
 2945 → 165, 2948 → 197. **The live lookup returns exactly that map** [verified in game

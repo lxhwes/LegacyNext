@@ -21,7 +21,7 @@ Open, roughly in the order worth doing:
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
 | S1 | **Partly answered 2026-10-01** (`spec/fixtures/roster_geo.lua`): the saved file came back across a logout and a character switch, and the lookup answered for all six lines. Still open: **step 4**, one `/lgn roster` after a full client restart, and **step 3 on an Alchemy character**, whose bracketed skill line settles the crafting join. Section S1 below | Whether a restart reads the file off disk, which is what the original bug was about. Whether a crafting profession reports 2937 or its parent 171. Unblocks the last `pending` test | ~2 min for the restart; the Alchemy half is free with C3 |
-| D10 | `/lgn dump probe` on build 1.60.1.70124, **at the start of the S1 session**. Section D10 below | Whether "no secrets on our surface" still holds. It is a per-build finding, last tested on 69913, and the pin is now two builds past that | 30 s |
+| D10 | `/lgn dump probe` on build 1.60.1.70124, **at the start of the S1 session**. Section D10 below | Whether "no secrets on our surface" still holds. Also, since 2026-10-01, which name call carries Forever's surname and whether `UnitGUID` reads, for a roster key that cannot shift. It is a per-build finding, last tested on 69913, and the pin is now two builds past that | 30 s |
 | U4 | `/lgn uidump roster`, then three screenshots: the Roster tab, the same tab scrolled to the bottom, and Next Up with the mouse over Journeyman Alchemist. **After S1's step 3**, so two characters are saved. Section U4 below | Whether the Roster tab reads right: the `P/A/R` and `Free` headings over their columns, the current character in gold, a tradeskill row naming the Alchemy character, the collapsed filter bar, and the footnote's last line in view. Content is checkable against `spec/golden/uidump_roster.txt`. Only the look needs your eyes | 2 min, same login as S1 |
 | U1 | **Partly answered 2026-09-19** — the uidump came back and is written up in `docs/status.md`. Still open for the one thing it cannot show: **one screenshot of the window**, after a `/reload` on a build with the OnHide fix | Look only: spacing, alignment, whether the inset crops anything. Row content is already checked against `spec/golden/`. Section U1 below | 1 min |
 | U3 | Look at the AddOns list at character select (or Escape > AddOns) after installing this build | Whether `## IconTexture` draws our 64x64 TGA at 20 px beside the addon name instead of the question mark. Section U3 below | 30 s |
@@ -179,6 +179,12 @@ What I am reading it for: the meta block's `build` reading 70124, `issecretvalue
 `guard active`, every constant and flag reading `(runtime)`, and no row reading `secret`. D2
 and D5 are the baseline. A `secret` row is the finding that matters. It means Midnight's
 restrictions reached an API we call, and it goes into `CLAUDE.md` before anything else.
+
+Added 2026-10-01: five name rows, `UnitName`, `UnitFullName`, `UnitNameUnmodified`,
+`UnitGUID` and `C_PlayerInfo.ShouldDisplaySurname`. Run it on a character whose surname is
+set, and say which one that is. I am reading which name row carries the surname, and whether
+`UnitGUID` reads `ok` with a `Player-` value rather than `secret`. That decides whether the
+roster can key characters by GUID instead of by a name that has already changed shape once.
 
 ## C3 and D4 — one Alchemy session
 

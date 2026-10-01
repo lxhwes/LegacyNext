@@ -61,8 +61,16 @@ Spent on: one fixture, the un-pended `Api` test, a captured-gatherer join test, 
 test, and a check that `Debug.RenderRoster` reproduces the captured lines exactly. The crafting
 join test stays pending, and says why.
 
-Open for Alex: the 2026-09-19 fixture names the Shaman `"Bong Wrip"`, and this paste says
-`"Bong"`. Was the old one edited?
+~~Open for Alex: the 2026-09-19 fixture names the Shaman `"Bong Wrip"`, and this paste says
+`"Bong"`. Was the old one edited?~~ **Answered by Alex the same day: Forever names have a first
+name and a surname, a Legacy feature, and Bong is the first name.** The old fixture was a
+faithful capture. `UnitName` returned the full name on 69913 and the first name on 70124.
+
+That makes the roster key a risk. Characters are keyed `Name-Realm`, and that already changed
+shape once for one character, so a build that moves the surname again would split each
+character into two rows. D10's probe now reads every name call and `UnitGUID` side by side.
+**Alex's call once D10 is back:** key the roster by GUID, merging any rows that share one. I
+recommend it if `UnitGUID` reads `ok`. Until then `/lgn roster forget` removes a duplicate.
 
 ## PR #4 review — 2026-10-01
 

@@ -1041,9 +1041,18 @@ noise in the paste, so `/lgn roster` now prints the first entry and the last nin
 
 **A contradiction with an older fixture.** The Shaman's name reads `Bong`.
 `spec/fixtures/dump_character_shaman.lua` (2026-09-19) has `"Bong Wrip"`, while a criterion's
-`charName` in that same capture reads `"Bong"`. A player name cannot hold a space, so the
-older file's name probably changed somewhere between the client and the fixture. Tests use it
-only as a label. The fixture is left as it is until Alex says what happened.
+`charName` in that same capture reads `"Bong"`. ~~A player name cannot hold a space, so the
+older file's name probably changed somewhere between the client and the fixture.~~ **Answered
+by Alex the same day: Forever names have a first name and a surname, a Legacy feature. Bong
+is the first name.** The old fixture is a faithful capture. What changed is `UnitName`: on
+69913 it returned the full name, and on 70124 the first name only. `C_PlayerInfo.ShouldDisplaySurname` (`PlayerInfoDocumentation.lua:358`) is present at all
+three pins. `C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator`
+(`NameUtilDocumentation.lua:11`), documented as replacing "the character surname separator
+with a link separator in a full name string", arrived with 70009. Neither has a caller in the
+sparse checkout. The roster keys characters as `Name-Realm`, so a build that moves the
+surname in or out of `UnitName` again would give one character two rows. D10's probe now
+reads `UnitName`, `UnitFullName`, `UnitNameUnmodified`, `UnitGUID` and
+`ShouldDisplaySurname` side by side.
 
 ---
 
