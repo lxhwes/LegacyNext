@@ -380,6 +380,74 @@ describe("addon lifecycle", function()
 		end)
 	end)
 
+	-- The AddOns list reads it as metadata "Category" and groups on the exact string
+	-- (AddonList.lua:456, :486-490).
+	it("names a Category in the TOC for the AddOns list", function()
+		local category
+		for line in io.lines("LegacyNext/LegacyNext.toc") do
+			category = category or line:match("^## Category:%s*(.-)%s*$")
+		end
+
+		assert.equals("Achievements", category)
+	end)
+
+	describe("key binding", function()
+		-- Each <Binding> in Bindings.xml: its name, its category and the Lua the client runs.
+		local function bindings()
+			local file = assert(io.open("LegacyNext/Bindings.xml"))
+			local xml = file:read("*a")
+			file:close()
+			local found = {}
+			for attributes, body in xml:gmatch("<Binding%s+([^>]-)>(.-)</Binding>") do
+				found[#found + 1] = {
+					name = attributes:match('name="([^"]*)"'),
+					category = attributes:match('category="([^"]*)"'),
+					body = body,
+				}
+			end
+			return found
+		end
+
+		after_each(function()
+			_G.LegacyNext_Toggle = nil
+			for name in pairs(_G) do
+				if type(name) == "string" and name:find("^BINDING_NAME_") then
+					_G[name] = nil
+				end
+			end
+		end)
+
+		-- The settings list labels a row with BINDING_NAME_<name> and falls back to the bare
+		-- name (BindingUtil.lua:142-149).
+		it("puts one binding under AddOns with a label Core defines", function()
+			local list = bindings()
+
+			assert.equals(1, #list)
+			assert.equals("ADDONS", list[1].category)
+			assert.is_string(_G["BINDING_NAME_" .. list[1].name])
+		end)
+
+		it("opens and closes the window from the binding's own Lua", function()
+			-- The plain stub's IsShown is always truthy, so track Show and Hide per frame.
+			local plain = _G.CreateFrame
+			_G.CreateFrame = function(...)
+				local frame = plain(...)
+				local shown = true
+				rawset(frame, "Show", function() shown = true end)
+				rawset(frame, "Hide", function() shown = false end)
+				rawset(frame, "IsShown", function() return shown end)
+				return frame
+			end
+			local press = assert(loadstring(bindings()[1].body))
+
+			press()
+			assert.is_true(ns.UI.frame:IsShown())
+
+			press()
+			assert.is_false(ns.UI.frame:IsShown())
+		end)
+	end)
+
 	it("attaches the store on its own ADDON_LOADED and snapshots at login and logout", function()
 		handler(nil, "ADDON_LOADED", "SomeOtherAddon")
 		assert.is_nil(_G.LegacyNextDB)
