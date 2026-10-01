@@ -83,6 +83,7 @@ UI.tab = "nextup"
 UI.filter = nil -- selected Next Up group id, nil for All; kept across a trip to the roster
 UI.source = nil -- function() -> Model.BuildView / BuildRosterView input, set by Core
 UI.view = nil -- last view built, for uidump parity checks
+UI.nextUpFilters = nil -- the last Next Up view's filters, drawn while a read waits for combat
 
 local TABS = {
 	{ id = "nextup", label = "Next Up" },
@@ -549,6 +550,7 @@ function UI.Refresh()
 		-- next read does not ask for the missing group again.
 		if not roster then
 			UI.filter = view.filter
+			UI.nextUpFilters = view.filters
 		end
 	elseif roster then
 		view = ns.Model.BuildRosterView({ error = tostring(view) })
@@ -639,11 +641,20 @@ function UI.OnEvent(event)
 	UI.RequestRefresh(EVENT_DELAY[event])
 end
 
--- Shown on a first open or a switch that lands in combat, until the read can run.
+-- Shown on a first open or a switch that lands in combat, until the read can run. The header
+-- is the same on both tabs and already read, so it stays. So does Next Up's filter bar, marked
+-- with the choice just made, so another filter can still be picked.
 local function waitingView()
+	local filters = {}
+	if UI.tab == "nextup" then
+		for index, filter in ipairs(UI.nextUpFilters or {}) do
+			filters[index] = { id = filter.id, name = filter.name, count = filter.count,
+				selected = filter.id == UI.filter }
+		end
+	end
 	return {
-		header = { lines = { "", "" }, state = "ok" },
-		filters = {},
+		header = UI.view and UI.view.header or { lines = { "", "" }, state = "ok" },
+		filters = filters,
 		rows = {},
 		state = "waiting",
 		message = UI.tab == "roster" and "Reading the roster when combat ends"

@@ -422,6 +422,44 @@ describe("UI", function()
 			assert.same({ "Character", "Bong Wrip  L1 Shaman" }, shownNames(ns.UI.frame))
 		end)
 
+		-- Both tabs draw the same header, already read. Blanking it, and the filter bar with it,
+		-- left nothing to click until combat ended.
+		it("keeps the header and the filter bar while a switch waits for combat", function()
+			local ns = loadWithRoster()
+			local source = shamanSource(ns)
+			ns.UI.SetDataSource(function()
+				local input = source()
+				input.rewardTrack = fixture("dump_rewards_fresh").rewardTrack
+				return input
+			end)
+			local inCombat = false
+			_G.InCombatLockdown = function() return inCombat end
+			ns.UI.Show()
+			local frame = ns.UI.frame
+			local header = frame.headerLines[1].text
+			local buttons = frame.filterBar.buttons
+			assert.equals(4, #buttons)
+
+			inCombat = true
+			ns.UI.SetFilter(buttons[2].groupId)
+
+			assert.matches("combat", frame.status.text)
+			assert.equals(header, frame.headerLines[1].text)
+			for index, button in ipairs(buttons) do
+				assert.is_true(button.shown, button.text)
+				assert.equals(index == 2, button.locked, button.text)
+			end
+
+			ns.UI.SetTab("roster")
+			assert.equals(header, frame.headerLines[1].text)
+			for _, button in ipairs(buttons) do
+				assert.is_false(button.shown)
+			end
+			ns.UI.SetTab("nextup")
+			assert.is_true(buttons[2].shown)
+			assert.is_true(buttons[2].locked)
+		end)
+
 		it("redraws the roster after a snapshot, and leaves Next Up alone", function()
 			local ns = loadWithRoster()
 			local pending = fakeTimer()
