@@ -565,13 +565,19 @@ function Debug.RenderRoster(input)
 	if input.snapshotResult then
 		w("this snapshot: " .. input.snapshotResult)
 	end
+	-- The first entry is the login result; skill-ups add one each, so the middle is counted.
+	local LOG_SHOWN = 10
 	local function logLines(title, log, withSession)
 		if type(log) ~= "table" or not log[1] then
 			return
 		end
 		w(title)
-		for _, entry in ipairs(log) do
-			if type(entry) == "table" then
+		local skipFrom, skipTo = 2, #log - (LOG_SHOWN - 1)
+		for index, entry in ipairs(log) do
+			if index == skipFrom and skipTo >= skipFrom then
+				w("  ... " .. (skipTo - skipFrom + 1) .. " more")
+			end
+			if type(entry) == "table" and (index < skipFrom or index > skipTo) then
 				local age = minutesAgo(input.now, entry.at)
 				local session = withSession and ("session " .. tostring(entry.session) .. "  ") or ""
 				w("  " .. session .. (age and (age .. "  ") or "") .. tostring(entry.text))

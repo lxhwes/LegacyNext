@@ -95,6 +95,22 @@ describe("Debug.RenderRoster", function()
 			.. " may be missing", 1, true))
 	end)
 
+	-- S1's first paste carried 51 lines of this, one per Herbalism skill-up (roster_geo.lua).
+	it("shows the first snapshot this session and the last nine, and counts the rest", function()
+		local ns = loadStack()
+		local log = {}
+		for index = 1, 15 do
+			log[index] = { at = 1000, text = "entry " .. index }
+		end
+
+		local text = ns.Debug.RenderRoster({ roster = ns.Model.Roster({}, nil), snapshotLog = log, now = 1000 })
+
+		assert.truthy(text:find("snapshots this session:\n  0m ago  entry 1\n  ... 5 more\n  0m ago  entry 7\n", 1, true))
+		assert.truthy(text:find("  0m ago  entry 15\n", 1, true))
+		assert.is_nil(text:find("entry 2\n", 1, true))
+		assert.is_nil(text:find("entry 6\n", 1, true))
+	end)
+
 	it("says when a part of a snapshot was never read", function()
 		local ns = loadStack()
 		local roster = ns.Model.Roster({ { key = "A-R", level = 5, class = "Druid" } }, nil)
