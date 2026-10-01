@@ -212,10 +212,10 @@ Character state, for the dump and for v1's roster:
 different things. Never name the slots; iterate every return.
 `GetProfessionInfo(index)` → `name, texture, rank, maxRank, numSpells, spellOffset, skillLine,
 rankModifier, specializationIndex, specializationOffset, skillLineName`
-(`Blizzard_ProfessionsFrame.lua:56` at `bd2470a`).
+(`Blizzard_ProfessionsFrame.lua:60` at `9a789c0`).
 **That `skillLine` is likely the parent profession line, not the one tradeskill challenges
 name** [source, unverified in game — S1]. The same frame compares it against
-`parentProfessionID or professionID` (`:41-43`), and Alchemy's challenges name 2937, not
+`parentProfessionID or professionID` (`:40-42`, via `Professions.GetEffectiveSkillLineID`), and Alchemy's challenges name 2937, not
 Classic's 171. Join through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID`
 as well as directly, never by name. `GetServerTime` stamps roster snapshots.
 The client data backs the parent reading [DB2, 2026-09-30]. All six tradeskill lines are

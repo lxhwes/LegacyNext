@@ -207,14 +207,14 @@ detectable, not that "..." is drawn. Plan on `IsTruncated()` plus a tooltip.
 GameTooltip: `SetOwner`, `AddLine`, `Show` are absent from the generated docs (no
 `Name = "SetOwner"` anywhere in the 639 files), so **Tier B**. Blizzard's Legacy code does exactly
 our shape: `GameTooltip:SetOwner(self, "ANCHOR_RIGHT")`, `GameTooltip:AddLine(rewardText)`,
-`GameTooltip:Show()` at `Blizzard_LegacySystem/Blizzard_LegacyChallenges.lua:327-333`. The frame
+`GameTooltip:Show()` at `Blizzard_LegacySystem/Blizzard_LegacyChallenges.lua:323-329`. The frame
 itself is `Blizzard_GameTooltip/Mainline/GameTooltip.xml:249`.
 
 ## 6. Combat lockdown
 
 `InCombatLockdown()` is documented, bare global, `RestrictedActionsDocumentation.lua:45`.
 `PLAYER_REGEN_DISABLED` / `PLAYER_REGEN_ENABLED` are documented events,
-`UnitDocumentation.lua:3869`, `:3875`. Tier A for all three.
+`UnitDocumentation.lua:3884`, `:3890`. Tier A for all three.
 
 Whether a plain frame needs any handling: the docs point to "no", but only by inference. The
 protection flags are per-function and per-object. `Show` and `Hide`
