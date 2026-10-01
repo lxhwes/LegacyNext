@@ -479,6 +479,21 @@ describe("Roster model", function()
 			assert.is_false(characters[2].current)
 		end)
 
+		-- A session whose read missed a tree stores fewer trees. Its figures must still sit under
+		-- the heading's own letters, not shift left into the wrong columns.
+		it("lines each row's tree figures up under the heading's trees", function()
+			local partial = zug()
+			partial.trees = { { treeId = 1189, name = "Resourcefulness", spent = 4 }, -- derived: order and count varied
+				{ treeId = 1187, name = "Professions", spent = 3 } }
+			partial.unspent = 9
+			local view = build({ partial, shaman })
+			local characters = rows(view, "character")
+
+			assert.equals("P/A/R", view.rows[1].progressText)
+			assert.equals("0/0/0", characters[1].progressText)
+			assert.equals("3/?/4", characters[2].progressText)
+		end)
+
 		it("shows ? for a part never read, never zero", function()
 			local characters = rows(build({ zug(), shaman }), "character")
 

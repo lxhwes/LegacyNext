@@ -411,41 +411,60 @@ local function readTrees(row)
 		return nil
 	end
 	for _, tree in ipairs(row.trees) do
-		if type(tree) ~= "table" or type(tree.spent) ~= "number" then
+		if type(tree) ~= "table" or tree.treeId == nil or type(tree.spent) ~= "number" then
 			return nil
 		end
 	end
 	return row.trees
 end
 
--- Column heading over the per-tree figures: the trees' own initials when every stored tree
--- carries a name, so nothing here names a tree.
-local function treeHeading(rows)
+-- One column per tree any row stored, in the first row's order. Rows normally agree, but a
+-- session whose read missed a tree stores fewer, and its figures must not shift columns.
+local function treeColumns(rows)
+	local columns, byId = {}, {}
 	for _, row in ipairs(rows) do
-		local trees = readTrees(row)
-		if trees then
-			local letters = {}
-			for _, tree in ipairs(trees) do
-				local letter = initial(tree.name)
-				if not letter then
-					return "Spent"
-				end
-				letters[#letters + 1] = letter
+		for _, tree in ipairs(readTrees(row) or {}) do
+			local column = byId[tree.treeId]
+			if not column then
+				column = { treeId = tree.treeId }
+				byId[tree.treeId] = column
+				columns[#columns + 1] = column
 			end
-			return table.concat(letters, "/")
+			column.name = column.name or tree.name
 		end
 	end
-	return "Spent"
+	return columns
 end
 
-local function spendText(row)
+-- Column heading over the per-tree figures: the trees' own initials when every column
+-- carries a name, so nothing here names a tree.
+local function treeHeading(columns)
+	if not columns[1] then
+		return "Spent"
+	end
+	local letters = {}
+	for _, column in ipairs(columns) do
+		local letter = initial(column.name)
+		if not letter then
+			return "Spent"
+		end
+		letters[#letters + 1] = letter
+	end
+	return table.concat(letters, "/")
+end
+
+local function spendText(row, columns)
 	local trees = readTrees(row)
 	if not trees then
 		return "?"
 	end
-	local parts = {}
+	local spent = {}
 	for _, tree in ipairs(trees) do
-		parts[#parts + 1] = tostring(tree.spent)
+		spent[tree.treeId] = tree.spent
+	end
+	local parts = {}
+	for _, column in ipairs(columns) do
+		parts[#parts + 1] = spent[column.treeId] ~= nil and tostring(spent[column.treeId]) or "?"
 	end
 	return table.concat(parts, "/")
 end
@@ -596,7 +615,8 @@ function Model.BuildRosterView(input)
 		view.state = "empty"
 		view.message = "No characters saved yet. Each character joins the roster when it logs in."
 	else
-		view.rows[1] = { kind = "columns", name = "Character", progressText = treeHeading(roster.rows),
+		local columns = treeColumns(roster.rows)
+		view.rows[1] = { kind = "columns", name = "Character", progressText = treeHeading(columns),
 			pointsText = "Free" }
 		local withRealm = spansRealms(roster.rows)
 		for _, row in ipairs(roster.rows) do
@@ -605,7 +625,7 @@ function Model.BuildRosterView(input)
 				key = row.key,
 				name = characterName(row, withRealm),
 				category = type(row.realm) == "string" and row.realm or nil,
-				progressText = spendText(row),
+				progressText = spendText(row, columns),
 				pointsText = type(row.unspent) == "number" and tostring(row.unspent) or "?",
 				measurable = true,
 				current = row.key == roster.currentKey,
