@@ -61,6 +61,11 @@ The findings are in `CLAUDE.md`, and the detail is in `docs/legacy-internals.md`
 - **Professions cannot be read at logout either.** The empty-read rule kept the login list.
 - **One look note:** the selected tab shows only as white text on the same red button. It
   reads, but faintly. A candidate for a later pass, not a bug.
+- **U2, nearly all.** The first block printed nothing, so it was rewritten to guard every step
+  and write to the chat frame. The frame reads `IsProtected() = false, false`, and both
+  ScrollBox templates exist. A clipped string reads `IsTruncated() = true`, but its
+  `GetStringWidth()` equals the full unbounded width, so only `IsTruncated()` can detect
+  clipping. Whether `...` is drawn still needs one look at the screen.
 
 The window read costs 37 ms now that it also snapshots and reads the roster, against U1's 21
 ms. Still well under the 100 ms that would have moved `CRITERIA_UPDATE` off the refresh path.
