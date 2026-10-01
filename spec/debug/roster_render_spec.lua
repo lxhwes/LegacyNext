@@ -44,7 +44,10 @@ describe("Debug.RenderRoster", function()
 		assert.truthy(text:find("no professions", 1, true))
 		assert.truthy(text:find("parent lookup: 2937: missing", 1, true))
 		assert.truthy(text:find("Journeyman Alchemist  [line 2937, parent nil, profession nil]  need 150", 1, true))
-		assert.truthy(text:find("no stored character has this profession", 1, true))
+		-- No lookup answer, so only a direct match could join: the paste must not claim nobody has it.
+		assert.is_nil(text:find("no stored character has this profession", 1, true))
+		assert.truthy(text:find("no stored character matched, and the profession lookup gave no answer, so one"
+			.. " may be missing", 1, true))
 	end)
 
 	it("says when a part of a snapshot was never read", function()
@@ -106,6 +109,7 @@ describe("Debug.RenderRoster", function()
 			candidates = ns.Model.ProfessionCandidates(challenges, {}, parents) })
 
 		assert.truthy(text:find("[line 2937, parent 171, profession nil, saved]  need 150", 1, true))
+		assert.truthy(text:find("no stored character has this profession", 1, true))
 	end)
 
 	it("tells a failed challenge read apart from no tradeskill challenges", function()

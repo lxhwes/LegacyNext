@@ -612,7 +612,9 @@ function Debug.RenderRoster(input)
 			tostring(entry.skillLineId), tostring(parent and parent.parentId),
 			tostring(parent and parent.professionId), parent and parent.saved and ", saved" or "",
 			tostring(entry.need)))
-		if #entry.candidates == 0 then
+		if #entry.candidates == 0 and entry.parentKnown == false then
+			w("    no stored character matched, and the profession lookup gave no answer, so one may be missing")
+		elseif #entry.candidates == 0 then
 			w("    no stored character has this profession")
 		end
 		for _, candidate in ipairs(entry.candidates) do
