@@ -287,6 +287,28 @@ describe("Roster model", function()
 				assert.equals(2938, merged[2938].professionId)
 			end)
 
+			-- The window merges on every read, on every character. An alt whose lookup names only the
+			-- line, or an id with no parent, must not erase the parent the Alchemist saved.
+			it("keeps a saved parent over a live answer without one", function()
+				local saved = { [2937] = { parentId = 171 } }
+
+				local echo = Model.MergeSkillLineParents(saved, { [2937] = { professionId = 2937 } })
+				local other = Model.MergeSkillLineParents(saved, { [2937] = { professionId = 300 } })
+
+				assert.equals(171, echo[2937].parentId)
+				assert.is_true(echo[2937].saved)
+				assert.equals(171, other[2937].parentId)
+				assert.is_true(other[2937].saved)
+			end)
+
+			it("lets a live id replace a saved answer that names only the line", function()
+				local merged = Model.MergeSkillLineParents({ [2937] = { professionId = 2937 } },
+					{ [2937] = { professionId = 300 } })
+
+				assert.equals(300, merged[2937].professionId)
+				assert.is_nil(merged[2937].saved)
+			end)
+
 			it("reads a missing map on either side as empty", function()
 				assert.same({}, Model.MergeSkillLineParents(nil, nil))
 				assert.same({ [1] = { parentId = 2, saved = true } },

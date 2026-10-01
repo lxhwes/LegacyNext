@@ -241,12 +241,21 @@ local function joinId(parent, skillLineId)
 	return effective
 end
 
+-- What an answer adds to the join: 2 for a parent id, 1 for another id, 0 for nothing.
+local function joinRank(parent, skillLineId)
+	if joinId(parent, skillLineId) == nil then
+		return 0
+	end
+	return parent.parentId ~= nil and 2 or 1
+end
+
 --- The skill-line map this session reads, laid over the one saved account-wide. The lookup may
 -- answer only on a character who knows the profession (S1), and the join is for finding
 -- *other* characters, so one answer from any character has to outlive its session.
--- A live entry with an id wins, so a build that re-parents a line is picked up on the next
--- read; a live entry with none (a zeroed struct) never erases a saved one. Kept entries carry
--- saved = true.
+-- A live entry wins unless it adds less to the join than the saved one. So a build that
+-- re-parents a line is picked up on the next read, while an alt whose lookup names only the
+-- line, or a zeroed struct, never erases a saved parent. A build that drops a parent keeps the
+-- saved one, which costs nothing: the direct match still runs. Kept entries carry saved = true.
 function Model.MergeSkillLineParents(saved, live)
 	local merged = {}
 	for skillLineId, parent in pairs(type(saved) == "table" and saved or {}) do
@@ -260,7 +269,8 @@ function Model.MergeSkillLineParents(saved, live)
 		end
 	end
 	for skillLineId, parent in pairs(type(live) == "table" and live or {}) do
-		if type(parent) == "table" and (effectiveId(parent) or not effectiveId(merged[skillLineId])) then
+		if type(parent) == "table"
+			and joinRank(parent, skillLineId) >= joinRank(merged[skillLineId], skillLineId) then
 			merged[skillLineId] = parent
 		end
 	end
