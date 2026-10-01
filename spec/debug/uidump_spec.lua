@@ -153,25 +153,53 @@ describe("Debug.RenderView", function()
 	end)
 
 	-- U4, 2026-10-01: the same login's /lgn uidump roster, kept verbatim in
-	-- roster_geo_restart.lua. Page 1 holds only the three Alchemy challenges, so the footnote's
-	-- count cannot match. Everything from the header to the last row does.
+	-- roster_geo_restart.lua. Page 1 holds only the three Alchemy challenges and the other 15
+	-- tradeskill challenges were never captured, so the footnote's note line cannot be
+	-- reproduced whole. Everything else from the header to the end of STATE is compared, and
+	-- the note's wording is checked separately below.
+	local function capturedUidump()
+		return assert(readFile("spec/fixtures/roster_geo_restart.lua")
+			:match("%-%-%[==%[ /lgn uidump roster, same login, verbatim:\n(.-)\n%]==%]"))
+	end
+
+	local function captureView(ns, snapshots, currentKey)
+		return ns.Model.BuildRosterView({
+			snapshots = snapshots,
+			currentKey = currentKey,
+			rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
+			candidates = ns.Model.ProfessionCandidates(fixture("dump_challenges_page1_fresh").challenges,
+				snapshots, fixture("roster_geo_restart").parents),
+		})
+	end
+
 	it("reproduces the captured roster tab from the captured snapshots", function()
 		local ns = loadStack()
 		helper.loadAddonFile("LegacyNext/Model/Roster.lua", ns)
 		local captured = fixture("roster_geo_restart")
-		local printed = assert(readFile("spec/fixtures/roster_geo_restart.lua")
-			:match("%-%-%[==%[ /lgn uidump roster, same login, verbatim:\n(.-)\n%]==%]"))
-		local view = ns.Model.BuildRosterView({
-			snapshots = captured.snapshots,
-			currentKey = "Geo-Classic Beta PvP",
-			rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
-			candidates = ns.Model.ProfessionCandidates(fixture("dump_challenges_page1_fresh").challenges,
-				captured.snapshots, captured.parents),
-		})
+		local view = captureView(ns, captured.snapshots, "Geo-Classic Beta PvP")
 
-		local function headerToRows(text)
-			return assert(text:match("(== HEADER.-)\n== STATE =="))
+		local function headerToState(text)
+			-- RenderView has no CLIENT section; the capture's comes from the frame.
+			local block = assert((text:gsub("\n$", "") .. "\n== CLIENT =="):match("(== HEADER.-)\n== CLIENT =="))
+			return (block:gsub("\nnote=[^\n]*", ""))
 		end
-		assertSameText(headerToRows(printed), headerToRows(ns.Debug.RenderView(view)))
+		assertSameText(headerToState(capturedUidump()), headerToState(ns.Debug.RenderView(view)))
+	end)
+
+	-- Bong alone has none of page 1's professions, so the note renders; only its count differs.
+	it("words the footnote as the captured roster tab does", function()
+		local ns = loadStack()
+		helper.loadAddonFile("LegacyNext/Model/Roster.lua", ns)
+		local bong = {}
+		for _, snapshot in ipairs(fixture("roster_geo_restart").snapshots) do
+			if snapshot.key ~= "Geo-Classic Beta PvP" then
+				bong[#bong + 1] = snapshot
+			end
+		end
+
+		local function note(text)
+			return (assert(text:match("\nnote=([^\n]*)")):gsub("^%d+ ", "N "))
+		end
+		assert.equals(note(capturedUidump()), note(ns.Debug.RenderView(captureView(ns, bong))))
 	end)
 end)
