@@ -199,6 +199,21 @@ function Model.Roster(snapshots, currentKey)
 	return { rows = rows, skipped = skipped, currentKey = currentKey }
 end
 
+-- More than one realm among the keyed snapshots, so a bare name may stand for two characters.
+local function spansRealms(snapshots)
+	local first
+	for _, snapshot in ipairs(snapshots or {}) do
+		if type(snapshot) == "table" and type(snapshot.key) == "string" and type(snapshot.realm) == "string" then
+			if first == nil then
+				first = snapshot.realm
+			elseif snapshot.realm ~= first then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 --------------------------------------------------------------------------------------------
 -- Profession candidates
 --------------------------------------------------------------------------------------------
@@ -308,8 +323,10 @@ end
 --- For each incomplete tradeskill challenge, every stored character with that profession,
 -- closest first. `parents` is Api.GetSkillLineParents output and may be nil.
 -- Returns a list in the challenges' order:
---   { challenge, skillLineId, need, parentKnown, candidates = { { key, name, class, level,
---     skill, remaining, reached } } }
+--   { challenge, skillLineId, need, parentKnown, candidates = { { key, name, label, class,
+--     level, skill, remaining, reached } } }
+-- `label` is the name to show: the key instead when the snapshots span realms, as the
+-- roster's own rows do.
 -- `parentKnown` is false when the skill-line lookup gave no id other than the line's own, so
 -- only a direct match can join and an empty list is not proof that nobody has the profession.
 -- `reached` means the snapshot's skill already meets the threshold while the challenge still
@@ -317,6 +334,7 @@ end
 function Model.ProfessionCandidates(challenges, snapshots, parents)
 	local out = {}
 	parents = parents or {}
+	local withRealm = spansRealms(snapshots)
 
 	for _, challenge in ipairs(challenges or {}) do
 		local criterion = not challenge.completed and skillCriterion(challenge) or nil
@@ -331,6 +349,7 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 						candidates[#candidates + 1] = {
 							key = snapshot.key,
 							name = snapshot.name,
+							label = (withRealm or type(snapshot.name) ~= "string") and snapshot.key or snapshot.name,
 							class = snapshot.class,
 							level = snapshot.level,
 							skill = profession.skill,
@@ -494,17 +513,6 @@ local function characterDetail(row, now)
 	return lines
 end
 
-local function realmCount(rows)
-	local seen, count = {}, 0
-	for _, row in ipairs(rows) do
-		if type(row.realm) == "string" and not seen[row.realm] then
-			seen[row.realm] = true
-			count = count + 1
-		end
-	end
-	return count
-end
-
 -- Tradeskill challenges some saved character can work on, closest first, then client order.
 -- The rest are counted, not listed: a row that says "nobody" eighteen times is noise.
 local function tradeskillRows(candidates)
@@ -543,7 +551,7 @@ local function tradeskillRows(candidates)
 			kind = "tradeskill",
 			id = challenge.id,
 			name = tostring(challenge.name or ("Challenge " .. tostring(challenge.id))) .. Model.SEPARATOR
-				.. tostring(best.name or best.key),
+				.. tostring(best.label or best.name or best.key),
 			category = challenge.categoryName,
 			progressText = tostring(best.skill) .. "/" .. tostring(entry.need),
 			pointsText = Model.PointsText(challenge.points),
@@ -590,7 +598,7 @@ function Model.BuildRosterView(input)
 	else
 		view.rows[1] = { kind = "columns", name = "Character", progressText = treeHeading(roster.rows),
 			pointsText = "Free" }
-		local withRealm = realmCount(roster.rows) > 1
+		local withRealm = spansRealms(roster.rows)
 		for _, row in ipairs(roster.rows) do
 			view.rows[#view.rows + 1] = {
 				kind = "character",

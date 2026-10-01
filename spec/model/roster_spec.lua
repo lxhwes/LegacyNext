@@ -537,6 +537,19 @@ describe("Roster model", function()
 			assert.truthy(detail:find("Far  60/150, 90 to go", 1, true))
 		end)
 
+		it("names the realm on tradeskill rows when the roster spans realms", function()
+			local here, there = zug(140), zug(60)
+			there.realm, there.key = "Elsewhere", "Zug-Elsewhere"
+			local snapshots = { here, there, shaman }
+			local tradeskills = rows(build(snapshots,
+				{ candidates = Model.ProfessionCandidates(challenges, snapshots, parents) }), "tradeskill")
+
+			assert.equals("Journeyman Alchemist" .. Model.SEPARATOR .. "Zug-Classic Beta PvP", tradeskills[1].name)
+			local detail = table.concat(tradeskills[1].detail, "\n")
+			assert.truthy(detail:find("Zug-Classic Beta PvP  140/150, 10 to go", 1, true))
+			assert.truthy(detail:find("Zug-Elsewhere  60/150, 90 to go", 1, true))
+		end)
+
 		it("orders tradeskill rows by the closest character, not client order", function()
 			local reversed = {}
 			for index = #challenges, 1, -1 do
@@ -623,6 +636,20 @@ describe("Roster model", function()
 			local detail = journeymanDetail({ candidates = Model.ProfessionCandidates(challenges, { zug }, parents) })
 
 			assert.truthy(detail:find("Zug  120/150, 30 to go", 1, true))
+		end)
+
+		it("names the realm in the tooltip when saved characters span realms", function()
+			local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+			local here = alt("Zug-R", 30, { { name = "Alchemy", skillLineId = 171, skill = 120, max = 150 } })
+			local there = alt("Zug-S", 30, { { name = "Alchemy", skillLineId = 171, skill = 90, max = 150 } })
+			here.name, here.realm, there.name, there.realm = "Zug", "R", "Zug", "S"
+
+			local detail = journeymanDetail({
+				candidates = Model.ProfessionCandidates(challenges, { here, there }, parents),
+			})
+
+			assert.truthy(detail:find("Zug-R  120/150, 30 to go", 1, true))
+			assert.truthy(detail:find("Zug-S  90/150, 60 to go", 1, true))
 		end)
 
 		it("says so when no saved character has the profession", function()

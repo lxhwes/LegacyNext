@@ -500,7 +500,7 @@ end
 -- One saved character's standing on a tradeskill challenge, for both tabs' tooltips.
 function Model.CandidateLine(candidate, need)
 	local figure = tostring(candidate.skill) .. "/" .. tostring(need)
-	local name = tostring(candidate.name or candidate.key)
+	local name = tostring(candidate.label or candidate.name or candidate.key)
 	if candidate.reached then
 		return name .. "  " .. figure .. ", already reached"
 	end
