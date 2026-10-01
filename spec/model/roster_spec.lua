@@ -606,6 +606,17 @@ describe("Roster model", function()
 				.. " The profession lookup gave no answer for 3 of them, so a match may be missing", 1, true))
 		end)
 
+		-- A read-only store or a failed realm read leaves the tab empty or stale on a character
+		-- that has logged in. The empty state alone would say it never logged in.
+		it("says first when this character's snapshot was not saved, and why", function()
+			local view = build({}, { snapshotProblem = "saved schema 2, this build reads 1" })
+
+			assert.equals("empty", view.state)
+			assert.equals("This character was not saved: saved schema 2, this build reads 1", view.footnote)
+			local stale = build({ shaman, "junk" }, { snapshotProblem = "no realm" })
+			assert.equals("This character was not saved: no realm\n1 saved character could not be read", stale.footnote)
+		end)
+
 		it("adds no tradeskill count under an empty roster", function()
 			local view = build({}, { candidates = Model.ProfessionCandidates(challenges, {}, parents) })
 

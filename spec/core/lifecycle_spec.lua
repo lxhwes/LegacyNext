@@ -183,6 +183,22 @@ describe("addon lifecycle", function()
 		assert.equals(0, #(_G.LegacyNextDB.snapshotLog or {}))
 	end)
 
+	it("tells the window why this character's snapshot was not written", function()
+		_G.LegacyNextDB = { schema = 2 }
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		local input = ns.ReadViewInput()
+
+		assert.equals("saved schema 2, this build reads 1", input.snapshotProblem)
+		assert.truthy(ns.Debug.BuildUIDump("roster"):find("This character was not saved: saved schema 2", 1, true))
+	end)
+
+	it("gives the window no snapshot problem once the write lands", function()
+		handler(nil, "ADDON_LOADED", "LegacyNext")
+
+		assert.is_nil(ns.ReadViewInput().snapshotProblem)
+	end)
+
 	it("runs /lgn uidump on both tabs without a failure message", function()
 		local printed = {}
 		_G.print = function(message) printed[#printed + 1] = tostring(message) end

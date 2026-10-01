@@ -587,7 +587,8 @@ end
 
 --- The roster tab's view, in the same shape Model.BuildView returns so one renderer draws both.
 -- input = { snapshots, currentKey, now, candidates = Model.ProfessionCandidates output,
--- challengesReason, rewardTrack, rewardTrackReason, error }
+-- snapshotProblem = why this read's snapshot was not written, challengesReason, rewardTrack,
+-- rewardTrackReason, error }
 function Model.BuildRosterView(input)
 	input = input or {}
 	local view = {
@@ -606,6 +607,9 @@ function Model.BuildRosterView(input)
 	end
 
 	local notes = {}
+	if input.snapshotProblem ~= nil then
+		notes[1] = "This character was not saved: " .. tostring(input.snapshotProblem)
+	end
 	local roster = Model.Roster(input.snapshots, input.currentKey)
 	if roster.skipped > 0 then
 		notes[#notes + 1] = plural(roster.skipped, "saved character", "saved characters") .. " could not be read"

@@ -55,7 +55,7 @@ end
 function ns.ReadViewInput()
 	local Api = ns.Api
 	-- Keeps this character's roster row current. A window read stays out of the snapshot log.
-	ns.TakeSnapshot("window", true)
+	local _, snapshotProblem = ns.TakeSnapshot("window", true)
 	-- Categories first, then handed to GetChallenges so the list is read once.
 	local categories = Api.GetCategories()
 	local challenges, challengesReason = Api.GetChallenges(categories)
@@ -72,6 +72,7 @@ function ns.ReadViewInput()
 		character = character,
 		snapshots = roster.snapshots,
 		currentKey = ns.currentKey,
+		snapshotProblem = snapshotProblem,
 		parents = roster.parents,
 		candidates = roster.candidates,
 		now = Api.GetServerTime(),
@@ -90,14 +91,15 @@ ns.snapshotLog = {}
 
 -- Reads this character, merges over what Store already holds, writes it back. Never throws:
 -- it runs inside PLAYER_LOGOUT, where an error costs the one write that matters most.
--- Returns a one-line result. `fromCommand` keeps /lgn roster's own snapshot out of the log,
--- which would otherwise fill with commands and push out the logout results it exists for.
+-- Returns a one-line result, and the bare reason when nothing was written, for the Roster
+-- tab. `fromCommand` keeps /lgn roster's own snapshot out of the log, which would otherwise
+-- fill with commands and push out the logout results it exists for.
 function ns.TakeSnapshot(trigger, fromCommand)
-	local ok, result = pcall(function()
+	local ok, result, problem = pcall(function()
 		local Api, Model, Store = ns.Api, ns.Model, ns.Store
 		local character, characterReason = Api.GetCharacterInfo()
 		if not character then
-			return "skipped: " .. tostring(characterReason)
+			return "skipped: " .. tostring(characterReason), tostring(characterReason)
 		end
 		local treeSpend, treeSpendReason = Api.GetTreeSpend()
 		local fresh, reason = Model.BuildSnapshot({
@@ -107,13 +109,13 @@ function ns.TakeSnapshot(trigger, fromCommand)
 			now = Api.GetServerTime(),
 		})
 		if not fresh then
-			return "skipped: " .. tostring(reason)
+			return "skipped: " .. tostring(reason), tostring(reason)
 		end
 		local merged = Model.MergeSnapshot(Store.GetSnapshot(fresh.key), fresh)
 		local written, writeReason = Store.PutSnapshot(fresh.key, merged)
 		ns.currentKey = fresh.key
 		if not written then
-			return "not written: " .. tostring(writeReason)
+			return "not written: " .. tostring(writeReason), tostring(writeReason)
 		end
 		-- A part that failed to read was kept from before; say which, and why.
 		local notes = {}
@@ -125,13 +127,16 @@ function ns.TakeSnapshot(trigger, fromCommand)
 		end
 		return notes[1] and ("written; " .. table.concat(notes, "; ")) or "written"
 	end)
-	ns.lastSnapshot = tostring(trigger) .. " -> " .. (ok and result or ("error: " .. tostring(result)))
+	if not ok then
+		problem = "error: " .. tostring(result)
+	end
+	ns.lastSnapshot = tostring(trigger) .. " -> " .. (ok and result or problem)
 	if not fromCommand then
 		local at = ns.Api.GetServerTime()
 		ns.snapshotLog[#ns.snapshotLog + 1] = { at = at, text = ns.lastSnapshot }
 		pcall(ns.Store.LogSnapshot, at, ns.lastSnapshot)
 	end
-	return ns.lastSnapshot
+	return ns.lastSnapshot, problem
 end
 
 -- Level, skill and trait changes arrive in bursts, and UnitLevel can lag PLAYER_LEVEL_UP, so
