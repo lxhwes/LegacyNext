@@ -606,6 +606,13 @@ describe("Roster model", function()
 				.. " The profession lookup gave no answer for 3 of them, so a match may be missing", 1, true))
 		end)
 
+		it("adds no tradeskill count under an empty roster", function()
+			local view = build({}, { candidates = Model.ProfessionCandidates(challenges, {}, parents) })
+
+			assert.equals("empty", view.state)
+			assert.is_nil(view.footnote)
+		end)
+
 		it("says when the tradeskill challenges could not be read", function()
 			local view = build({ shaman }, { challengesReason = "GetCategoryList unavailable" })
 

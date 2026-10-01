@@ -645,7 +645,8 @@ function Model.BuildRosterView(input)
 				view.rows[#view.rows + 1] = row
 			end
 		end
-		if hidden > 0 then
+		-- With nobody saved, the empty state already says it; the count would only repeat it.
+		if hidden > 0 and roster.rows[1] then
 			local note = plural(hidden, "tradeskill challenge has", "tradeskill challenges have")
 				.. " no saved character with the profession"
 			if unjoined > 0 then
