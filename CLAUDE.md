@@ -63,8 +63,11 @@ cross-account or guild sync, writing to trait configs.
   **Do not assume retail behavior**; check the forever branch source.
 - Midnight addon restrictions (secret values) apply. **`issecretvalue` exists on this client
   and the guard is active** [verified in game 2026-09-19 via `/lgn probe`, and again on 70124
-  on 2026-10-01, D10], and no API on our surface returned a secret. That is a tested negative, not an assumption — but it is a
-  per-build one, so re-run the probe after any bump.
+  on 2026-10-01, D10], and no API the probe read returned a secret. That is a tested negative,
+  not an assumption, but it is a per-build one, so re-run the probe after any bump. It does
+  **not** yet cover `UnitFullName`, `UnitNameUnmodified` or `UnitGUID`, which are documented
+  `SecretWhenUnitIdentityRestricted` and were added to the probe after that run. D10's name
+  rows are their first read.
 - **SavedVariables load back** [verified in game 2026-10-01, build 70124, queue row S1]:
   across a logout and a character switch, and off disk after a full client restart, with no
   `LATE LOAD` either time. The beta bug that wrote them but never loaded them back is fixed,
@@ -214,11 +217,13 @@ rankModifier, specializationIndex, specializationOffset, skillLineName`
 (`Blizzard_ProfessionsFrame.lua:56` at `bd2470a`).
 **That `skillLine` is the parent profession line, not the one tradeskill challenges name**
 [verified in game 2026-10-01] for Alchemy (171), Herbalism (182) and Cooking (185), all three of
-which have Forever children in the client data (2937, 2944, 2939). A character's Alchemy joins
-a challenge's 2937 **only** through the lookup's `parentProfessionID`, never directly. The same frame compares it against
-`parentProfessionID or professionID` (`:41-43`), and Alchemy's challenges name 2937, not
-Classic's 171. Join through `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID`
-as well as directly, never by name. `GetServerTime` stamps roster snapshots.
+which have Forever children in the client data (2937, 2944, 2939). For those three, a
+character's profession reaches a challenge's line (Alchemy's 2937) only through the lookup's
+`parentProfessionID`, and the direct match never fires. The same frame compares it against
+`parentProfessionID or professionID` (`:41-43`). Join through
+`C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID` as well as directly,
+never by name: the direct match costs nothing, and five of the six crafting professions have
+not been seen on a character in game. `GetServerTime` stamps roster snapshots.
 **Forever characters have a first name and a surname**, a Legacy feature (Alex, 2026-10-01).
 `UnitName("player")` read `"Bong Wrip"` on 69913 and `"Bong"` on 70124 for the same
 character, and `"Geo"` for Geo Prizm on 70124, so **a name is not a stable character key**, and the roster's `Name-Realm` key can

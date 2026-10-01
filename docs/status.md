@@ -5,7 +5,8 @@ Last updated 2026-10-01.
 **Where we are, 2026-10-01, late morning: v1's data layer and Roster tab have run in game, and
 S1 is closed.** Saved data loads back off disk after a full restart. The tradeskill join works
 on a real Alchemist, through the parent line. D10 found no secrets on 70124. U1, U3 and U4 saw
-the frame, the icon and the Roster tab drawn as designed. 218 tests, none pending. Open in
+the frame, the icon and the Roster tab drawn as designed. ~~218 tests~~ 221 tests after the
+PR #5 review, none pending. Open in
 game: D10's name rows, which decide the roster key, then C3, U2 and C2. The vendor pin is
 `1.60.1.70124`.
 
@@ -111,6 +112,37 @@ shape once for one character, so a build that moves the surname again would spli
 character into two rows. D10's probe now reads every name call and `UnitGUID` side by side.
 **Alex's call once D10 is back:** key the roster by GUID, merging any rows that share one. I
 recommend it if `UnitGUID` reads `ok`. Until then `/lgn roster forget` removes a duplicate.
+
+## PR #5 review — 2026-10-01
+
+A code review of the S1 intake branch found 10 problems, none of them a crash or a broken test.
+Nine are fixed and one is fixed in part. 221 tests, none pending.
+
+**D10's paste would have hidden the second return.** The probe printed only the first return,
+so `UnitFullName`'s realm and any surname `UnitName` or `UnitNameUnmodified` put second would
+not have reached the paste. The three name rows now print every return. `CLAUDE.md`'s
+no-secrets claim also covered those calls, and the probe had never read them. It now says so.
+
+**The session's snapshot log grew all session.** `/lgn roster` showed only ten lines, but Core
+kept every skill-up. Core now holds the log to `Store.LOG_LIMIT`, keeping the login result and
+the latest and counting the middle it drops. The renderer stopped skipping lines itself. The
+saved log from earlier sessions had been cut the same way, which hid its newest entries, and
+it now shows in full.
+
+Smaller fixes:
+
+- `CLAUDE.md` gave two opposite join rules in one paragraph. It now says the direct match
+  never fires for Alchemy, Herbalism and Cooking, and keeps both joins, as `Model/` does.
+- U2's checklist still expected `stringWidth` at or under 120 after v2 showed otherwise.
+- The S1 skill-line test compared `Api`'s output with `Api`'s own earlier output. It checks
+  the raw client fields now.
+- A provenance comment had landed on the wrong test.
+
+**Fixed in part: the U4 footnote.** The capture's note counts 15 tradeskill challenges with
+no saved character, and only page 1's three are captured. The test now compares everything
+from the header to the end of STATE except that line. A second test checks the line's wording
+against the capture, with the count left out. A capture of all 18 tradeskill challenges would
+let the count be checked too.
 
 ## PR #4 review — 2026-10-01
 

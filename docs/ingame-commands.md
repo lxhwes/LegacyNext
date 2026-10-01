@@ -110,9 +110,10 @@ off mid-word.
 
 - `frame=true`, `shown=true` and `IsProtected=false,false`. Anything else means the frame
   picked up protection, and the combat handling in `UI/` needs another look.
-- `truncated=true`, with `stringWidth` at or under 120 and `unbounded` well over it. Together
-  with your answer about `...`, that decides whether long rows get an ellipsis for free or rely
-  on the tooltip alone.
+- `truncated=true`. Already seen in v2, along with `stringWidth` equal to `unbounded` rather
+  than at or under 120, so `IsTruncated()` is the only width check that detects a clipped
+  string (`docs/status.md`). Only your answer about `...` is still open, and it decides
+  whether long rows get an ellipsis for free or rely on the tooltip alone.
 - The three template rows `true`. `WowScrollBoxList` and `MinimalScrollBar` are what a later
   scroll rewrite would use. `BasicFrameTemplateWithInset` is the frame we already draw.
 - Any `ERROR` names the step and the message. That is a finding in its own right.
@@ -129,7 +130,9 @@ restrictions reached an API we call, and it goes into `CLAUDE.md` before anythin
 
 Added 2026-10-01: five name rows, `UnitName`, `UnitFullName`, `UnitNameUnmodified`,
 `UnitGUID` and `C_PlayerInfo.ShouldDisplaySurname`. Run it on a character whose surname is
-set, and say which one that is. I am reading which name row carries the surname, and whether
+set, and say which one that is. The three name rows show every return, comma-separated
+(`Geo, nil` or `Geo, Classic Beta PvP`), so a surname or realm in the second slot shows up
+too. I am reading which name row carries the surname, and whether
 `UnitGUID` reads `ok` with a `Player-` value rather than `secret`. That decides whether the
 roster can key characters by GUID instead of by a name that has already changed shape once.
 
