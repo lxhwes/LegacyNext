@@ -331,6 +331,21 @@ describe("Model", function()
 		end)
 	end)
 
+	describe("Icon", function()
+		local Model = loadModel()
+
+		it("passes a file id or a texture path and drops anything else", function()
+			assert.equals(136240, Model.Icon(136240)) -- Journeyman Alchemist's captured icon
+			-- No capture carries a path, but a texture path is a valid icon to the UI.
+			assert.equals("Interface\\Icons\\INV_Misc_QuestionMark",
+				Model.Icon("Interface\\Icons\\INV_Misc_QuestionMark"))
+			assert.is_nil(Model.Icon(""))
+			assert.is_nil(Model.Icon(nil))
+			assert.is_nil(Model.Icon(false))
+			assert.is_nil(Model.Icon({}))
+		end)
+	end)
+
 	describe("RewardSummary", function()
 		local Model = loadModel()
 		local track = fixture("dump_rewards_fresh").rewardTrack
@@ -364,6 +379,29 @@ describe("Model", function()
 			assert.is_nil(summary.nextThreshold)
 			assert.is_true(summary.complete)
 			assert.equals(4, summary.thresholdsReached)
+		end)
+
+		it("keeps the icon of the first reward at the next threshold", function()
+			assert.equals(135614, Model.RewardSummary(track).nextRewardIcon) -- the air rifle
+
+			local varied = deepCopy(track)
+			varied.earned, varied.level = 20, 20 -- derived: captured 0, varied to move the threshold
+			assert.equals(294471, Model.RewardSummary(varied).nextRewardIcon) -- the bear cub
+
+			varied.earned, varied.level = 60, 60 -- derived: captured 0, varied past the last threshold
+			assert.is_nil(Model.RewardSummary(varied).nextRewardIcon)
+		end)
+
+		it("leaves the icon nil when the next reward's is missing or empty", function()
+			local missing = deepCopy(track)
+			missing.thresholds[1].rewards[1].icon = nil -- derived: captured 135614, removed
+			assert.is_nil(Model.RewardSummary(missing).nextRewardIcon)
+
+			local empty = deepCopy(track)
+			empty.thresholds[1].rewards[1].icon = "" -- derived: captured 135614, emptied
+			local summary = Model.RewardSummary(empty)
+			assert.is_nil(summary.nextRewardIcon)
+			assert.same({ "Replica Ironforge Air Rifle" }, summary.nextRewardNames)
 		end)
 
 		it("ignores isCollected entirely", function()
@@ -405,6 +443,41 @@ describe("Model", function()
 			assert.equals("Legacy Track" .. Model.SEPARATOR .. "0 pts" .. Model.SEPARATOR .. "15 to next",
 				view.header.lines[1])
 			assert.equals("Next: Replica Ironforge Air Rifle", view.header.lines[2])
+		end)
+
+		it("puts the next reward's icon on the header, and none when the track failed", function()
+			local view = Model.BuildView(input())
+			assert.equals(135614, view.header.icon)
+			assert.equals(135614, view.header.summary.nextRewardIcon)
+
+			local failed = Model.BuildView(input({ rewardTrack = false, rewardTrackReason = "GetMajorFactionData unavailable" }))
+			assert.is_nil(failed.header.icon)
+		end)
+
+		it("carries each challenge's own icon on its row", function()
+			local view = Model.BuildView(input())
+			local count = 0
+			for _, row in ipairs(view.rows) do
+				if row.kind == "challenge" then
+					count = count + 1
+					assert.is_number(row.icon)
+					assert.equals(row.entry.challenge.icon, row.icon)
+				else
+					assert.is_nil(row.icon)
+				end
+			end
+			assert.equals(16, count)
+			assert.equals(136240, byName(view.rows, "Journeyman Alchemist").icon)
+		end)
+
+		it("leaves a row's icon nil when the challenge's is missing or empty", function()
+			local challenges = combinedChallenges()
+			byName(challenges, "Journeyman Alchemist").icon = nil -- derived: captured 136240, removed
+			byName(challenges, "Expert Alchemist").icon = "" -- derived: captured 136240, emptied
+			local view = Model.BuildView(input({ challenges = challenges }))
+			assert.is_nil(byName(view.rows, "Journeyman Alchemist").icon)
+			assert.is_nil(byName(view.rows, "Expert Alchemist").icon)
+			assert.equals(136240, byName(view.rows, "Artisan Alchemist").icon)
 		end)
 
 		it("keeps a reward-track failure separate from the list", function()
