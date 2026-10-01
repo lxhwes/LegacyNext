@@ -422,6 +422,26 @@ describe("UI", function()
 			assert.same({ "Character", "Bong Wrip  L1 Shaman" }, shownNames(ns.UI.frame))
 		end)
 
+		it("redraws the roster after a snapshot, and leaves Next Up alone", function()
+			local ns = loadWithRoster()
+			local pending = fakeTimer()
+			local source, reads = shamanSource(ns), 0
+			ns.UI.SetDataSource(function()
+				reads = reads + 1
+				return source()
+			end)
+			ns.UI.Show()
+
+			ns.UI.OnSnapshot()
+			assert.equals(0, #pending)
+
+			ns.UI.SetTab("roster")
+			ns.UI.OnSnapshot()
+			assert.equals(1, #pending)
+			pending[1].fn()
+			assert.equals(3, reads)
+		end)
+
 		it("keeps the footnote under an empty roster", function()
 			local ns = loadWithRoster()
 			ns.UI.SetDataSource(function() return { snapshots = { "junk" } } end)

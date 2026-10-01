@@ -166,6 +166,7 @@ local function scheduleSnapshot(trigger)
 		local triggers = table.concat(pendingTriggers, "+")
 		pendingTriggers = {}
 		ns.TakeSnapshot(triggers)
+		ns.UI.OnSnapshot()
 	end
 
 	local timer = rawget(_G, "C_Timer")

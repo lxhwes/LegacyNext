@@ -127,6 +127,21 @@ describe("addon lifecycle", function()
 			assert.truthy(ns.lastSnapshot:find("SKILL_LINES_CHANGED+PLAYER_LEVEL_UP -> written", 1, true))
 		end)
 
+		-- The window refreshes on its own two events only. A level-up, skill-up or spent point
+		-- changes the Roster tab, and the delayed snapshot is what knows when.
+		it("asks the window to redraw after a delayed snapshot", function()
+			local asked = 0
+			ns.UI.OnSnapshot = function() asked = asked + 1 end
+
+			handler(nil, "PLAYER_LEVEL_UP")
+			assert.equals(0, asked)
+			runTimers()
+
+			assert.equals(1, asked)
+			handler(nil, "PLAYER_LOGOUT")
+			assert.equals(1, asked)
+		end)
+
 		it("delays the login snapshot the same way", function()
 			handler(nil, "PLAYER_LOGIN")
 			assert.is_nil(stored())

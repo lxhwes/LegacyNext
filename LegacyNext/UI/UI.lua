@@ -618,6 +618,14 @@ function UI.RequestRefresh(delay)
 	end
 end
 
+-- Core took a snapshot after a level, skill or trait change. Those events are Core's, not the
+-- frame's, and the Roster tab is the view they change.
+function UI.OnSnapshot()
+	if UI.tab == "roster" then
+		UI.RequestRefresh()
+	end
+end
+
 function UI.OnEvent(event)
 	if event == "PLAYER_REGEN_ENABLED" then
 		UI.frame:UnregisterEvent("PLAYER_REGEN_ENABLED")
