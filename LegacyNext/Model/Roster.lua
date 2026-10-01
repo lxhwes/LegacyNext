@@ -167,6 +167,17 @@ function Model.MergeSnapshot(previous, fresh)
 	return merged
 end
 
+--- When MergeSnapshot kept `part` ("trees" or "professions") from an earlier snapshot, the
+-- time that part was read; nil when it came with the latest one. Without this the row's age
+-- is the latest snapshot's, and last week's skill numbers read as current.
+function Model.KeptAt(snapshot, part)
+	local at = snapshot[part .. "At"]
+	if type(at) ~= "number" or at == snapshot.takenAt then
+		return nil
+	end
+	return at
+end
+
 --------------------------------------------------------------------------------------------
 -- Roster
 --------------------------------------------------------------------------------------------
@@ -478,10 +489,9 @@ local function characterName(row, withRealm)
 	return text
 end
 
--- A part MergeSnapshot kept from an earlier snapshot carries its own, older timestamp.
 local function keptLine(lines, row, part, label, now)
-	local at = row[part .. "At"]
-	if type(at) ~= "number" or at == row.takenAt then
+	local at = Model.KeptAt(row, part)
+	if not at then
 		return
 	end
 	local reason = row[part .. "Reason"]

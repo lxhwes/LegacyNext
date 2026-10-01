@@ -520,15 +520,21 @@ local function treeText(snapshot)
 		tostring(snapshot.cap))
 end
 
--- MergeSnapshot carries a failed part over with its own timestamp. Without this the row's age
--- is the latest snapshot's, and last week's skill numbers read as current.
+-- Minutes, not the tab's coarse age: the paste is evidence, read next to a snapshot log.
+local function minutesAgo(now, at)
+	if type(now) ~= "number" or type(at) ~= "number" then
+		return nil
+	end
+	return ("%dm ago"):format(math.floor((now - at) / 60))
+end
+
 local function keptNote(row, part, now)
-	local at, reason = row[part .. "At"], row[part .. "Reason"]
-	if type(at) ~= "number" or at == row.takenAt then
+	local at, reason = ns.Model.KeptAt(row, part), row[part .. "Reason"]
+	if not at then
 		return reason and ("  (" .. tostring(reason) .. ")") or ""
 	end
-	local age = type(now) == "number" and ("%dm ago"):format(math.floor((now - at) / 60)) or ("at " .. at)
-	return "  (kept from " .. age .. (reason and (": " .. tostring(reason)) or "") .. ")"
+	return "  (kept from " .. (minutesAgo(now, at) or ("at " .. at)) .. (reason and (": " .. tostring(reason)) or "")
+		.. ")"
 end
 
 -- Pure: renders the roster, the profession candidates and the store's own diagnostics.
@@ -566,12 +572,9 @@ function Debug.RenderRoster(input)
 		w(title)
 		for _, entry in ipairs(log) do
 			if type(entry) == "table" then
-				local age = ""
-				if type(input.now) == "number" and type(entry.at) == "number" then
-					age = ("%dm ago  "):format(math.floor((input.now - entry.at) / 60))
-				end
+				local age = minutesAgo(input.now, entry.at)
 				local session = withSession and ("session " .. tostring(entry.session) .. "  ") or ""
-				w("  " .. session .. age .. tostring(entry.text))
+				w("  " .. session .. (age and (age .. "  ") or "") .. tostring(entry.text))
 			end
 		end
 	end
@@ -584,12 +587,9 @@ function Debug.RenderRoster(input)
 	local roster = input.roster or { rows = {} }
 	w("== CHARACTERS (" .. #roster.rows .. ") ==")
 	for _, row in ipairs(roster.rows) do
-		local age = ""
-		if type(input.now) == "number" and type(row.takenAt) == "number" then
-			age = ("  %dm ago"):format(math.floor((input.now - row.takenAt) / 60))
-		end
+		local age = minutesAgo(input.now, row.takenAt)
 		w(("%s%s  L%s %s%s"):format(row.key == roster.currentKey and "* " or "  ", row.key,
-			tostring(row.level), tostring(row.class), age))
+			tostring(row.level), tostring(row.class), age and ("  " .. age) or ""))
 		w("    " .. treeText(row) .. keptNote(row, "trees", input.now))
 		w("    " .. professionText(row.professions) .. keptNote(row, "professions", input.now))
 	end

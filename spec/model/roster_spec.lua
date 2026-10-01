@@ -146,6 +146,11 @@ describe("Roster model", function()
 			assert.equals(16, merged.cap)
 			assert.same({}, merged.professions)
 			assert.equals(1000, merged.professionsAt)
+			-- One rule for "kept from before", read by the Roster tab and /lgn roster alike.
+			assert.equals(1000, Model.KeptAt(merged, "professions"))
+			assert.equals(1000, Model.KeptAt(merged, "trees"))
+			assert.is_nil(Model.KeptAt(previous, "professions"))
+			assert.is_nil(Model.KeptAt(fresh, "trees"))
 		end)
 
 		-- The shape Api.GetTreeSpend returns when GetConfigIDByTreeID gives nothing: tree ids,
