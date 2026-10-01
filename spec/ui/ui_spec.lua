@@ -50,6 +50,8 @@ local function newWidget(kind, name, template)
 				end
 			elseif key == "ClearAllPoints" then
 				return function() self.anchors = {} end
+			elseif key == "SetHeight" then
+				return function(_, height) self.height = height end
 			elseif key == "EnableMouse" then
 				return function(_, enabled) self.mouse = enabled end
 			elseif key == "LockHighlight" or key == "UnlockHighlight" then
@@ -316,6 +318,28 @@ describe("UI", function()
 			if anchor[1] == "TOPLEFT" then top = anchor[3] end
 		end
 		assert.equals(-(#ns.UI.view.rows * 16 + 4), top)
+	end)
+
+	-- 28 px a line is an estimate, and a note that wraps outgrows it: the scroll range ended
+	-- before the note did. The double has no GetStringHeight until the test gives it one.
+	it("sizes the list to the footnote's wrapped height when the client can measure it", function()
+		local ns = loadUI()
+		ns.UI.SetDataSource(function()
+			return {
+				challenges = fixture("dump_challenges_page1_fresh").challenges,
+				categories = fixture("categories_full").categories,
+				character = fixture("dump_character_shaman").character,
+			}
+		end)
+		ns.UI.Show()
+		local frame = ns.UI.frame
+		local rowsHeight = #ns.UI.view.rows * 16
+		assert.equals(rowsHeight + 12 + 28, frame.listChild.height)
+
+		rawset(frame.status, "GetStringHeight", function() return 90 end)
+		ns.UI.Refresh()
+
+		assert.equals(rowsHeight + 12 + 90, frame.listChild.height)
 	end)
 
 	it("waits for combat to end before reading a filter change", function()

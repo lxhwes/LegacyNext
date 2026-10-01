@@ -192,6 +192,11 @@ FontString methods, all Tier A in
 `:529`, `SetJustifyH` `:560`. All `SecretArguments = "AllowedWhenUntainted"` except `SetText`,
 which is `AllowedWhenTainted`.
 
+`GetStringHeight()` is at `:325` (checked at `966519c`, 1.60.1.70124), marked
+`SecretWhenAnchoringSecret`. Blizzard's `ScrollingFontMixin` sizes wrapped text with it, calling
+`SetWidth` first (`Blizzard_SharedXML/Shared/Scroll/ScrollTemplates.lua:321-325`). The list
+footnote follows that order. A height check in game is part of U4.
+
 Auto-ellipsis is **Tier C**. No documentation line mentions an ellipsis and no Legacy XML sets
 `wordwrap="false"`. Blizzard does treat "truncated" as a queryable state:
 `ShrinkUntilTruncateFontStringMixin` steps fonts down until `IsTruncated()` is false

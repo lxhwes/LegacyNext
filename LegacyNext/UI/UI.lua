@@ -445,8 +445,43 @@ local function styleRow(widget, item)
 	applyFont(widget.points, unpack(valueFonts))
 end
 
+-- The scroll frame's width, or the built size while its rect is still unresolved (0).
+local function listWidth(frame)
+	local width = frame.scroll:GetWidth()
+	if type(width) ~= "number" or width <= 0 then
+		return WIDTH - PAD * 2 - 22
+	end
+	return width
+end
+
+-- The note's wrapped height, measured the way Blizzard's ScrollingFontMixin sizes its text
+-- (SetWidth, then GetStringHeight: ScrollTemplates.lua:321-325 at 966519c). 28 px a line stays
+-- the floor, and the whole answer when the client cannot measure. The doc marks the height
+-- SecretWhenAnchoringSecret (SimpleFontStringAPIDocumentation.lua:325); ours never is, but
+-- comparing a secret throws, so it is checked.
+local function noteHeight(status, note)
+	local lines = 1
+	for _ in note:gmatch("\n") do
+		lines = lines + 1
+	end
+	local estimate = 28 * lines
+	if type(status.GetStringHeight) ~= "function" then
+		return estimate
+	end
+	local ok, height = pcall(status.GetStringHeight, status)
+	local isSecret = G("issecretvalue")
+	if ok and type(isSecret) == "function" and isSecret(height) then
+		return estimate
+	end
+	if ok and type(height) == "number" and height > estimate then
+		return height
+	end
+	return estimate
+end
+
 local function layoutRows(frame, view)
 	local child = frame.listChild
+	local width = listWidth(frame)
 	local y = 0
 	local rowIndex, dividerIndex = 0, 0
 
@@ -491,22 +526,19 @@ local function layoutRows(frame, view)
 	end
 	local status = frame.status
 	if note then
-		local lines = 1
-		for _ in note:gmatch("\n") do
-			lines = lines + 1
-		end
+		-- A set width rather than a RIGHT anchor, so the wrap is known before layout runs.
 		status:ClearAllPoints()
 		status:SetPoint("TOPLEFT", 0, -(y + 4))
-		status:SetPoint("RIGHT", 0, 0)
+		status:SetWidth(width)
 		status:SetText(note)
 		status:Show()
-		y = y + 12 + 28 * lines
+		y = y + 12 + noteHeight(status, note)
 	else
 		status:Hide()
 	end
 
 	child:SetHeight(math.max(y, ROW_HEIGHT))
-	child:SetWidth(frame.scroll:GetWidth() or (WIDTH - PAD * 2 - 22))
+	child:SetWidth(width)
 end
 
 function UI.Render(view)
