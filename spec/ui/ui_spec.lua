@@ -84,6 +84,8 @@ local function unloadUI()
 	_G.UISpecialFrames = nil
 	_G.C_Timer = nil
 	_G.InCombatLockdown = nil
+	_G.LegacyNextDB = nil
+	_G.LegacyNextCharDB = nil
 end
 
 -- A C_Timer double that holds callbacks until the test runs them, so ordering is explicit.
@@ -358,6 +360,143 @@ describe("UI", function()
 		inCombat = false
 		ns.UI.frame.script_OnEvent(ns.UI.frame, "PLAYER_REGEN_ENABLED")
 		assert.equals(2, counter.calls)
+	end)
+
+	describe("window state", function()
+		local categories = fixture("categories_full").categories
+		local tradeskills
+		for _, category in ipairs(categories) do
+			if category.name == "Tradeskills" then tradeskills = category.id end
+		end
+
+		-- Plays the client: this character's saved table is assigned before ADDON_LOADED, when
+		-- Core attaches the store. UIParent gets a screen size the clamp can read.
+		local function loadWithStore(saved)
+			_G.LegacyNextCharDB = saved
+			local ns = loadUI()
+			helper.loadAddonFile("LegacyNext/Model/Roster.lua", ns)
+			helper.loadAddonFile("LegacyNext/Store/Store.lua", ns)
+			ns.Store.Attach()
+			rawset(_G.UIParent, "GetWidth", function() return 1920 end)
+			rawset(_G.UIParent, "GetHeight", function() return 1080 end)
+			ns.UI.SetDataSource(function()
+				return {
+					challenges = fixture("dump_challenges_page1_fresh").challenges,
+					categories = categories,
+					snapshots = {},
+				}
+			end)
+			return ns
+		end
+
+		local function shownNames(frame)
+			local names = {}
+			for _, row in ipairs(frame.rows) do
+				if row.shown then names[#names + 1] = row.name.text end
+			end
+			return names
+		end
+
+		it("restores the saved filter and position on the first open", function()
+			local ns = loadWithStore({ ui = { filter = tradeskills, point = { left = 100, top = 700 } } })
+
+			ns.UI.Show()
+
+			assert.equals(tradeskills, ns.UI.view.filter)
+			assert.same({ "Journeyman Alchemist", "Expert Alchemist", "Artisan Alchemist" }, shownNames(ns.UI.frame))
+			assert.same({ "TOPLEFT", _G.UIParent, "BOTTOMLEFT", 100, 700 }, ns.UI.frame.anchors[1])
+		end)
+
+		it("restores the saved tab", function()
+			local ns = loadWithStore({ ui = { tab = "roster" } })
+
+			ns.UI.Show()
+
+			assert.equals("roster", ns.UI.Describe().tab)
+			assert.equals("roster", ns.UI.view.tab)
+			assert.is_true(ns.UI.frame.tabs[2].locked)
+		end)
+
+		it("ignores a saved tab it does not know", function()
+			local ns = loadWithStore({ ui = { tab = "bogus" } })
+
+			ns.UI.Show()
+
+			assert.equals("nextup", ns.UI.tab)
+		end)
+
+		-- Category ids churn between beta builds, so a saved one can name nothing.
+		it("falls back to All when the saved filter's category has gone", function()
+			local ns = loadWithStore({ ui = { filter = 999999 } })
+
+			assert.has_no.errors(function() ns.UI.Show() end)
+
+			assert.equals("ok", ns.UI.view.state)
+			assert.is_nil(ns.UI.view.filter)
+			assert.is_nil(ns.UI.filter)
+			assert.equals(11, #shownNames(ns.UI.frame))
+			assert.is_true(ns.UI.frame.filterBar.buttons[1].locked)
+		end)
+
+		it("saves the tab, the filter and the position as they change", function()
+			local ns = loadWithStore(nil)
+			ns.UI.Show()
+			local frame = ns.UI.frame
+
+			ns.UI.SetTab("roster")
+			assert.equals("roster", _G.LegacyNextCharDB.ui.tab)
+			ns.UI.SetTab("nextup")
+			assert.equals("nextup", _G.LegacyNextCharDB.ui.tab)
+
+			ns.UI.SetFilter(tradeskills)
+			assert.equals(tradeskills, _G.LegacyNextCharDB.ui.filter)
+			ns.UI.SetFilter(nil)
+			assert.is_nil(_G.LegacyNextCharDB.ui.filter)
+
+			rawset(frame, "GetLeft", function() return 40.5 end)
+			rawset(frame, "GetTop", function() return 600 end)
+			frame.script_OnDragStop(frame)
+			assert.same({ left = 40.5, top = 600 }, _G.LegacyNextCharDB.ui.point)
+		end)
+
+		it("saves no position when the frame cannot say where it is", function()
+			local ns = loadWithStore(nil)
+			ns.UI.Show()
+
+			ns.UI.frame.script_OnDragStop(ns.UI.frame)
+
+			assert.is_nil(_G.LegacyNextCharDB and _G.LegacyNextCharDB.ui and _G.LegacyNextCharDB.ui.point)
+		end)
+
+		it("clamps a saved position onto the screen", function()
+			local ns = loadWithStore({ ui = { point = { left = 5000, top = -50 } } })
+
+			ns.UI.Show()
+
+			-- 1920 - 520 wide, and the top no lower than the frame's 480 height.
+			assert.same({ "TOPLEFT", _G.UIParent, "BOTTOMLEFT", 1400, 480 }, ns.UI.frame.anchors[1])
+		end)
+
+		it("centres the frame when the saved position is unusable", function()
+			for _, point in ipairs({ "junk", { left = "x", top = 5 }, { left = 0 / 0, top = 5 },
+				{ left = 5, top = math.huge }, { top = 5 } }) do
+				local ns = loadWithStore({ ui = { point = point } })
+
+				ns.UI.Show()
+
+				assert.same({ "CENTER" }, ns.UI.frame.anchors[1])
+				unloadUI()
+			end
+		end)
+
+		it("centres the frame when the screen size cannot be read", function()
+			local ns = loadWithStore({ ui = { point = { left = 100, top = 700 } } })
+			rawset(_G.UIParent, "GetHeight", function() return nil end)
+
+			ns.UI.Show()
+
+			assert.same({ "CENTER" }, ns.UI.frame.anchors[1])
+		end)
 	end)
 
 	describe("roster tab", function()
