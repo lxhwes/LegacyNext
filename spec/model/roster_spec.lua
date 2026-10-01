@@ -74,6 +74,19 @@ describe("Roster model", function()
 	end)
 
 	describe("BuildSnapshot", function()
+		-- D4, 2026-10-01: Api's read of a character with three professions, and the snapshot
+		-- the addon stored from that character in game the same session. They agree.
+		it("keeps every captured profession, as the addon stored it in game", function()
+			local snapshot = Model.BuildSnapshot({ character = fixture("dump_character_geo").character, now = 1 })
+
+			assert.same({
+				{ name = "Alchemy", skillLineId = 171, skill = 1, max = 75 },
+				{ name = "Herbalism", skillLineId = 182, skill = 20, max = 75 },
+				{ name = "Cooking", skillLineId = 185, skill = 1, max = 75 },
+			}, snapshot.professions)
+			assert.same(fixture("roster_geo_restart").snapshots[1].professions, snapshot.professions)
+		end)
+
 		it("snapshots the captured fresh character and trees", function()
 			local snapshot = Model.BuildSnapshot({
 				character = fixture("dump_character_shaman").character,
@@ -413,7 +426,43 @@ describe("Roster model", function()
 			assert.same({}, Model.ProfessionCandidates(challenges, {}, nil))
 		end)
 
-		pending("S1 + D4: a captured profession joins a captured tradeskill challenge")
+		-- S1, 2026-10-01 (spec/fixtures/roster_geo.lua): a real gatherer and the real lookup.
+		it("joins a captured gatherer to no tradeskill challenge, with the lookup answered", function()
+			local captured = fixture("roster_geo")
+
+			local result = Model.ProfessionCandidates(challenges, captured.snapshots, captured.parentsLive)
+
+			assert.equals(3, #result)
+			for _, entry in ipairs(result) do
+				assert.same({}, entry.candidates)
+				assert.is_true(entry.parentKnown)
+			end
+		end)
+
+		-- S1, 2026-10-01 (spec/fixtures/roster_geo_restart.lua): Alchemy reads the Classic line
+		-- 171, and joins the Forever line 2937 only through the captured parent.
+		it("joins a captured Alchemist to the Alchemy challenges through the parent line", function()
+			local captured = fixture("roster_geo_restart")
+			assert.equals(171, captured.snapshots[1].professions[1].skillLineId)
+
+			local result = Model.ProfessionCandidates(challenges, captured.snapshots, captured.parents)
+
+			local journeyman = byName(result, "Journeyman Alchemist")
+			assert.is_true(journeyman.parentKnown)
+			assert.equals(1, #journeyman.candidates)
+			assert.equals("Geo-Classic Beta PvP", journeyman.candidates[1].key)
+			assert.equals(1, journeyman.candidates[1].skill)
+			assert.equals(149, journeyman.candidates[1].remaining)
+			assert.equals(299, byName(result, "Artisan Alchemist").candidates[1].remaining)
+		end)
+
+		it("finds no captured Alchemist without the parent, so the direct match alone is not enough", function()
+			local captured = fixture("roster_geo_restart")
+
+			local result = Model.ProfessionCandidates(challenges, captured.snapshots, nil)
+
+			assert.same({}, byName(result, "Journeyman Alchemist").candidates)
+		end)
 	end)
 
 	describe("BuildRosterView", function()
@@ -641,6 +690,35 @@ describe("Roster model", function()
 
 			assert.equals(1, #rows(view, "character"))
 			assert.truthy(view.footnote:find("2 saved characters could not be read", 1, true))
+		end)
+
+		-- S1, 2026-10-01. `now` is not in the capture; 10 s after Geo's snapshot reproduces every
+		-- age the paste printed (0m, 47m, 48m).
+		it("draws the captured roster, with Bong's trees kept from login", function()
+			local captured = fixture("roster_geo")
+			local view = Model.BuildRosterView({
+				snapshots = captured.snapshots,
+				currentKey = "Geo-Classic Beta PvP",
+				now = captured.snapshots[1].takenAt + 10,
+				candidates = Model.ProfessionCandidates(challenges, captured.snapshots, captured.parentsLive),
+			})
+			local characters = rows(view, "character")
+
+			assert.equals("ok", view.state)
+			assert.equals(2, #characters)
+			assert.equals("Geo-Classic Beta PvP", characters[1].key)
+			assert.is_true(characters[1].current)
+			assert.equals("Bong-Classic Beta PvP", characters[2].key)
+			local geo = table.concat(characters[1].detail, "\n")
+			local bong = table.concat(characters[2].detail, "\n")
+			assert.truthy(geo:find("Herbalism 13/75", 1, true))
+			assert.truthy(geo:find("Cooking 1/75", 1, true))
+			assert.truthy(bong:find("Trees from 48m ago: unspent points not read", 1, true))
+			assert.truthy(bong:find("Updated 47m ago", 1, true))
+			assert.equals(0, #rows(view, "tradeskill"))
+			assert.truthy(view.footnote:find("3 tradeskill challenges have no saved character with the profession",
+				1, true))
+			assert.is_nil(view.footnote:find("lookup gave no answer", 1, true))
 		end)
 
 		it("has an empty state and an error state", function()

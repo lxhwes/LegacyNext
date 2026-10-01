@@ -90,7 +90,10 @@ ns.UI.SetDataSource(ns.ReadViewInput)
 
 -- This session's snapshot results, for /lgn roster. Each is also logged through Store, so the
 -- logout result -- written after the last chance to see chat -- shows up next session.
+-- SKILL_LINES_CHANGED fires on every skill-up, so it is held to Store's LOG_LIMIT: the login
+-- result first, then the latest, with the dropped middle counted in snapshotLogSkipped.
 ns.snapshotLog = {}
+ns.snapshotLogSkipped = 0
 
 -- Reads this character, merges over what Store already holds, writes it back. Never throws:
 -- it runs inside PLAYER_LOGOUT, where an error costs the one write that matters most.
@@ -139,7 +142,12 @@ function ns.TakeSnapshot(trigger, fromCommand)
 	ns.lastSnapshot = tostring(trigger) .. " -> " .. (ok and result or problem)
 	if not fromCommand then
 		local at = ns.Api.GetServerTime()
-		ns.snapshotLog[#ns.snapshotLog + 1] = { at = at, text = ns.lastSnapshot }
+		local log = ns.snapshotLog
+		log[#log + 1] = { at = at, text = ns.lastSnapshot }
+		if #log > ns.Store.LOG_LIMIT then
+			table.remove(log, 2)
+			ns.snapshotLogSkipped = ns.snapshotLogSkipped + 1
+		end
 		pcall(ns.Store.LogSnapshot, at, ns.lastSnapshot)
 	end
 	return ns.lastSnapshot, problem, character
@@ -211,6 +219,7 @@ function ns.ReadRosterInput()
 		diagnostics = Store.Diagnostics(),
 		snapshotResult = snapshotResult,
 		snapshotLog = ns.snapshotLog,
+		snapshotLogSkipped = ns.snapshotLogSkipped,
 		eventsNotRegistered = ns.eventsNotRegistered,
 		now = Api.GetServerTime(),
 	}

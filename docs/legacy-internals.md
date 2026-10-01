@@ -955,8 +955,10 @@ in `spec/fixtures/` have to come from a live dump.
 
 ## Professions — joining a character to a tradeskill challenge (2026-09-30)
 
-Source reading at `bd2470a` (1.60.1.70009), for v1's candidate-alt mapping. **Not verified in
-game; queue row S1.**
+Source reading at `bd2470a` (1.60.1.70009), for v1's candidate-alt mapping. ~~**Not verified in
+game; queue row S1.**~~ The lookup and the parent reading were verified in game 2026-10-01; see
+"S1, first paste" below. ~~A crafting profession is still unread.~~ Alchemy was read the same
+day and reports 171; see "S1 closed" below.
 
 - Tradeskill challenges are `criteriaType` 7. `assetId` is a skill line and `need` is the skill
   level: `Journeyman Alchemist` is 2937 / 150 (`spec/fixtures/dump_challenges_page1_fresh.lua`).
@@ -984,6 +986,123 @@ Consequence: `Model.ProfessionCandidates` accepts a direct match **or** a match 
 parent, which is correct whichever way the client answers. S1 answers two questions. Does the
 lookup work for a line the character never learned? And which number does an Alchemy
 character's `GetProfessionInfo` report?
+
+## S1, first paste — 2026-10-01
+
+One `/lgn roster` from Alex on build 1.60.1 (70124), saved as `spec/fixtures/roster_geo.lua`
+with the printed text verbatim at the bottom. It ran on Geo-Classic Beta PvP, a level 5 Druid
+with Herbalism 13/75 and Cooking 1/75. That was session 2. Session 1 was Bong (level 1
+Shaman), about a minute long, then a logout to character select. It answers the first of
+S1's two questions and half of the second.
+
+**SavedVariables came back** [verified in game]. `== STORE ==` read `attached=true
+loadedType=table loadedSessions=1 loadedCharacters=1 sessions=2 characters=2`. The addon
+loaded again from scratch on Geo's login, and the table it found was session 1's: Bong's
+snapshot and both of session 1's log entries (`SKILL_LINES_CHANGED+PLAYER_LOGIN`, then
+`PLAYER_LOGOUT`). No `LATE LOAD`, and `globalIsOurs = true`. The original bug report was
+about the read after a restart, so S1 step 4 is still the paste that closes it.
+
+**The lookup answers for lines the character never learned** [verified in game]. All six, on
+a character with no crafting profession:
+
+| Line | `parentProfessionID` | `professionName` | `profession` |
+|---|---|---|---|
+| 2937 | 171 | Alchemy | 3 |
+| 2938 | 164 | Blacksmithing | 1 |
+| 2940 | 333 | Enchanting | 9 |
+| 2941 | 202 | Engineering | 8 |
+| 2945 | 165 | Leatherworking | 2 |
+| 2948 | 197 | Tailoring | 7 |
+
+That is the DB2 map exactly. Each struct carries the eleven fields
+`TradeSkillUITypesDocumentation.lua:361-376` documents at `966519c`, and no others.
+`professionID` echoes the line asked for. `skillLevel` and `maxSkillLevel` read 0,
+`isPrimaryProfession` true, `sourceCounter` 2 on all six, and `expansionName` repeats the
+profession's name. Any character's lookup now answers, so the saved account-wide map is a
+backstop rather than a necessity.
+
+**`GetProfessionInfo` reports the Classic line** [verified in game for two lines]. Geo's
+Herbalism read 182 and Cooking 185. In `SkillLine` at 70124 both have Forever tier-4
+children, 2944 Herbalism and 2939 Cooking, built like the six crafting lines
+(`curl "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70124"`, rows 182, 185, 2939,
+2944). So where a line has a Forever child, the client reports the parent. No crafting
+profession has been read. If Alchemy follows the same rule, it reads 171 and joins through
+`parentProfessionID`, which `Model.ProfessionCandidates` already does.
+
+**Tree spend cannot be read at logout** [verified in game]. Bong's `PLAYER_LOGOUT` snapshot
+reads `written; trees: unspent points not read`. The login read was kept with its own time,
+`treesAt` 58 s before `takenAt`, which is what the PR #2 review fix was for. Logout never
+carries spend. Login and events do.
+
+**Events** [verified in game]. In about 45 minutes on Geo, `SKILL_LINES_CHANGED` set off 51
+snapshots, roughly one per Herbalism skill-up, and four of them also carried
+`PLAYER_LEVEL_UP`, for levels 2 to 5. Each event restarted the 5 s wait. The paste has no
+`events not registered:` line, so `TRAIT_CONFIG_UPDATED` registered. The 51 log lines were
+noise in the paste, so `/lgn roster` now prints the first entry and the last nine.
+
+**A contradiction with an older fixture.** The Shaman's name reads `Bong`.
+`spec/fixtures/dump_character_shaman.lua` (2026-09-19) has `"Bong Wrip"`, while a criterion's
+`charName` in that same capture reads `"Bong"`. ~~A player name cannot hold a space, so the
+older file's name probably changed somewhere between the client and the fixture.~~ **Answered
+by Alex the same day: Forever names have a first name and a surname, a Legacy feature. Bong
+is the first name.** The old fixture is a faithful capture. What changed is `UnitName`: on
+69913 it returned the full name, and on 70124 the first name only. `C_PlayerInfo.ShouldDisplaySurname` (`PlayerInfoDocumentation.lua:358`) is present at all
+three pins. `C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator`
+(`NameUtilDocumentation.lua:11`), documented as replacing "the character surname separator
+with a link separator in a full name string", arrived with 70009. Neither has a caller in the
+sparse checkout. The roster keys characters as `Name-Realm`, so a build that moves the
+surname in or out of `UnitName` again would give one character two rows. D10's probe now
+reads `UnitName`, `UnitFullName`, `UnitNameUnmodified`, `UnitGUID` and
+`ShouldDisplaySurname` side by side.
+
+## S1 closed, and D4 and D10 — 2026-10-01, later the same morning
+
+Five more captures from Alex on build 1.60.1 (70124), after a full client restart, on Geo
+Prizm (Geo is the first name), now a level 6 Druid who has trained Alchemy:
+
+- `/lgn roster` → `spec/fixtures/roster_geo_restart.lua`
+- `/lgn uidump roster`, the same login, verbatim at the bottom of that file
+- `/lgn dump character` → `spec/fixtures/dump_character_geo.lua`
+- `/lgn dump probe`, written up here and not fixtured, as with D2 and D5
+- two screenshots, the Roster tab and Next Up with a tooltip
+
+**SavedVariables come back off disk** [verified in game]. The first read after a full restart:
+`loadedType=table loadedSessions=2 loadedCharacters=2 sessions=3`, no `LATE LOAD`. The saved
+log carried session 2's last ten entries, ending in its `PLAYER_LOGOUT`. S1's fallback step,
+`## LoadSavedVariablesFirst`, is not needed.
+
+**Alchemy reports the Classic line, 171** [verified in game]. `GetProfessionInfo`'s
+`skillLine` for Alchemy is 171, not the 2937 the challenges name, so all three lines seen in
+game report the parent. Geo joined Journeyman, Expert and Artisan Alchemist through
+`parentProfessionID`, at 1/150, 1/225 and 1/300. With no parent map the same snapshot joins
+nothing, and a test pins that.
+
+**`GetProfessions` slots** [verified in game, D4]. Alchemy in slot 1, Herbalism in 2, Cooking
+in 5, at `GetProfessionInfo` indexes 4, 5 and 6. Slot 5 is where Mainline puts cooking too.
+Each entry carried `icon`, `modifier` and `skillLineName` besides the four the snapshot keeps.
+How many values `GetProfessions` returns in all is not in the dump, and Api iterates them all
+either way.
+
+**Professions cannot be read at logout either** [verified in game]. Session 2's
+`PLAYER_LOGOUT` snapshot read `trees: unspent points not read; professions: empty read, kept
+stored`. `GetProfessions` returned nothing at logout, and the empty-read rule from the PR #2
+review kept the login list.
+
+**D10: no secrets on 70124** [verified in game]. Every probe row read `ok`, apart from
+`GetMajorFactionData`'s expected `partial`, which drops the same 14 ColorMixin methods as D5.
+No row and no tally entry read `secret`, `error` or `missing`. `issecretvalue` read `guard
+active`, and all six constants and both flags read `(runtime)`. The trait config handle was
+11385528 this time, another transient value. `wowProjectId` read 1, Mainline. The probe had no
+name rows, since the installed build came from main rather than the branch that adds them.
+That half of D10 is still open.
+
+**The frame, seen** [verified in game, U1 and U4]. On Next Up the header's middle dot renders
+as a dot. The filter bar wraps to two lines at `All (41)`, and the three Alchemy rows sit in
+their own "in progress" tier, ordered by fraction. The tooltip carried every line, down to
+"Geo 1/150, 149 to go". On Roster the `P/A/R` and `Free` headings sit over their columns, Geo
+is in gold, and the footnote draws below the rows. The selected tab shows as white text on
+the same red button, which reads, but faintly. The roster uidump said `read took 37 ms`
+against U1's 21 ms. The window read now takes a snapshot and reads the roster too.
 
 ---
 
