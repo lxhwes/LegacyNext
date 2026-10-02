@@ -95,3 +95,15 @@ MajorFactionRenownRewardInfo
 # Api/ gates every read on this existing. If Blizzard renames or removes it the
 # guard silently becomes a no-op, which is worse than it erroring.
 issecretvalue
+
+# --- Actions on Blizzard's UI (Api.OpenLegacyChallenge, Api.LinkChallenge) --
+# Bare FrameXML globals and an EventRegistry event name: none is auto-discovered.
+# A rename here breaks a click silently, so the hunks are worth reading.
+ToggleLegacySystemUI
+LegacySystemFrame
+Legacy.SelectPage
+CHALLENGES_PAGE_IDX
+AchievementFrame_SelectAchievement
+GetAchievementLink
+ChatFrameUtil.InsertLink
+IsModifiedClick

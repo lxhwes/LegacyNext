@@ -859,6 +859,150 @@ function Api.GetSkillLineParents(skillLineIds)
 end
 
 --------------------------------------------------------------------------------------------
+-- Actions on Blizzard's UI
+--------------------------------------------------------------------------------------------
+
+-- The only calls here that are not reads. Each does on a click what the player could do by
+-- hand: open Blizzard's Legacy panel, or put a link in the chat box. No trait, purchase or
+-- commit API is reachable from them, and we never load an addon ourselves: the toggle loads
+-- Blizzard_LegacySystem the way the key binding does.
+
+-- The Legacy panel's challenges page, a file-local in Blizzard_LegacySystem.lua:1.
+local CHALLENGES_PAGE = 2
+
+local function inCombat()
+	local result = call("InCombatLockdown")
+	return result and result[1] and true or false
+end
+
+-- Whether a named frame is shown: true or false, or nil plus "secret". A missing frame or a
+-- throw is not shown, since the panel loads on demand. A method, so it is guarded here rather
+-- than through call, and tallied under the same name for /lgn probe.
+local function frameShown(name)
+	local path = name .. ".IsShown"
+	local frame = resolve(name)
+	if type(frame) ~= "table" or type(frame.IsShown) ~= "function" then
+		record(path, "missing")
+		return false
+	end
+	local ok, shown = pcall(frame.IsShown, frame)
+	if not ok then
+		record(path, "errors", tostring(shown))
+		return false
+	end
+	if isSecret(shown) then
+		record(path, "secret")
+		return nil, "secret"
+	end
+	record(path, "ok")
+	return shown == true
+end
+
+--- Opens Blizzard's Legacy panel on one challenge. True, or nil plus a reason for chat.
+-- ToggleLegacySystemUI()          used: Blizzard_LegacySystem/Blizzard_LegacySystem_Bootstrap.lua:7-21
+--   returns at renown <= 0 (:8-10), loads on demand, then ToggleFrame -> ShowUIPanel, which
+--   refuses addon calls in combat (Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua:854-860)
+--   and can refuse a panel that does not fit (:185-188), hence the IsShown check after it
+-- EventRegistry "Legacy.SelectPage" used: Blizzard_LegacySystem/Blizzard_LegacySystem.lua:12-15, :69-79
+--   page 2 is ChallengesPage (Blizzard_LegacySystem.xml:16, :41); its OnShow builds the
+--   category list (Blizzard_LegacyChallenges.lua:31-41), which the select needs
+-- AchievementFrame_SelectAchievement(id, forceSelect)
+--                                 used: Blizzard_LegacySystem/Blizzard_LegacyChallenges.lua:310-320
+--   the Legacy override of Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:2811;
+--   it does not switch pages itself
+-- GetCurrentRenownLevel           doc:  MajorFactionsDocumentation.lua:11
+-- InCombatLockdown                doc:  RestrictedActionsDocumentation.lua:45
+-- pin:  9a789c0 (1.60.1.70170)
+function Api.OpenLegacyChallenge(id)
+	if type(id) ~= "number" then
+		return nil, "no challenge id"
+	end
+	if inCombat() then
+		return nil, "in combat"
+	end
+	-- An unreadable level is left to the toggle's own check.
+	local factionId = Api.GetConstant("LEGACY_REWARD_TRACK_FACTION_ID")
+	local level = factionId and call("C_MajorFactions.GetCurrentRenownLevel", factionId)
+	if level and type(level[1]) == "number" and level[1] <= 0 then
+		return nil, "no Legacy points yet"
+	end
+
+	-- Toggling an open panel would close it, so an unreadable state stops here.
+	local shown, shownReason = frameShown("LegacySystemFrame")
+	if shown == nil then
+		return nil, "LegacySystemFrame.IsShown " .. tostring(shownReason)
+	end
+	if not shown then
+		local toggled, reason = call("ToggleLegacySystemUI")
+		if not toggled then
+			return nil, "ToggleLegacySystemUI " .. tostring(reason)
+		end
+		if frameShown("LegacySystemFrame") ~= true then
+			return nil, "Legacy panel did not open"
+		end
+	end
+
+	local registry = resolve("EventRegistry")
+	if type(registry) ~= "table" or type(registry.TriggerEvent) ~= "function" then
+		record("EventRegistry.TriggerEvent", "missing")
+		return nil, "panel opened, EventRegistry missing"
+	end
+	local paged, pageError = pcall(registry.TriggerEvent, registry, "Legacy.SelectPage", CHALLENGES_PAGE)
+	if not paged then
+		record("EventRegistry.TriggerEvent", "errors", tostring(pageError))
+		return nil, "panel opened, Legacy.SelectPage error: " .. tostring(pageError)
+	end
+	record("EventRegistry.TriggerEvent", "ok")
+
+	local selected, selectReason = call("AchievementFrame_SelectAchievement", id, true)
+	if not selected then
+		return nil, "panel opened, AchievementFrame_SelectAchievement " .. tostring(selectReason)
+	end
+	return true
+end
+
+--- Puts one challenge's link in the open chat box. True, or nil plus a reason for chat.
+-- GetAchievementLink(id) -> link  used: Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:1133
+-- ChatFrameUtil.InsertLink(link) -> handled
+--                                 used: Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:1135
+--   Blizzard's Legacy rows link through the same mixin (Blizzard_LegacyChallengeButton.lua:202, :223-224).
+--   Neither is in the generated docs, and ChatFrameUtil is defined outside the checkout.
+--   ChatEdit_InsertLink is the older global, tried when ChatFrameUtil is missing.
+-- pin:  9a789c0 (1.60.1.70170)
+function Api.LinkChallenge(id)
+	local result = call("GetAchievementLink", id)
+	local link = result and result[1]
+	if type(link) ~= "string" or link == "" then
+		return nil, "GetAchievementLink unavailable"
+	end
+	local inserted, reason = call("ChatFrameUtil.InsertLink", link)
+	if not inserted then
+		-- Only the older global is tried, and only its success counts: the reason reported is
+		-- the current API's.
+		inserted = call("ChatEdit_InsertLink", link)
+	end
+	if not inserted then
+		return nil, "ChatFrameUtil.InsertLink " .. tostring(reason)
+	end
+	if not inserted[1] then
+		return nil, "open a chat box first"
+	end
+	return true
+end
+
+--- Whether the click in progress is the player's chat-link click, Shift unless rebound.
+-- IsModifiedClick("CHATLINK")     used: Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:1146
+-- IsShiftKeyDown()                doc:  InputDocumentation.lua:217
+-- pin:  9a789c0 (1.60.1.70170)
+function Api.IsLinkClick()
+	local result = call("IsModifiedClick", "CHATLINK")
+	if not result then
+		result = call("IsShiftKeyDown")
+	end
+	return result and result[1] and true or false
+end
+
+--------------------------------------------------------------------------------------------
 -- Probe
 --------------------------------------------------------------------------------------------
 

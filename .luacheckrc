@@ -76,6 +76,17 @@ read_globals = {
 	"C_TradeSkillUI",
 	"GetServerTime",
 
+	-- Actions on Blizzard's UI: the Legacy panel and the chat link, on a click
+	"ToggleLegacySystemUI",
+	"LegacySystemFrame",
+	"EventRegistry",
+	"AchievementFrame_SelectAchievement",
+	"GetAchievementLink",
+	"ChatFrameUtil",
+	"ChatEdit_InsertLink",
+	"IsModifiedClick",
+	"IsShiftKeyDown",
+
 	-- UI and Debug (reached through rawget; listed so the manifest stays honest)
 	"GameTooltip",
 	"PanelTemplates_SelectTab",
