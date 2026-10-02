@@ -18,6 +18,10 @@ local PAD = 12
 local FIGURE_WIDTH = 64
 local POINTS_WIDTH = 32
 local FILTER_GAP = 4
+local ICON_SIZE = 14
+local ICON_GAP = 4
+-- The row kinds whose view rows carry an icon.
+local ICON_KINDS = { challenge = true, tradeskill = true }
 
 -- A rebuild is a ~900-call sweep, 21 ms on the U1 read. CRITERIA_UPDATE fires for every
 -- criterion in the game, not only Legacy ones, so it coalesces over 5 s rather than costing a
@@ -53,6 +57,49 @@ local function applyFont(fontString, ...)
 	if font then
 		fontString:SetFontObject(font)
 	end
+end
+
+-- A texture file id or path, as the view hands them over.
+local function usableIcon(icon)
+	return type(icon) == "number" or (type(icon) == "string" and icon ~= "")
+end
+
+-- The client's colour for a class token, as r, g, b, or nil. RAID_CLASS_COLORS first
+-- (ClassColors.lua:1-25 at 966519c, filled from C_ClassColor), since class-colour addons
+-- recolour that table; then C_ClassColor.GetClassColor (ClassColorDocumentation.lua:11,
+-- MayReturnNothing).
+local function classColor(token)
+	if type(token) ~= "string" or token == "" then
+		return nil
+	end
+	local colors = G("RAID_CLASS_COLORS")
+	local color = type(colors) == "table" and colors[token] or nil
+	if type(color) ~= "table" then
+		local api = G("C_ClassColor")
+		if type(api) == "table" and type(api.GetClassColor) == "function" then
+			local ok, result = pcall(api.GetClassColor, token)
+			color = ok and result or nil
+		end
+	end
+	if type(color) == "table" and plainNumber(color.r) and plainNumber(color.g) and plainNumber(color.b) then
+		return color.r, color.g, color.b
+	end
+	return nil
+end
+
+local function colorByte(value)
+	return math.floor(math.max(0, math.min(1, value)) * 255 + 0.5)
+end
+
+-- The name wrapped in a colour escape, the form Blizzard's RGBToColorCode builds
+-- (ColorUtil.lua:90-92). Nothing stays set on the FontString, so a pooled row drawn next
+-- without a class is back in its font's colour. Returns the text and whether it was coloured.
+local function classColored(text, token)
+	local r, g, b = classColor(token)
+	if not r then
+		return text, false
+	end
+	return ("|cff%02x%02x%02x%s|r"):format(colorByte(r), colorByte(g), colorByte(b), text), true
 end
 
 -- CreateFrame with a template, falling back to no template when the template is missing.
@@ -192,6 +239,12 @@ local function buildHeader(frame, top)
 	line1:SetJustifyH("LEFT")
 	line1:SetWordWrap(false)
 
+	-- The next reward's icon, drawn before line 2 when the view has one.
+	local icon = frame:CreateTexture(nil, "ARTWORK")
+	icon:SetSize(ICON_SIZE, ICON_SIZE)
+	icon:SetPoint("TOPLEFT", line1, "BOTTOMLEFT", 0, -3)
+	icon:Hide()
+
 	local line2 = frame:CreateFontString(nil, "OVERLAY")
 	applyFont(line2, "GameFontHighlightSmall", "GameFontHighlight", "ChatFontNormal")
 	line2:SetPoint("TOPLEFT", line1, "BOTTOMLEFT", 0, -4)
@@ -200,7 +253,25 @@ local function buildHeader(frame, top)
 	line2:SetWordWrap(false)
 
 	frame.headerLines = { line1, line2 }
+	frame.headerIcon = icon
 	return top + 20 + 4 + 14
+end
+
+local function drawHeader(frame, header)
+	local line1, line2, icon = frame.headerLines[1], frame.headerLines[2], frame.headerIcon
+	line1:SetText(header.lines[1] or "")
+	line2:SetText(header.lines[2] or "")
+	line2:ClearAllPoints()
+	if usableIcon(header.icon) then
+		icon:SetTexture(header.icon)
+		icon:Show()
+		line2:SetPoint("LEFT", icon, "RIGHT", ICON_GAP, 0)
+	else
+		icon:SetTexture(nil)
+		icon:Hide()
+		line2:SetPoint("TOPLEFT", line1, "BOTTOMLEFT", 0, -4)
+	end
+	line2:SetPoint("RIGHT", -PAD, 0)
 end
 
 -- The top tab when the template and its select helpers (SharedUIPanelTemplates.lua:616, :598)
@@ -373,6 +444,17 @@ local function acquireRow(frame, index)
 	highlight:SetAllPoints()
 	highlight:SetColorTexture(1, 1, 1, 0.08)
 
+	-- Marks the current character once its name is in class colour rather than gold.
+	local tint = row:CreateTexture(nil, "BACKGROUND")
+	tint:SetAllPoints()
+	tint:SetColorTexture(1, 0.82, 0, 0.12)
+	tint:Hide()
+
+	local icon = row:CreateTexture(nil, "ARTWORK")
+	icon:SetSize(ICON_SIZE, ICON_SIZE)
+	icon:SetPoint("LEFT", 0, 0)
+	icon:Hide()
+
 	local points = row:CreateFontString(nil, "OVERLAY")
 	applyFont(points, "GameFontHighlight", "ChatFontNormal")
 	points:SetPoint("RIGHT", 0, 0)
@@ -398,6 +480,7 @@ local function acquireRow(frame, index)
 	end
 
 	row.name, row.figure, row.points = name, figure, points
+	row.icon, row.tint = icon, tint
 	row:SetScript("OnEnter", showTooltip)
 	row:SetScript("OnLeave", hideTooltip)
 
@@ -596,6 +679,37 @@ local function styleRow(widget, item)
 	applyFont(widget.points, unpack(valueFonts))
 end
 
+-- The name, its icon and the current-character tint. Each is set or cleared on every draw, so
+-- a pooled row never keeps another row's. `iconSlot` indents every row of an icon kind, with
+-- or without an icon of its own, so their names line up.
+local function drawName(widget, item, iconSlot)
+	local text, colored = item.name, false
+	if item.kind == "character" and type(item.name) == "string" then
+		text, colored = classColored(item.name, item.classToken)
+	end
+	widget.name:SetText(text)
+	if colored and item.current then
+		widget.tint:Show()
+	else
+		widget.tint:Hide()
+	end
+
+	local indent = 0
+	if iconSlot and ICON_KINDS[item.kind] then
+		indent = ICON_SIZE + ICON_GAP
+	end
+	if indent > 0 and usableIcon(item.icon) then
+		widget.icon:SetTexture(item.icon)
+		widget.icon:Show()
+	else
+		widget.icon:SetTexture(nil)
+		widget.icon:Hide()
+	end
+	widget.name:ClearAllPoints()
+	widget.name:SetPoint("LEFT", indent, 0)
+	widget.name:SetPoint("RIGHT", widget.figure, "LEFT", -6, 0)
+end
+
 -- The scroll frame's width, or the built size while its rect is still unresolved (0).
 local function listWidth(frame)
 	local width = frame.scroll:GetWidth()
@@ -636,6 +750,12 @@ local function layoutRows(frame, view)
 	local y = 0
 	local rowIndex, dividerIndex = 0, 0
 
+	-- No icon on any row, no slot: names stay where they were before rows had icons.
+	local iconSlot = false
+	for _, item in ipairs(view.rows) do
+		iconSlot = iconSlot or (ICON_KINDS[item.kind] and usableIcon(item.icon)) or false
+	end
+
 	for _, item in ipairs(view.rows) do
 		local widget
 		if item.kind == "divider" then
@@ -649,7 +769,7 @@ local function layoutRows(frame, view)
 			local heading = item.kind == "columns"
 			widget.data = not heading and item or nil
 			widget:EnableMouse(not heading)
-			widget.name:SetText(item.name)
+			drawName(widget, item, iconSlot)
 			widget.figure:SetText(item.progressText)
 			widget.points:SetText(item.pointsText)
 			styleRow(widget, item)
@@ -696,8 +816,7 @@ function UI.Render(view)
 	local frame = ensureFrame()
 	UI.view = view
 
-	frame.headerLines[1]:SetText(view.header.lines[1] or "")
-	frame.headerLines[2]:SetText(view.header.lines[2] or "")
+	drawHeader(frame, view.header)
 
 	for _, button in ipairs(frame.tabs) do
 		markTab(button, button.tab == UI.tab)
