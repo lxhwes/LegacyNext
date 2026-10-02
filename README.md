@@ -134,9 +134,10 @@ Changes are listed in [CHANGELOG.md](https://github.com/lxhwes/LegacyNext/blob/m
 
 ## Bugs and requests
 
-Open an issue at https://github.com/lxhwes/LegacyNext/issues with your client build and the
-challenge name. Contributors: setup, tests and the in-game data workflow are in
-[docs/development.md](https://github.com/lxhwes/LegacyNext/blob/main/docs/development.md).
+Open an issue at https://github.com/lxhwes/LegacyNext/issues/new/choose. The bug form asks
+for your client build and the output of `/lgn dump summary`, which together make most reports
+reproducible. Contributors: start with
+[CONTRIBUTING](https://github.com/lxhwes/LegacyNext/blob/main/.github/CONTRIBUTING.md).
 
 ## Licence
 
