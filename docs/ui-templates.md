@@ -188,7 +188,7 @@ with `_G[value]` and calls `:Hide()` (`UIParentPanelManager.lua:1102-1112`), so 
 named frame is the whole contract. It is not in `Blizzard_UIParent/UIParent.lua`, which is 11
 lines on this branch; the panel manager owns it.
 
-## Key binding and AddOns-list category (2026-10-01, at `966519c`)
+## Key binding and AddOns-list category (2026-10-01, at `966519c`, unchanged at `9a789c0`)
 
 Tier B: read from Blizzard's own files, unseen in game until **U7**.
 
