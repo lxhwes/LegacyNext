@@ -1,8 +1,13 @@
 # Status
 
-Last updated 2026-10-01, late evening.
+Last updated 2026-10-02.
 
-**Where we are, 2026-10-01, late evening: `v0.1.0-beta1` is on CurseForge, and the GUID roster
+**Where we are, 2026-10-02: the repo is being readied to go public.** The README, CHANGELOG
+and contributor doc now match what shipped, and the next release's notes come from
+`CHANGELOG.md` instead of the git log. Nothing in the addon changed. 314 tests, none pending.
+The flip itself is Alex's to make. S2 and U8 are still open, then `v0.1.0-beta2`.
+
+**As of 2026-10-01, late evening: `v0.1.0-beta1` is on CurseForge, and the GUID roster
 key and the resizable window are merged but unseen in game.** The release (project 1721646,
 Beta, and a GitHub pre-release) was built from `02ac5c9`, before either merge. 314 tests, none
 pending. Open in game: **S2** (the GUID move on login) and **U8** (the resize grip), one
@@ -62,7 +67,35 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 Blocking: nothing. ~~**D10**'s name rows~~ and ~~**C3**~~ both closed 2026-10-01. Not
 blocking: **C2**. ~~**U2**~~, ~~**U5**~~, ~~**U6**~~ and ~~**U7**~~ closed 2026-10-01. The queue is `docs/ingame-commands.md`.
 
-## Roster key — ~~open~~ decided and built, 2026-10-01, evening
+## Public flip prep — 2026-10-02
+
+The repo was private, and Alex asked for it cleaned up before going public, README first.
+
+Checked and clean: every commit's author and committer email is a GitHub noreply address, and a
+scan of the full history for keys, tokens and private-key headers found nothing
+(`git log --all -p | grep -E 'AKIA|ghp_|github_pat_|BEGIN .* PRIVATE|x-api-token: ...'`). The
+only personal path, a `/Users/…` clone source in `docs/distribution.md`, is now `git clone .`.
+It stays in history, and it names a username, nothing more. Blizzard's source is not
+redistributed: `vendor/` is gitignored apart from `PINS.md`. The fixtures carry two beta
+characters' names and one GUID. Those are what another player sees in game, and the tests need
+them, so they stay.
+
+Changed:
+
+- **README**: the roster is described as shipped, not as a preview, and the SavedVariables
+  caveat is gone, since S1 closed it. The build is 70170. The mockup shows the tabs and the
+  real filter labels with counts. There is a CurseForge link (Alex gave the URL), a release
+  badge, an install section, and a line saying the addon is not affiliated with Blizzard.
+- **CHANGELOG**: a `0.1.0-beta1` section for what shipped. Unreleased now holds only the GUID
+  key and the resizable window, which was missing from it. The roster entries lost their "not
+  yet run in game" markers.
+- **Release notes**: `.pkgmeta` sets `manual-changelog`, Alex's call. Detail and citations in
+  `docs/distribution.md`. The first tag after this is the check.
+- **CI** runs with a read-only token, since fork pull requests will now run it.
+- **`docs/development.md`**: the S1 caveat is gone, and there is a short pull request section.
+- The nine remote branches merged through PRs #1–#9 were deleted, Alex's call.
+
+
 
 D10 answered the question this was waiting on. The roster keys characters as `Name-Realm`,
 from `UnitName`'s first return and `GetRealmName`. That first return held the full name on
