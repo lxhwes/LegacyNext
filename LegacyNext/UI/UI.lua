@@ -2,7 +2,8 @@ local _, ns = ...
 
 -- The v0 frame. Reads from Model, never from Api: Core hands in a data source that returns
 -- the Model.BuildView input, and everything drawn here comes out of that view. v0 is a
--- standalone frame; we do not hook Blizzard frames.
+-- standalone frame; we do not hook Blizzard frames. The tab, filter and position are saved
+-- per character through Store.
 --
 -- Templates and font objects are cited in docs/ui-templates.md at pin 70ef1b2. Every one is
 -- feature-detected here anyway: a missing template falls back to a plain frame rather than an
@@ -26,6 +27,15 @@ local DEFAULT_DELAY = 1.0
 
 local function G(name)
 	return rawget(_G, name)
+end
+
+-- A finite number that is not a secret value: comparing or formatting a secret throws.
+local function plainNumber(value)
+	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+		return false
+	end
+	local isSecret = G("issecretvalue")
+	return not (type(isSecret) == "function" and isSecret(value))
 end
 
 local function fontObject(...)
@@ -93,6 +103,75 @@ local TAB_WIDTH = 80
 
 function UI.SetDataSource(fn)
 	UI.source = fn
+end
+
+local function knownTab(tab)
+	for _, entry in ipairs(TABS) do
+		if entry.id == tab then
+			return true
+		end
+	end
+	return false
+end
+
+-- Window state is saved per character through Store. Without a Store the window still works;
+-- it just opens as it did.
+local function store()
+	local Store = ns.Store
+	if type(Store) == "table" and type(Store.GetUIState) == "function"
+		and type(Store.PutUIState) == "function" then
+		return Store
+	end
+	return nil
+end
+
+local function saveState(name, value)
+	local Store = store()
+	if Store then
+		Store.PutUIState(name, value)
+	end
+end
+
+-- Anchors the frame at a saved top-left corner, clamped onto the screen so a smaller screen or
+-- a larger UI scale since the save cannot strand it. Centred when the save or the screen size
+-- cannot be read.
+local function placeFrame(frame, point)
+	frame:ClearAllPoints()
+	local parent = G("UIParent")
+	local screenWidth = parent and parent:GetWidth()
+	local screenHeight = parent and parent:GetHeight()
+	if type(point) ~= "table" or not plainNumber(point.left) or not plainNumber(point.top)
+		or not plainNumber(screenWidth) or not plainNumber(screenHeight)
+		or screenWidth <= 0 or screenHeight <= 0 then
+		frame:SetPoint("CENTER")
+		return
+	end
+	local left = math.max(0, math.min(point.left, screenWidth - WIDTH))
+	local top = math.min(screenHeight, math.max(point.top, HEIGHT))
+	frame:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", left, top)
+end
+
+local function restoreState(frame)
+	local Store = store()
+	local saved = Store and Store.GetUIState() or {}
+	if knownTab(saved.tab) then
+		UI.tab = saved.tab
+	end
+	-- A category id; one that has gone since is BuildView's to drop, and it falls back to All.
+	if type(saved.filter) == "number" or type(saved.filter) == "string" then
+		UI.filter = saved.filter
+	end
+	placeFrame(frame, saved.point)
+end
+
+-- GetLeft and GetTop measure from the screen's bottom-left, in UIParent's scale since the
+-- frame is its child at scale 1, which is the space placeFrame anchors in.
+local function onDragStop(frame)
+	frame:StopMovingOrSizing()
+	local left, top = frame:GetLeft(), frame:GetTop()
+	if plainNumber(left) and plainNumber(top) then
+		saveState("point", { left = left, top = top })
+	end
 end
 
 --------------------------------------------------------------------------------------------
@@ -296,14 +375,15 @@ local function ensureFrame()
 
 	local frame, templated = createFrame("Frame", FRAME_NAME, UIParent, "BasicFrameTemplateWithInset")
 	frame:SetSize(WIDTH, HEIGHT)
-	frame:SetPoint("CENTER")
+	-- First build: the tab, filter and position this character left the window with.
+	restoreState(frame)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetToplevel(true)
 	frame:SetMovable(true)
 	frame:EnableMouse(true)
 	frame:RegisterForDrag("LeftButton")
 	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	frame:SetScript("OnDragStop", onDragStop)
 	frame:SetClampedToScreen(true)
 
 	local top
@@ -711,19 +791,17 @@ local function refreshOrDefer()
 end
 
 function UI.SetTab(tab)
-	local known = false
-	for _, entry in ipairs(TABS) do
-		known = known or entry.id == tab
-	end
-	if not known or tab == UI.tab then
+	if not knownTab(tab) or tab == UI.tab then
 		return
 	end
 	UI.tab = tab
+	saveState("tab", tab)
 	refreshOrDefer()
 end
 
 function UI.SetFilter(groupId)
 	UI.filter = groupId
+	saveState("filter", groupId)
 	refreshOrDefer()
 end
 
