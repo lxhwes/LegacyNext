@@ -62,6 +62,10 @@ Evidence is source only, at `966519c`. `Blizzard_Minimap.toc` loads `AddonCompar
 is inferred to load it. The compartment lists only addons enabled for every character
 (`AddonCompartment.lua:80`). **U5** checks all of it in 30 s.
 
+Stacked on this branch the same evening, from the polish pass: a toggle key binding
+(`LEGACYNEXT_TOGGLE`, Key Bindings > AddOns, through `Bindings.xml`) and
+`## Category: Achievements` for the AddOns list. Source-only, at `966519c`. **U7** checks both.
+
 **PR #6 review, the same day.** A subagent review found nine problems, none in the code path.
 Eight are fixed on the branch. U5 sent Alex to the clock, but the button is anchored under the
 calendar, which also shows a number. U5 also offered a question mark for a failed icon, which

@@ -188,6 +188,20 @@ with `_G[value]` and calls `:Hide()` (`UIParentPanelManager.lua:1102-1112`), so 
 named frame is the whole contract. It is not in `Blizzard_UIParent/UIParent.lua`, which is 11
 lines on this branch; the panel manager owns it.
 
+## Key binding and AddOns-list category (2026-10-01, at `966519c`)
+
+Tier B: read from Blizzard's own files, unseen in game until **U7**.
+
+- `Bindings.xml` loads by file name. None of the eight Blizzard addons that ship one lists it in
+  its TOC (for example `Blizzard_PingUI/Blizzard_PingUI.toc`). The loader itself is client-side.
+- The row label is `BINDING_NAME_<name>` (`Blizzard_SharedXML/BindingUtil.lua:142-149`).
+- `category="ADDONS"` titles the section through `_G.ADDONS`, or the raw string if that is
+  missing (`Blizzard_SettingsDefinitions_Frame/Keybindings.lua:220-227`, `:248-249`).
+- A `HEADER` binding draws only a spacer (`Keybindings.lua:251-252`), so no
+  `BINDING_HEADER_*` global is defined.
+- `## Category` is read at `Blizzard_AddOnList/AddonList.lua:456`, and grouping needs the exact
+  same string (`:486-490`). No localized `Category-enUS` form is read.
+
 ## 5. Text truncation and GameTooltip
 
 FontString methods, all Tier A in
