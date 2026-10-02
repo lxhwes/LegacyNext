@@ -15,10 +15,11 @@ local _, ns = ...
 --       -- logs in again and Core moves it (Model.PlanSnapshot). Store never parses a key.
 --     snapshotLog = { { session, at, text }, ... },   -- last LOG_LIMIT snapshot results
 --     skillLineParents = { [skillLineId] = <Model.MergeSkillLineParents entry>, ... },
+--     settings = { minimapHidden = <bool>, minimapLocked = <bool>, minimapAngle = <degrees> },
 --   }
 --
--- snapshotLog and skillLineParents are additive, so schema stays 1: an older build ignores
--- them.
+-- snapshotLog, skillLineParents and settings are additive, so schema stays 1: an older build
+-- ignores them.
 --
 -- Per character, no schema, every field optional:
 --   LegacyNextCharDB = {
@@ -267,6 +268,33 @@ function Store.PutUIState(name, value)
 		saved.ui = {}
 	end
 	saved.ui[name] = copy(value)
+	return true
+end
+
+--- The account-wide settings, as a copy; empty when none were saved. Read from a newer
+-- schema too, since reading cannot harm it.
+function Store.GetSettings()
+	sync()
+	if not db or type(db.settings) ~= "table" then
+		return {}
+	end
+	return copy(db.settings)
+end
+
+--- Sets one account-wide setting; nil clears it. Gated like the alt list: a newer schema may
+-- lay settings out differently, and this build would write over its layout.
+function Store.PutSetting(name, value)
+	local ok, reason = writable()
+	if not ok then
+		return false, reason
+	end
+	if type(name) ~= "string" then
+		return false, "bad setting name"
+	end
+	if type(db.settings) ~= "table" then
+		db.settings = {}
+	end
+	db.settings[name] = copy(value)
 	return true
 end
 
