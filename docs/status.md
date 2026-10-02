@@ -9,7 +9,8 @@ the frame, the icon and the Roster tab drawn as designed. The window also has an
 minimap's addon dropdown, unseen in game (U5). ~~218 tests~~ 221 tests after the
 PR #5 review, 223 with the minimap entry, none pending. Open in
 game: D10's name rows, which decide the roster key, then U5, C3, U2 and C2. The vendor pin is
-`1.60.1.70124`.
+~~`1.60.1.70124`~~ `1.60.1.70170`. Nothing we call changed, but three Blizzard call sites did,
+and the docs were re-cited.
 
 **As of the morning of 2026-10-01: Phase 4 (v1 roster) has started on the report that SavedVariables
 now load back. ~~That report is untested here, and S1 tests it.~~ S1's first paste came back
@@ -60,7 +61,8 @@ possible.)
 Evidence is source only, at `966519c`. `Blizzard_Minimap.toc` loads `AddonCompartment.lua` for
 `mainline`. The same TOC excludes `camelot` from another `mainline` line, which is why Forever
 is inferred to load it. The compartment lists only addons enabled for every character
-(`AddonCompartment.lua:80`). **U5** checks all of it in 30 s.
+(`AddonCompartment.lua:80`). **U5** checks all of it in 30 s. The evidence holds at the 70170
+pin, `9a789c0`: that diff does not touch `Blizzard_Minimap`.
 
 Stacked on this branch the same evening, from the polish pass: a toggle key binding
 (`LEGACYNEXT_TOGGLE`, Key Bindings > AddOns, through `Bindings.xml`) and
@@ -75,6 +77,21 @@ draw, and `README.md` names the dropdown and its all-characters catch. The S1 ca
 `CLAUDE.md`, since this section already holds it. Not done: routing the click through the
 slash handler with a nil-`ns.UI` guard. `Core.lua` calls `ns.UI.SetDataSource` at load, so a
 missing UI fails before the handler exists.
+
+## Vendor pin moved to 1.60.1.70170 — 2026-10-01
+
+`966519c` → `9a789c0`. Six `Blizzard_LegacySystem` files changed. No constant, signature or API doc
+on our surface moved, and `## Interface: 16001` still matches. The citations that shifted were
+re-derived. Detail in `docs/beta-builds.md`.
+
+Two of the call-site changes bear on open questions:
+
+- Blizzard's summary now reads `GetTreeCurrencyInfo` with `excludeStagedChanges = false`. `Api`
+  keeps `true`, so a snapshot records committed spend and never a player's unsaved tree edits.
+  Open for Alex if the window should match Blizzard's panel instead.
+- `ToggleLegacySystemUI` does nothing at zero points now. The "open Blizzard's panel on one
+  challenge" idea, under the Legacy Forever entry below, would need to hide or disable itself at
+  zero points.
 
 ## S1 closed, and the frame seen — 2026-10-01, late morning
 
