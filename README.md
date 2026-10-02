@@ -66,7 +66,12 @@ in the game's own category order, because zero progress says nothing about which
 The "no progress shown" divider matters too. Those challenges expose no progress at all
 through the game's API, so they sit below it rather than being drawn as 0%.
 
-The window keeps its tab, filter and position for each character.
+The window keeps its tab, filter, position and size for each character. Drag the bottom-right
+corner to resize it.
+
+Click a challenge row to open Blizzard's Legacy panel on that challenge. Shift-click it to put
+its link in the chat box. Blizzard's panel only opens once the account has earned a Legacy
+point, and neither works in combat.
 
 ## Commands
 
@@ -75,14 +80,19 @@ The window keeps its tab, filter and position for each character.
 | `/lgn` or `/legacynext` | Open or close the window. Escape closes it |
 | `/lgn show` / `/lgn hide` | The same, without the toggle |
 | `/lgn help` | List every command |
+| `/lgn minimap` | Show or hide the minimap button |
+| `/lgn config` | Open LegacyNext's settings |
 | `/lgn roster` | The Roster tab's data as copyable text |
 | `/lgn roster forget <Name-Realm>` | Remove a deleted character from the roster |
 | `/lgn uidump [category]` | What the Next Up tab would show, as copyable text. `/lgn uidump roster` does the same for the Roster tab |
 | `/lgn probe` | One line per API call: ok, partial, nil, missing, error, secret, skipped |
 | `/lgn dump [section] [page]` | Everything the addon reads, as a Lua literal |
 
-The window also opens from the minimap's addon dropdown, the small numbered button under the
-calendar, and from a key binding under Key Bindings > AddOns. The dropdown lists only addons
+The window also opens from LegacyNext's minimap button, from the minimap's addon dropdown (the
+small numbered button under the calendar), and from a key binding under Key Bindings > AddOns.
+Left-click the minimap button to open the window and right-click it for settings. Drag it round
+the minimap's edge to move it. Its tooltip shows the reward track, your unspent points and the
+three challenges closest to done. Esc > Options > AddOns > LegacyNext hides or locks it. The dropdown lists only addons
 enabled for all characters, so if LegacyNext is missing there, check the character dropdown in
 the AddOns list.
 
