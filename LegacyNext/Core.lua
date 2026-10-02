@@ -84,6 +84,26 @@ end
 
 ns.UI.SetDataSource(ns.ReadViewInput)
 
+-- A challenge row's click: the chat-link click (Shift unless rebound) links it, as Blizzard's
+-- own rows do, and any other click opens Blizzard's Legacy panel on it. A refusal is said in
+-- chat, since the click otherwise does nothing visible.
+local function challengeClick(id)
+	local Api = ns.Api
+	if Api.IsLinkClick() then
+		local ok, reason = Api.LinkChallenge(id)
+		if not ok then
+			say("could not link it: " .. tostring(reason))
+		end
+		return
+	end
+	local ok, reason = Api.OpenLegacyChallenge(id)
+	if not ok then
+		say("could not open the Legacy panel: " .. tostring(reason))
+	end
+end
+
+ns.UI.SetActions({ challengeClick = challengeClick })
+
 --------------------------------------------------------------------------------------------
 -- v1 roster: this character's snapshot, written through Store
 --------------------------------------------------------------------------------------------
