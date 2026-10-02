@@ -86,6 +86,9 @@ local function unloadUI()
 	_G.InCombatLockdown = nil
 	_G.LegacyNextDB = nil
 	_G.LegacyNextCharDB = nil
+	_G.PanelTemplates_SelectTab = nil
+	_G.PanelTemplates_DeselectTab = nil
+	_G.PanelTemplates_TabResize = nil
 end
 
 -- A C_Timer double that holds callbacks until the test runs them, so ordering is explicit.
@@ -705,6 +708,90 @@ describe("UI", function()
 			ns.UI.SetTab("bogus")
 
 			assert.equals("nextup", ns.UI.tab)
+		end)
+
+		-- Today's selected tab is white text on the same red button, which reads faintly.
+		describe("selected tab", function()
+			local function stubTabHelpers()
+				_G.PanelTemplates_SelectTab = function(tab) rawset(tab, "selected", true) end
+				_G.PanelTemplates_DeselectTab = function(tab) rawset(tab, "selected", false) end
+				local resized = {}
+				_G.PanelTemplates_TabResize = function(tab, padding, absoluteSize, minWidth)
+					resized[#resized + 1] = { tab = tab, padding = padding, absoluteSize = absoluteSize,
+						minWidth = minWidth }
+				end
+				return resized
+			end
+
+			it("uses Blizzard's top tab and its select helpers when both are there", function()
+				local resized = stubTabHelpers()
+				local ns = loadWithRoster()
+				ns.UI.SetDataSource(shamanSource(ns))
+				ns.UI.Show()
+				local tabs = ns.UI.frame.tabs
+
+				assert.equals("PanelTopTabButtonTemplate", tabs[1].template)
+				assert.equals("PanelTopTabButtonTemplate", tabs[2].template)
+				assert.equals("PanelTopTabButtonTemplate", ns.UI.Describe().tabTemplate)
+				assert.is_true(tabs[1].selected)
+				assert.is_false(tabs[2].selected)
+				assert.equals(2, #resized)
+				assert.equals(80, resized[1].minWidth)
+				-- The template resizes itself on show from the parent's minTabWidth.
+				assert.equals(80, rawget(ns.UI.frame, "minTabWidth"))
+				-- Widths follow the text, so each tab hangs off the one before it.
+				assert.same({ "TOPLEFT", tabs[1], "TOPRIGHT", 4, 0 }, tabs[2].anchors[1])
+
+				ns.UI.SetTab("roster")
+				assert.is_false(tabs[1].selected)
+				assert.is_true(tabs[2].selected)
+			end)
+
+			it("falls back to the panel button with a gold underline when the template fails", function()
+				stubTabHelpers()
+				local ns = loadWithRoster()
+				local create = _G.CreateFrame
+				_G.CreateFrame = function(kind, name, parent, template)
+					if template == "PanelTopTabButtonTemplate" then error("unknown template") end
+					return create(kind, name, parent, template)
+				end
+				ns.UI.SetDataSource(shamanSource(ns))
+				ns.UI.Show()
+				local tabs = ns.UI.frame.tabs
+
+				assert.equals("UIPanelButtonTemplate", tabs[1].template)
+				assert.equals("UIPanelButtonTemplate", ns.UI.Describe().tabTemplate)
+				assert.is_nil(rawget(tabs[1], "selected"))
+				assert.is_true(tabs[1].locked)
+				assert.is_true(rawget(tabs[1], "underline").shown)
+				assert.is_false(rawget(tabs[2], "underline").shown)
+
+				ns.UI.SetTab("roster")
+				assert.is_false(rawget(tabs[1], "underline").shown)
+				assert.is_true(rawget(tabs[2], "underline").shown)
+			end)
+
+			it("falls back the same way when the select helpers are missing", function()
+				local ns = loadWithRoster()
+				ns.UI.SetDataSource(shamanSource(ns))
+				ns.UI.Show()
+				local tabs = ns.UI.frame.tabs
+
+				assert.equals("UIPanelButtonTemplate", tabs[1].template)
+				assert.is_true(rawget(tabs[1], "underline").shown)
+				assert.is_false(rawget(tabs[2], "underline").shown)
+			end)
+
+			it("keeps the selection drawn when a select helper throws", function()
+				stubTabHelpers()
+				_G.PanelTemplates_SelectTab = function() error("GetAppropriateTooltip is nil") end
+				local ns = loadWithRoster()
+				ns.UI.SetDataSource(shamanSource(ns))
+
+				assert.has_no.errors(function() ns.UI.Show() end)
+				assert.is_true(ns.UI.frame.tabs[1].locked)
+				assert.equals(11, #ns.UI.frame.rows)
+			end)
 		end)
 	end)
 end)
