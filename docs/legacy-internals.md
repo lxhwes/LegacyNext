@@ -169,7 +169,7 @@ Notes that matter for the UI:
 - Doc: `Blizzard_APIDocumentationGenerated/SharedTraitsDocumentation.lua:454-468`. Both
   arguments `number`, non-nilable; single return `amount`, type `number`, non-nilable (so no
   nil-for-zero case). `SecretArguments = "AllowedWhenUntainted"`.
-- Call site: `Blizzard_LegacyChallenges.lua:309-312`, inside the
+- Call site: `Blizzard_LegacyChallenges.lua:305-308`, inside the
   `AchievementFrame_GetOverridePoints` override:
 
 ```lua
@@ -380,7 +380,7 @@ local achievementId, _,_,_,_,_,_,_,_,_,_,_, wasEarnedByMe = GetAchievementInfo(c
 local shouldHideCompletedByOther = not wasEarnedByMe and hideIncomplete;
 ```
 
-- And the completion override — `Blizzard_LegacyChallenges.lua:305-307`:
+- And the completion override — `Blizzard_LegacyChallenges.lua:301-303`:
 
 ```lua
 function AchievementFrame_ShowAsComplete(completed, wasEarnedByMe)
@@ -443,21 +443,26 @@ How the UI maps them:
 
 | Display | Field | Citation |
 |---|---|---|
-| Unspent / available points | `quantity` | `Blizzard_LegacySystem/Blizzard_LegacyTree.lua:311-313` |
-| Cap (tooltip, `LEGACY_POINTS_SEASONAL_CAP`) | `maxQuantity` | `Blizzard_LegacyTree.lua:315` |
+| Unspent / available points | `quantity` | `Blizzard_LegacySystem/Blizzard_LegacyTree.lua:313-315` |
+| Cap (tooltip, `LEGACY_POINTS_SEASONAL_CAP`) | `maxQuantity` | `Blizzard_LegacyTree.lua:303` |
 | Spent in the selected tree | `spentInTree` | `Blizzard_LegacyTree.lua:98` |
-| Total earnable (bar maximum) | `C_Traits.GetMaxAvailableTraitCurrency(currencyID, false)` | `Blizzard_LegacyChallenges.lua:257` |
-| Points earned account-wide | `C_MajorFactions.GetCurrentRenownLevel(2802)` | `Blizzard_LegacySystemUtil.lua:38` |
+| Total earnable (bar maximum) | `C_Traits.GetMaxAvailableTraitCurrency(currencyID, false)` | `Blizzard_LegacyChallenges.lua:253` |
+| Points earned account-wide | `C_MajorFactions.GetCurrentRenownLevel(2802)` | `Blizzard_LegacySystemUtil.lua:49` |
 
 That last row is the surprising one: the number shown as "Legacy points earned" is the
 **renown level** of faction 2802, stuffed onto the currency table as `renownCurrency` —
-`Blizzard_LegacySystemUtil.lua:38`, `Blizzard_LegacyTree.lua:107`. The points bar is
+`Blizzard_LegacySystemUtil.lua:49`. Through 1.60.1.70124 `Blizzard_LegacyTree.lua` set it a
+second time; since 70170 it calls `LegacySystem.UpdateCurrencyInfo()` instead (`:107`). The points bar is
 `renownCurrency / GetMaxAvailableTraitCurrency(...)` —
-`Blizzard_LegacyChallenges.lua:257-263`. So reward-track level and account points earned are
+`Blizzard_LegacyChallenges.lua:253-259`. So reward-track level and account points earned are
 the same number.
 
-`excludeStagedChanges` is passed `true` from `LegacySystem.UpdateCurrencyInfo` —
-`Blizzard_LegacySystemUtil.lua:32-41`, which reads `LegacyTreeData[1]` (Professions) and uses
+~~`excludeStagedChanges` is passed `true` from `LegacySystem.UpdateCurrencyInfo` —
+`Blizzard_LegacySystemUtil.lua:32-41`~~ (true through 1.60.1.70124). Since 70170 it is passed
+`false`, from the local `RefreshCachedCurrencyInfo` that `UpdateCurrencyInfo` now calls —
+`Blizzard_LegacySystemUtil.lua:34-53`. The comment at `:41` says it matches `TalentFrameBaseMixin`
+so the panel and the summaries agree while changes are staged. `Api` still passes `true`
+(`LegacyNext/Api/Api.lua:653`). The function reads `LegacyTreeData[1]` (Professions) and uses
 it as the account-wide summary. The talent panel instead passes
 `self.excludeStagedChangesForCurrencies` —
 `Blizzard_SharedTalentUI/Blizzard_SharedTalentFrame.lua:1353-1371` (outside the pinned set).
@@ -486,7 +491,7 @@ At zero points all three trees reported `quantity=0, maxQuantity=0, spent=0, spe
 
 **Open — recheck at non-zero points:** `maxQuantity` read **0**, not 16. So it is not the
 static cap, despite the UI formatting it into `LEGACY_POINTS_SEASONAL_CAP`
-(`Blizzard_LegacyTree.lua:315`) — which on a fresh character would render "cap 0". It is
+(`Blizzard_LegacyTree.lua:303`) — which on a fresh character would render "cap 0". It is
 probably dynamic, tracking points earned so far. Queue row **C1** rechecks it once points exist. Until
 then `Model/` takes the cap from `GetMaxAvailableTraitCurrency(currencyID, true)`, not from
 `maxQuantity`.
@@ -555,7 +560,9 @@ does add one API to the surface: `C_Traits.GetNodeInfo(configID, nodeID) → nod
 
 `Blizzard_LegacySystem/Blizzard_LegacyRewardTrack.lua`. The track is renown faction 2802.
 
-Setup — lines 21, 43-48:
+Setup — lines 169 and 36-41. The faction read moved from `OnLoad` into `Refresh` at 70170, and
+`Refresh` now returns `false` while the data is nil ("Can be nil if faction data isn't available
+yet", line 168):
 
 ```lua
 self.majorFactionData = C_MajorFactions.GetMajorFactionData(Constants.LegacyConsts.LEGACY_REWARD_TRACK_FACTION_ID);
@@ -566,14 +573,14 @@ for level, levelInfo in ipairs(self.renownLevelsInfo) do
 end
 ```
 
-Current level — lines 168-172, `C_MajorFactions.GetCurrentRenownLevel(factionID)`, stored as
+Current level — lines 161-165, `C_MajorFactions.GetCurrentRenownLevel(factionID)`, stored as
 both `actualLevel` and `displayLevel`.
 
-Visibility gate — line 182: `majorFactionData.isUnlocked and not
+Visibility gate — line 177: `majorFactionData.isUnlocked and not
 C_MajorFactions.IsMajorFactionHiddenFromExpansionPage(factionID)`.
 
 **Progress to next is computed from the levels table, not from reputation.**
-`SetupProgressDetails` — lines 187-205:
+`SetupProgressDetails` — lines 183-201:
 
 ```lua
 local level = self.majorFactionData.renownLevel;
@@ -596,8 +603,8 @@ for i, levelInfo in ipairs(self.renownLevelsInfo) do
 end
 ```
 
-`threshold` and `progress` are dead locals — lines 189-190 assign them and nothing reads them.
-Everything downstream (lines 207-236) is bar-pixel layout against the hardcoded card position
+`threshold` and `progress` are dead locals — lines 185-186 assign them and nothing reads them.
+Everything downstream (lines 203-232) is bar-pixel layout against the hardcoded card position
 tables at lines 4-6.
 
 So **points to next reward** = `nextLevelThresholdDifference - progressToNextLevel`, derived
@@ -646,19 +653,19 @@ not an index. Anything we write has to treat it as a sorted list of thresholds.
 
 Cross-check that this is intentional: `IsScrollingTrack()` is
 `#self.renownLevelsInfo > MAX_STATIC_ITEMS` where `MAX_STATIC_ITEMS` is 4
-(`Blizzard_LegacyRewardTrack.lua:9,38-40`), and `STATIC_CARD_POSITION_TO_PROGRESS` holds
+(`Blizzard_LegacyRewardTrack.lua:9,31-33`), and `STATIC_CARD_POSITION_TO_PROGRESS` holds
 exactly four card positions (line 6). Four rewards is the designed case, and the track renders
 static rather than scrolling.
 
 `renownLevel` is the account's earned Legacy point count — consistent with
-`Blizzard_LegacySystemUtil.lua:38` using `GetCurrentRenownLevel` as the point total. So
+`Blizzard_LegacySystemUtil.lua:49` using `GetCurrentRenownLevel` as the point total. So
 `maxLevel = 90` is headroom against 65 earnable at launch; do not treat 90 as a point cap.
 
 `renownLevelThreshold = 1` and `renownReputationEarned = 0` are confirmed irrelevant — they
-are the two dead locals at `Blizzard_LegacyRewardTrack.lua:189-190`.
+are the two dead locals at `Blizzard_LegacyRewardTrack.lua:185-186`.
 
 **The Blizzard arithmetic checks out against this data.** Worked through the loop at lines
-196-205:
+192-201:
 
 - At 0 points: `nextLevelThresholdDifference = 15 - 0 = 15`, `progressToNextLevel = 0` → 15
   points to the first reward. Correct.
@@ -756,7 +763,7 @@ Yes. `Blizzard_LegacySystem/Blizzard_LegacySystem.toc:2-4`:
 ("camelot" is the internal game-type name for Forever.)
 
 The bootstrap file is tagged `[Bootstrap]` in the TOC (line 6), so it loads at startup while
-the rest waits. `Blizzard_LegacySystem_Bootstrap.lua:1-16`:
+the rest waits. `Blizzard_LegacySystem_Bootstrap.lua:1-21`:
 
 ```lua
 function LegacySystemFrame_LoadUI()
@@ -764,6 +771,9 @@ function LegacySystemFrame_LoadUI()
 end
 
 function ToggleLegacySystemUI()
+    if (C_MajorFactions.GetCurrentRenownLevel(Constants.LegacyConsts.LEGACY_REWARD_TRACK_FACTION_ID) <= 0) then
+        return;
+    end
     if not LegacySystemFrame then
         if not LegacySystemFrame_LoadUI() then return; end
     end
@@ -772,7 +782,7 @@ end
 ```
 
 Triggered from exactly two places: the micro button at
-`Blizzard_MicroMenu/Mainline/MainMenuBarMicroButtons.lua:1045`, and a key binding at
+`Blizzard_MicroMenu/Mainline/MainMenuBarMicroButtons.lua:1054`, and a key binding at
 `Blizzard_FrameXML/Bindings_Camelot.xml:1218` (both outside the pinned set) [`Blizzard_FrameXML` is in the checkout since the 2026-09-19 widening and the binding line re-verified; `Blizzard_MicroMenu` is still absent].
 
 **Do the APIs we need work without it loaded?** The C APIs do — `C_Traits.*`,
@@ -965,9 +975,11 @@ day and reports 171; see "S1 closed" below.
   2937 is not Classic's Alchemy line, 171.
 - A character's professions come from `GetProfessions` (seven slots on Forever) and then
   `GetProfessionInfo(index)`, whose seventh return is `skillLine`
-  (`Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:56`).
-- The same frame matches a tab's `skillLine` against
-  `professionInfo.parentProfessionID or professionInfo.professionID` (`:41-43`). So Blizzard's
+  (`Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:60`).
+- The same frame matches a tab's `skillLine` against `Professions.GetEffectiveSkillLineID()`
+  (`:40-42`), which returns `professionInfo.parentProfessionID or professionInfo.professionID`
+  (`Blizzard_ProfessionsTemplates/Blizzard_Professions.lua:1678-1681`, outside the pinned set;
+  moved out of the frame at 70170). So Blizzard's
   own code expects `GetProfessionInfo`'s line to be the **parent**, and the line a recipe or
   challenge names to be a possible child.
 - `C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID)` returns `ProfessionInfo`
@@ -1196,10 +1208,10 @@ What it adds to our picture:
   (0.6.2 to 0.6.7). That supports the no-hooking rule.
 - **Opening Blizzard's Legacy panel on one challenge.** Three calls, all present at our pin:
   `ToggleLegacySystemUI()` (`Blizzard_LegacySystem/Blizzard_LegacySystem_Bootstrap.lua:7`)
-  loads and shows the panel. `EventRegistry:TriggerEvent("Legacy.SelectPage", 2)`
+  loads and shows the panel. Since 70170 it does nothing at zero points (`:8-10`). `EventRegistry:TriggerEvent("Legacy.SelectPage", 2)`
   (`Blizzard_LegacySystem.lua:12`) switches to the challenges page, tab `id="2"` in
   `Blizzard_LegacySystem.xml:16`. `AchievementFrame_SelectAchievement(id, true)`
-  (`Blizzard_LegacyChallenges.lua:314`) selects the challenge. These are calls, not hooks.
+  (`Blizzard_LegacyChallenges.lua:310`) selects the challenge. These are calls, not hooks.
   One catch: `Blizzard_AchievementUI` defines a global with the same name
   (`Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:2811`), and whichever file
   loads last owns it. Feature-detect it.

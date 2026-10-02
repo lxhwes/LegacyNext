@@ -214,13 +214,13 @@ different things. Never name the slots; iterate every return. Seen in game 2026-
 primaries in slots 1 and 2, Cooking in slot 5, the rest empty on that character.
 `GetProfessionInfo(index)` → `name, texture, rank, maxRank, numSpells, spellOffset, skillLine,
 rankModifier, specializationIndex, specializationOffset, skillLineName`
-(`Blizzard_ProfessionsFrame.lua:56` at `bd2470a`).
+(`Blizzard_ProfessionsFrame.lua:60` at `9a789c0`).
 **That `skillLine` is the parent profession line, not the one tradeskill challenges name**
 [verified in game 2026-10-01] for Alchemy (171), Herbalism (182) and Cooking (185), all three of
 which have Forever children in the client data (2937, 2944, 2939). For those three, a
 character's profession reaches a challenge's line (Alchemy's 2937) only through the lookup's
 `parentProfessionID`, and the direct match never fires. The same frame compares it against
-`parentProfessionID or professionID` (`:41-43`). Join through
+`parentProfessionID or professionID` (`:40-42`, via `Professions.GetEffectiveSkillLineID`). Join through
 `C_TradeSkillUI.GetProfessionInfoBySkillLineID(...).parentProfessionID` as well as directly,
 never by name: the direct match costs nothing, and five of the six crafting professions have
 not been seen on a character in game. `GetServerTime` stamps roster snapshots.
