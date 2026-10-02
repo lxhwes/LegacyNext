@@ -2,7 +2,11 @@
 
 Last updated 2026-10-01.
 
-**Where we are, 2026-10-01, evening: D10 and C3 are closed, and the polish pass, the minimap
+**Released, 2026-10-01 late evening (2026-10-02 UTC): `v0.1.0-beta1` is on CurseForge** (project
+1721646, Beta) and on GitHub as a pre-release, built from `02ac5c9`. The GUID roster key and
+the resizable window are in progress on their own branches and are not in it.
+
+**As of 2026-10-01, evening: D10 and C3 are closed, and the polish pass, the minimap
 entry and the key binding have been seen working in game.** On 70170 the probe found no
 secrets. The surname is the name calls' second return, and `UnitGUID` reads, so the roster
 could key by GUID, which is Alex's call (section below). `WOW_PROJECT_ID` moved from 1 to 18.

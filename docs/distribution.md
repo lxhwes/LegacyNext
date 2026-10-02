@@ -201,8 +201,8 @@ repos/McTalian-WoW-Addons/wow-build-tools/commits`). The earlier note that it wo
 ## Open
 
 - ~~CurseForge type 88568 needs the browser or token check above before the first upload.~~
-  Answered 2026-09-30 by Legacy Forever's uploads landing under `1.60.1` (§3). Our first
-  upload is the remaining check.
+  Answered 2026-09-30 by Legacy Forever's uploads landing under `1.60.1` (§3). ~~Our first
+  upload is the remaining check.~~ Done 2026-10-02 UTC: `v0.1.0-beta1` uploaded as `1.60.1 beta`.
 - ~~`BigWigsMods/packager@v2` is not wired into CI. When it is, `-g` is unnecessary; the TOC
   alone yields `forever` / `1.60.1`.~~ Wired 2026-09-30 in `release.yml`, without `-g` (§4).
 - ~~`.pkgmeta`'s ignore list did not include `.claude/` at dry-run time, and whether the packager
@@ -211,5 +211,12 @@ repos/McTalian-WoW-Addons/wow-build-tools/commits`). The earlier note that it wo
   The packager prunes dot-paths before reading `ignore`.
 - The zip ships a generated `CHANGELOG.md`, not the hand-written one, unless `.pkgmeta` sets
   `manual-changelog` (§4).
-- The first real `v*` tag is the check for the GitHub release. The first upload with a project
-  ID and `CF_API_KEY` is the check for CurseForge.
+- ~~The first real `v*` tag is the check for the GitHub release. The first upload with a project
+  ID and `CF_API_KEY` is the check for CurseForge.~~ Both passed on `v0.1.0-beta1`, release run
+  `36951662458` (`gh run view 36951662458 --log`). The log reads `Uploading
+  LegacyNext-v0.1.0-beta1-forever.zip (1.60.1 beta) to https://wow.curseforge.com/projects/1721646`
+  then `Success!`, and the GitHub release is a pre-release carrying the zip and `release.json`.
+  The `beta` in the tag set the CurseForge release type.
+- The first release's generated changelog is the whole history, commit bodies included, because
+  there was no earlier tag. Later tags list only the commits since the previous one. A
+  `manual-changelog` in `.pkgmeta` would replace it with a hand-written file.
