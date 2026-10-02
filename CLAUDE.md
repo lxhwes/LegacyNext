@@ -59,16 +59,17 @@ cross-account or guild sync, writing to trait configs.
 - Interface 16001, build 1.60.1. Ships on the `wow_classic` product line; beta folder is
   `_classic_beta_`.
 - **It is the retail API.** 269 `C_*` namespaces, and most Classic-era globals are gone.
-  **`WOW_PROJECT_ID` is not stable across builds** [verified in game 2026-10-01]. It read 1
+  Blizzard: "shares Mainline WoW's UI architecture, including the vast majority of APIs
+  available in 12.1.5".
+- **`WOW_PROJECT_ID` is not stable across builds** [verified in game 2026-10-01]. It read 1
   (Mainline) through 70124 and **18 on 70170**, a value no vendored constants file defines.
   Blizzard's own TOC and Lua gating may follow it, and other addons that test for Mainline
-  will break. Blizzard: "shares Mainline WoW's UI architecture, including
-  the vast majority of APIs available in 12.1.5".
+  will break. The Addon Compartment still loaded us on 70170 (U5).
 - Forever's API docs differ from live retail 12.1.0 — 26 extra doc files, ~6k line diff.
   **Do not assume retail behavior**; check the forever branch source.
 - Midnight addon restrictions (secret values) apply. **`issecretvalue` exists on this client
   and the guard is active** [verified in game 2026-09-19 via `/lgn probe`, and again on 70124
-  on 70124 and 70170 on 2026-10-01, D10], and no API the probe read returned a secret. That
+  and 70170 on 2026-10-01, D10], and no API the probe read returned a secret. That
   is a tested negative, not an assumption, but it is a per-build one, so re-run the probe
   after any bump. Since 70170 it covers `UnitFullName`, `UnitNameUnmodified` and `UnitGUID`
   too, which are documented `SecretWhenUnitIdentityRestricted`. All three read `ok` on the
