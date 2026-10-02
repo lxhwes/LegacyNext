@@ -23,7 +23,7 @@ Open, roughly in the order worth doing:
 | S2 | Install `main` (after `e513d27`), log in on **Geo** first, then `/lgn roster` and paste it. Then log in on **Bong** and `/lgn roster` again. Section S2 below | Whether a stored `Name-Realm` row moves to the GUID on that character's login, keeping its professions and tree spend, with one row per character after | 2 min |
 | U8 | With the same install, open `/lgn`, then `/lgn uidump` and paste it; drag the corner grip; `/reload`. Section U8 below | Whether the resize grip draws and works, the bounds hold, the layout follows the size, and the size comes back | 2 min |
 | U9 | Install `feat/beta2`. Click a Next Up row; shift-click another with the chat box open. Section U9 below | Whether a row click opens Blizzard's Legacy panel on that challenge, and whether shift-click puts its link in chat. Both paths are source-only at `9a789c0` | 2 min |
-| U10 | Same install. Find the LegacyNext button on the minimap edge, drag it, hover it, `/reload`. Section U10 below | Whether the hand-rolled minimap button draws, drags round the edge, keeps its spot, and shows the summary tooltip | 2 min |
+| U10 | Same install. Find the LegacyNext button on the minimap edge, drag it, hover it, `/reload`; hover the dropdown entry. Section U10 below | Whether the hand-rolled minimap button draws, drags round the edge, keeps its spot, and shows the summary tooltip, and whether the dropdown entry shows it too | 2 min |
 | U11 | Same install. Esc > Options > AddOns > LegacyNext: untick and retick the minimap button. Section U11 below | Whether the Settings category registers on Forever and its toggles take effect | 1 min |
 | C2 | **Partly answered 2026-10-01**: `CRITERIA_UPDATE` fires on an Alchemy skill-up, and none of the other four did. Still open: the four that need a completion or a spent point. `/etrace` during the C4 session for `ACHIEVEMENT_EARNED`, and the C1 session for `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED` and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED`. Section C2 below | Whether the frame's `ACHIEVEMENT_EARNED` refresh ever fires on Forever, and whether trait and faction events are worth adding | Free with C1 and C4 |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
@@ -137,7 +137,9 @@ Blizzard's panel from our click taints its panel manager.
 4. Drag it round the edge to somewhere else. Does it follow the rim? `/reload`. Is it still
    there?
 5. `/lgn minimap` twice: hidden, then back.
-6. `/lgn uidump` and paste it.
+6. Open the minimap's addon dropdown and hover LegacyNext. Is it the same tooltip, ending
+   "Click to open or close."?
+7. `/lgn uidump` and paste it.
 
 What I am reading it for: the uidump's `== CLIENT ==` `minimap` line, with `created = true`,
 `masked = true`, the `angle` you left it at and no `reason`. A button sitting off the rim or

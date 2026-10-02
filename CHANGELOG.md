@@ -18,6 +18,7 @@ client build it was verified against.
 - A minimap button. Left-click opens the window, right-click opens the settings, and dragging
   moves it round the minimap's edge. Its tooltip shows the reward track, this character's
   unspent points and the three challenges closest to done. `/lgn minimap` shows or hides it.
+  Hovering LegacyNext in the minimap's addon dropdown shows the same tooltip.
   **Not yet seen in game.**
 - A settings page under Options > AddOns > LegacyNext, with toggles to show and to lock the
   minimap button. `/lgn config` opens it. **Not yet seen in game.**

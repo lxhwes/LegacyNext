@@ -5,8 +5,8 @@ Last updated 2026-10-02.
 **Where we are, 2026-10-02, later: beta2's features are built on `feat/beta2`, unseen in
 game.** A row click opens Blizzard's Legacy panel on that challenge, and shift-click links it in
 chat. There is a draggable minimap button with a summary tooltip, and a settings page under
-Options > AddOns. 383 tests, none pending. One in-game session closes S2, U8, U9, U10 and U11,
-then `v0.1.0-beta2`. Section "Beta2 features" below.
+Options > AddOns. The dropdown entry shows the same tooltip. 385 tests, none pending. One in-game session closes S2, U8, U9, U10 and U11,
+then `v0.1.0-beta2`. PR #11. Section "Beta2 features" below.
 
 **As of 2026-10-02: the repo is being readied to go public.** The README, CHANGELOG
 and contributor doc now match what shipped, and the next release's notes come from
@@ -102,6 +102,27 @@ Built source-only at `9a789c0`, test-first. The vendor checkout widened to `Bliz
 - **Settings page**, `UI/Options.lua`. Proxy settings rather than `RegisterAddOnSetting`, so
   Blizzard never holds the SavedVariables table, and `Store/` stays the only file that names it.
   `/lgn config` refuses in combat, where `ShowUIPanel` would block it. **U11**.
+
+Added the same day, after the PR opened: hovering LegacyNext in the minimap's addon dropdown
+shows the button's summary tooltip, through `## AddonCompartmentFuncOnEnter` / `OnLeave`
+(`AddonCompartment.lua:106-117`). U10 covers it.
+
+**Competition recheck, 2026-10-02.** CurseForge's Forever listing (game version 1.60.1)
+searched for "legacy", plus web searches across CurseForge, GitHub and Wago. Four addons:
+
+- **Legacy Forever** (cjber, GPL-3.0, 782 downloads, updated 2026-10-02). Map pins and an
+  objective-tracker section for the current character. Known since 2026-09-30, and still
+  complementary: where a challenge is, against which is next and which alt should do it.
+- **Forever Companion** (ShadowlessStudios, All Rights Reserved, 163 downloads, updated
+  2026-09-30). New. An all-in-one addon whose page lists "Objectives close to completion"
+  and account-wide progress among many modules. That overlaps Next Up. Its page names no
+  tree spend and no mapping of challenges to alts, which is the roster's ground. Not
+  installed or read beyond its listing.
+- **Talent Nexus** (Exordiumz, 4 downloads). New. Class talents and Legacy trees in one
+  window. A tree viewer, which is a non-goal here, so no overlap.
+- **LegacyNext**, ours, 5 downloads.
+
+Nothing found changes beta2. Forever Companion is the one to watch.
 
 `UI/` reaches Blizzard's `Settings` and `Minimap` by name, as it already does for templates and
 `GameTooltip`. `Api/` stays the only place game data is read. The two new modules are in the TOC
@@ -877,7 +898,8 @@ that are currently known to be false or unverified.
       2026-09-19
 - [x] **U2** — whether long names get `...` or need the tooltip alone. They get it, 2026-10-01
 - [ ] **C2** — whether the achievement events fire; the frame registers them regardless
-- [ ] Competition recheck immediately before release
+- [x] Competition recheck immediately before release. Done 2026-10-02, ahead of beta2; see
+      "Competition recheck" under Beta2 features. Re-run it if the tag slips past a few days
 - [x] **Resizable main window** (Alex, 2026-10-01). ~~Not started.~~ Built and merged the same
       evening; U8 checks it in game. The frame is a fixed 520x480
       (`UI/UI.lua:15`), and the scroll child's width and the on-screen position clamp both derive

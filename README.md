@@ -92,7 +92,8 @@ The window also opens from LegacyNext's minimap button, from the minimap's addon
 small numbered button under the calendar), and from a key binding under Key Bindings > AddOns.
 Left-click the minimap button to open the window and right-click it for settings. Drag it round
 the minimap's edge to move it. Its tooltip shows the reward track, your unspent points and the
-three challenges closest to done. Esc > Options > AddOns > LegacyNext hides or locks it. The dropdown lists only addons
+three challenges closest to done, and hovering LegacyNext in the dropdown shows the same.
+Esc > Options > AddOns > LegacyNext hides or locks it. The dropdown lists only addons
 enabled for all characters, so if LegacyNext is missing there, check the character dropdown in
 the AddOns list.
 
@@ -138,7 +139,7 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
 | | Version | What |
 |---|---|---|
 | ▰▰▰▰ | **v0 "Next Up"** | The ranked list, category filter and reward track above. Released in 0.1.0-beta1 |
-| ▰▰▰▱ | **v1 "Roster"** | A snapshot of each character, a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Released in 0.1.0-beta1. Next: keying characters by their GUID, so a name change between builds no longer splits one character into two rows. Class-levelling challenges get no match, because the game doesn't tell addons what level each one needs |
+| ▰▰▰▱ | **v1 "Roster"** | A snapshot of each character, a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Released in 0.1.0-beta1. From 0.1.0-beta2, characters are keyed by their GUID, so a name change between builds no longer splits one character into two rows. Class-levelling challenges get no match, because the game doesn't tell addons what level each one needs |
 
 Changes are listed in [CHANGELOG.md](https://github.com/lxhwes/LegacyNext/blob/main/CHANGELOG.md).
 
