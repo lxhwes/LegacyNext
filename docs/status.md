@@ -2,7 +2,13 @@
 
 Last updated 2026-10-02.
 
-**Where we are, 2026-10-02, later: beta2's features are built on `feat/beta2`, unseen in
+**Where we are, 2026-10-02, night: `v0.1.0-beta2` is cut, ahead of the in-game session.**
+PR #11 merged as `48fc9dd`, with 404 tests, none pending. Alex chose to release before S2, U8,
+U9, U10 and U11 were played, so the CHANGELOG marks every beta2 entry as not yet seen in game.
+The tag goes on the merge of this cut, and the release workflow publishes it to CurseForge and
+GitHub. The session still closes those five rows.
+
+**As of 2026-10-02, later: beta2's features are built on `feat/beta2`, unseen in
 game.** A row click opens Blizzard's Legacy panel on that challenge, and shift-click links it in
 chat. There is a draggable minimap button with a summary tooltip, and a settings page under
 Options > AddOns. The dropdown entry shows the same tooltip. PR #11's two review findings and
