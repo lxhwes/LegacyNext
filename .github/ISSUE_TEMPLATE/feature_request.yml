@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest something LegacyNext could show.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: request
+    attributes:
+      label: What you'd like
+      description: What it should show or do, and what you'd use it for.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      description: LegacyNext only reads. It will not plan builds, touch combat, support Hardcore, or spend, reset or move Legacy points.
+      options:
+        - label: This request is none of those.
+          required: true
