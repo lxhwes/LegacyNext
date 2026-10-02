@@ -67,6 +67,7 @@ local function createFrame(kind, name, parent, template)
 end
 
 -- A text button: UIPanelButtonTemplate, or a flat one drawn by hand if the template is gone.
+-- Returns the button and whether the template was used.
 local function createButton(parent, height)
 	local button, templated = createFrame("Button", nil, parent, "UIPanelButtonTemplate")
 	button:SetHeight(height)
@@ -82,7 +83,7 @@ local function createButton(parent, height)
 		highlight:SetAllPoints()
 		highlight:SetColorTexture(1, 1, 1, 0.15)
 	end
-	return button
+	return button, templated
 end
 
 --------------------------------------------------------------------------------------------
@@ -100,6 +101,11 @@ local TABS = {
 	{ id = "roster", label = "Roster" },
 }
 local TAB_WIDTH = 80
+local BUTTON_TAB_HEIGHT = 22
+-- Blizzard's top tab: SharedUIPanelTemplates.xml:1006 at 966519c, 32 tall from :933, its art
+-- along the bottom. Forever's own FriendsFrame builds its tabs from the same family.
+local TAB_TEMPLATE = "PanelTopTabButtonTemplate"
+local TAB_TEMPLATE_HEIGHT = 32
 
 function UI.SetDataSource(fn)
 	UI.source = fn
@@ -197,20 +203,85 @@ local function buildHeader(frame, top)
 	return top + 20 + 4 + 14
 end
 
+-- The top tab when the template and its select helpers (SharedUIPanelTemplates.lua:616, :598)
+-- are both there. Otherwise the panel button, whose selected state is only white text on the
+-- same red art, so it also gets a gold underline. tabStyle and underline are always set, so
+-- markTab never reads a missing field.
+local function createTab(parent)
+	if type(G("PanelTemplates_SelectTab")) == "function"
+		and type(G("PanelTemplates_DeselectTab")) == "function" then
+		local ok, button = pcall(CreateFrame, "Button", nil, parent, TAB_TEMPLATE)
+		if ok and button then
+			button.tabStyle = TAB_TEMPLATE
+			button.underline = false
+			return button
+		end
+	end
+	local button, templated = createButton(parent, BUTTON_TAB_HEIGHT)
+	button:SetWidth(TAB_WIDTH)
+	button.tabStyle = templated and "UIPanelButtonTemplate" or "plain"
+	local underline = button:CreateTexture(nil, "OVERLAY")
+	underline:SetColorTexture(1, 0.82, 0, 1) -- gold, as GameFontNormal's text
+	underline:SetHeight(2)
+	underline:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 2, -1)
+	underline:SetPoint("TOPRIGHT", button, "BOTTOMRIGHT", -2, -1)
+	underline:Hide()
+	button.underline = underline
+	return button
+end
+
+-- SelectTab also disables the tab, which is how Blizzard's selected tabs look: raised art and
+-- white text, not greyed. A helper that throws falls through to the button's marking.
+local function markTab(button, selected)
+	if button.tabStyle == TAB_TEMPLATE then
+		local helper = G(selected and "PanelTemplates_SelectTab" or "PanelTemplates_DeselectTab")
+		if type(helper) == "function" and pcall(helper, button) then
+			return
+		end
+	end
+	if selected then
+		button:LockHighlight()
+	else
+		button:UnlockHighlight()
+	end
+	if button.underline then
+		if selected then
+			button.underline:Show()
+		else
+			button.underline:Hide()
+		end
+	end
+end
+
 local function buildTabs(frame, top)
 	frame.tabs = {}
+	-- The template resizes itself on show from its parent's minTabWidth (:262-264).
+	frame.minTabWidth = TAB_WIDTH
+	local height = BUTTON_TAB_HEIGHT
 	for index, tab in ipairs(TABS) do
-		local button = createButton(frame, 22)
-		button:SetWidth(TAB_WIDTH)
-		button:SetPoint("TOPLEFT", PAD + (index - 1) * (TAB_WIDTH + FILTER_GAP), -top)
+		local button = createTab(frame)
+		-- A top tab's width follows its text, so each hangs off the one before, as
+		-- PanelTemplates_AnchorTabs does (:545-551).
+		if index == 1 then
+			button:SetPoint("TOPLEFT", PAD, -top)
+		else
+			button:SetPoint("TOPLEFT", frame.tabs[index - 1], "TOPRIGHT", FILTER_GAP, 0)
+		end
 		button.tab = tab.id
 		button:SetText(tab.label)
+		if button.tabStyle == TAB_TEMPLATE then
+			height = TAB_TEMPLATE_HEIGHT
+			local resize = G("PanelTemplates_TabResize")
+			if type(resize) == "function" then
+				pcall(resize, button, 0, nil, TAB_WIDTH)
+			end
+		end
 		button:SetScript("OnClick", function(self)
 			UI.SetTab(self.tab)
 		end)
 		frame.tabs[index] = button
 	end
-	return top + 22 + 6
+	return top + height + 6
 end
 
 local function buildFilterBar(frame, top)
@@ -629,11 +700,7 @@ function UI.Render(view)
 	frame.headerLines[2]:SetText(view.header.lines[2] or "")
 
 	for _, button in ipairs(frame.tabs) do
-		if button.tab == UI.tab then
-			button:LockHighlight()
-		else
-			button:UnlockHighlight()
-		end
+		markTab(button, button.tab == UI.tab)
 	end
 
 	layoutFilters(frame, view.filters or {})
@@ -860,6 +927,7 @@ function UI.Describe()
 		created = true,
 		frameTemplate = frame.templated and "BasicFrameTemplateWithInset" or "plain",
 		scrollTemplate = frame.scrollTemplated and "UIPanelScrollFrameTemplate" or "plain",
+		tabTemplate = frame.tabs[1] and frame.tabs[1].tabStyle or "none",
 		escapeCloses = frame.escapeCloses and true or false,
 		tab = UI.tab,
 		rows = #frame.rows,
