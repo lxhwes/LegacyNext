@@ -51,6 +51,17 @@ local function alt(key, level, professions)
 	return { key = key, name = key, class = "Druid", level = level, professions = professions }
 end
 
+-- Geo Prizm's UnitGUID as the D10 probe read it on 70170 (docs/legacy-internals.md, "D10
+-- closed"). dump_character_geo.lua is a 70124 capture from before Api read the GUID, so it is
+-- added to that character here, by hand.
+local GEO_GUID = "Player-4619-012F81BC"
+
+local function geoWithGuid()
+	local character = fixture("dump_character_geo").character
+	character.guid = GEO_GUID -- taken from the D10 probe, not from this capture
+	return character
+end
+
 describe("Roster model", function()
 	local Model
 
@@ -70,6 +81,174 @@ describe("Roster model", function()
 
 			assert.is_nil(key)
 			assert.equals("no realm", reason)
+		end)
+
+		-- UnitName's first return lost the surname between 69913 and 70124, so Name-Realm can
+		-- split one character in two. The GUID does not move.
+		it("keys on the GUID when the character has one", function()
+			assert.equals(GEO_GUID, Model.CharacterKey(geoWithGuid()))
+		end)
+
+		it("falls back to Name-Realm when the GUID was not read", function()
+			local character = geoWithGuid()
+			character.guid = ""
+
+			assert.equals("Geo-Classic Beta PvP", Model.CharacterKey(character))
+			character.guid = nil
+			assert.equals("Geo-Classic Beta PvP", Model.CharacterKey(character))
+		end)
+
+		it("still builds the Name-Realm key for a character with a GUID", function()
+			assert.equals("Geo-Classic Beta PvP", Model.LegacyCharacterKey(geoWithGuid()))
+		end)
+	end)
+
+	describe("CharacterLabel", function()
+		it("names the character, and adds the realm only when asked", function()
+			local snapshot = Model.BuildSnapshot({ character = geoWithGuid(), now = 1 })
+
+			assert.equals("Geo", Model.CharacterLabel(snapshot))
+			assert.equals("Geo-Classic Beta PvP", Model.CharacterLabel(snapshot, true))
+		end)
+
+		it("never shows a GUID, even when the name was not read", function()
+			local snapshot = { key = GEO_GUID, guid = GEO_GUID, realm = "Classic Beta PvP" }
+
+			assert.equals("?", Model.CharacterLabel(snapshot))
+			assert.equals("?-Classic Beta PvP", Model.CharacterLabel(snapshot, true))
+		end)
+
+		it("shows a nameless row's Name-Realm key, which is readable", function()
+			assert.equals("A-R", Model.CharacterLabel({ key = "A-R" }, true))
+		end)
+	end)
+
+	describe("PlanSnapshot", function()
+		-- Geo's row as the addon stored it in game, under the Name-Realm key (S1, 70124).
+		local function storedGeo()
+			return fixture("roster_geo_restart").snapshots[1]
+		end
+
+		local function freshGeo(now)
+			local character = geoWithGuid()
+			character.professions = nil
+			character.professionsReason = "GetProfessions unavailable"
+			return Model.BuildSnapshot({ character = character, now = now })
+		end
+
+		it("moves the character's Name-Realm row to its GUID, keeping what this read missed", function()
+			local legacy = storedGeo()
+
+			local plan = Model.PlanSnapshot(freshGeo(2000000000), nil, legacy)
+
+			assert.equals(GEO_GUID, plan.snapshot.key)
+			assert.equals(GEO_GUID, plan.snapshot.guid)
+			assert.equals("Geo", plan.snapshot.name)
+			assert.equals("Classic Beta PvP", plan.snapshot.realm)
+			assert.same(legacy.professions, plan.snapshot.professions)
+			assert.equals(legacy.professionsAt, plan.snapshot.professionsAt)
+			assert.same(legacy.trees, plan.snapshot.trees)
+			assert.equals("Geo-Classic Beta PvP", plan.forget)
+		end)
+
+		-- MergeSnapshot alone refuses a previous row under another key; the move is explicit.
+		it("does the rekey itself, since MergeSnapshot keeps refusing another key", function()
+			local fresh = freshGeo(2000000000)
+
+			assert.equals(fresh, Model.MergeSnapshot(storedGeo(), fresh))
+		end)
+
+		it("merges over the GUID row and leaves any Name-Realm row alone once one exists", function()
+			local legacy = storedGeo()
+			local stored = Model.BuildSnapshot({ character = geoWithGuid(), now = 1000 })
+
+			local plan = Model.PlanSnapshot(freshGeo(2000), stored, legacy)
+
+			assert.is_nil(plan.forget)
+			assert.same(stored.professions, plan.snapshot.professions)
+			assert.equals(1000, plan.snapshot.professionsAt)
+		end)
+
+		it("does not take a Name-Realm row that already belongs to another GUID", function()
+			local legacy = storedGeo()
+			legacy.guid = "Player-1-00000002" -- derived: not a captured GUID
+
+			local plan = Model.PlanSnapshot(freshGeo(2000), nil, legacy)
+
+			assert.is_nil(plan.forget)
+			assert.is_nil(plan.snapshot.professions)
+		end)
+
+		-- The Shaman read "Bong Wrip" on 69913 and was stored as "Bong" on 70124. Only an exact
+		-- Name-Realm match moves, so this pair stays two rows until /lgn roster forget.
+		it("does not take a row stored under a different name", function()
+			local shaman = fixture("dump_character_shaman").character
+			shaman.guid = GEO_GUID -- derived: the Shaman's GUID was never read
+			local fresh = Model.BuildSnapshot({ character = shaman, now = 2000 })
+
+			local plan = Model.PlanSnapshot(fresh, nil, fixture("roster_geo_restart").snapshots[2])
+
+			assert.is_nil(plan.forget)
+			assert.equals(fresh, plan.snapshot)
+		end)
+
+		it("merges a Name-Realm keyed snapshot over its own row, as before GUIDs", function()
+			local character = fixture("dump_character_geo").character
+			character.professions = nil
+			local fresh = Model.BuildSnapshot({ character = character, now = 2000000000 })
+			local legacy = storedGeo()
+
+			local plan = Model.PlanSnapshot(fresh, legacy, legacy)
+
+			assert.equals("Geo-Classic Beta PvP", plan.snapshot.key)
+			assert.is_nil(plan.snapshot.guid)
+			assert.is_nil(plan.forget)
+			assert.same(legacy.professions, plan.snapshot.professions)
+		end)
+
+		it("takes the fresh snapshot whole when nothing was stored", function()
+			local fresh = freshGeo(2000)
+
+			local plan = Model.PlanSnapshot(fresh, nil, nil)
+
+			assert.equals(fresh, plan.snapshot)
+			assert.is_nil(plan.forget)
+		end)
+	end)
+
+	describe("ForgetKey", function()
+		local function snapshots()
+			local geo = Model.BuildSnapshot({ character = geoWithGuid(), now = 1 })
+			return { geo, fixture("roster_geo_restart").snapshots[2] }
+		end
+
+		it("takes a stored key as it is", function()
+			assert.equals(GEO_GUID, Model.ForgetKey(GEO_GUID, snapshots()))
+			assert.equals("Bong-Classic Beta PvP", Model.ForgetKey("Bong-Classic Beta PvP", snapshots()))
+		end)
+
+		it("finds a GUID-keyed character by Name-Realm", function()
+			assert.equals(GEO_GUID, Model.ForgetKey("Geo-Classic Beta PvP", snapshots()))
+		end)
+
+		it("refuses a Name-Realm two characters share, and names their keys", function()
+			local list = snapshots()
+			local other = Model.BuildSnapshot({ character = geoWithGuid(), now = 1 })
+			other.key, other.guid = "Player-1-00000002", "Player-1-00000002" -- derived: not a captured GUID
+			list[#list + 1] = other
+
+			local key, reason = Model.ForgetKey("Geo-Classic Beta PvP", list)
+
+			assert.is_nil(key)
+			assert.equals("2 characters are Geo-Classic Beta PvP: Player-1-00000002, " .. GEO_GUID, reason)
+		end)
+
+		it("says when nothing matches", function()
+			local key, reason = Model.ForgetKey("Nobody-Classic Beta PvP", snapshots())
+
+			assert.is_nil(key)
+			assert.equals("no character Nobody-Classic Beta PvP", reason)
+			assert.is_nil(Model.ForgetKey("", snapshots()))
 		end)
 	end)
 
@@ -124,6 +303,22 @@ describe("Roster model", function()
 			assert.equals("GetProfessions unavailable", snapshot.professionsReason)
 			assert.is_nil(snapshot.trees)
 			assert.equals("no tree constants", snapshot.treesReason)
+		end)
+
+		it("keys the snapshot on the GUID and keeps the name and realm beside it", function()
+			local snapshot = Model.BuildSnapshot({ character = geoWithGuid(), now = 1 })
+
+			assert.equals(GEO_GUID, snapshot.key)
+			assert.equals(GEO_GUID, snapshot.guid)
+			assert.equals("Geo", snapshot.name)
+			assert.equals("Classic Beta PvP", snapshot.realm)
+		end)
+
+		it("stores no guid on a snapshot keyed by Name-Realm", function()
+			local snapshot = Model.BuildSnapshot({ character = fixture("dump_character_geo").character, now = 1 })
+
+			assert.equals("Geo-Classic Beta PvP", snapshot.key)
+			assert.is_nil(snapshot.guid)
 		end)
 
 		it("returns nil and a reason without a key", function()
@@ -590,6 +785,30 @@ describe("Roster model", function()
 
 			assert.equals("Bong Wrip-Classic Beta PvP  L1 Shaman", characters[1].name)
 			assert.equals("Zug-Elsewhere  L30 Druid", characters[2].name)
+		end)
+
+		-- A GUID is a key, not a name: the realm comes from the snapshot's own fields.
+		it("builds Name-Realm from the snapshot, never from a GUID key", function()
+			local geo = Model.BuildSnapshot({ character = geoWithGuid(), now = 1000 })
+			local other = zug()
+			other.realm, other.key, other.guid = "Elsewhere", "Player-1-00000002", "Player-1-00000002" -- derived
+			local snapshots = { geo, other }
+			local view = Model.BuildRosterView({ snapshots = snapshots, currentKey = geo.key, now = NOW,
+				candidates = Model.ProfessionCandidates(challenges, snapshots, parents) })
+			local characters = rows(view, "character")
+
+			assert.equals("Geo-Classic Beta PvP  L6 Druid", characters[1].name)
+			assert.equals(GEO_GUID, characters[1].key)
+			assert.is_true(characters[1].current)
+			assert.equals("Zug-Elsewhere  L30 Druid", characters[2].name)
+			local tradeskill = rows(view, "tradeskill")[1]
+			assert.equals("Journeyman Alchemist" .. Model.SEPARATOR .. "Zug-Elsewhere", tradeskill.name)
+			for _, row in ipairs(view.rows) do
+				assert.is_nil(tostring(row.name):find("Player-", 1, true), row.name)
+				for _, line in ipairs(row.detail or {}) do
+					assert.is_nil(line:find("Player-", 1, true), line)
+				end
+			end
 		end)
 
 		it("lists tradeskill challenges with the closest character and every candidate", function()

@@ -75,7 +75,7 @@ describe("addon lifecycle", function()
 		end
 		for _, name in ipairs({ "CreateFrame", "UIParent", "UISpecialFrames", "LegacyNextDB",
 			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer", "C_AddOns",
-			"LegacyNext_OnAddonCompartmentClick" }) do
+			"LegacyNext_OnAddonCompartmentClick", "UnitGUID" }) do
 			_G[name] = nil
 		end
 	end)
@@ -480,6 +480,70 @@ describe("addon lifecycle", function()
 		end
 		assert.truthy(printed[#printed]:find("forgot Tester-Realm", 1, true))
 		assert.is_nil(_G.LegacyNextDB.characters["Tester-Realm"])
+	end)
+
+	-- Trivial GUID stub: these test the Store calls around the move, not UnitGUID's shape.
+	describe("GUID keys", function()
+		local GUID = "Player-1-00000001"
+
+		before_each(function()
+			_G.UnitGUID = function() return GUID end
+		end)
+
+		it("moves this character's Name-Realm row to its GUID at login, and leaves alts alone", function()
+			_G.LegacyNextDB = { schema = 1, sessions = 1, characters = {
+				["Tester-Realm"] = { key = "Tester-Realm", name = "Tester", realm = "Realm", level = 9,
+					professions = { { name = "Alchemy", skillLineId = 171, skill = 50 } }, professionsAt = 1 },
+				["Alt-Realm"] = { key = "Alt-Realm", name = "Alt", realm = "Realm" },
+			} }
+
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			local characters = _G.LegacyNextDB.characters
+			assert.is_nil(characters["Tester-Realm"])
+			assert.equals(GUID, characters[GUID].key)
+			assert.equals(10, characters[GUID].level)
+			-- GetProfessions read nothing, so the moved row's list is kept.
+			assert.equals("Alchemy", characters[GUID].professions[1].name)
+			assert.is_table(characters["Alt-Realm"])
+			assert.equals(GUID, ns.currentKey)
+			assert.truthy(ns.lastSnapshot:find("migrated from Tester-Realm", 1, true), ns.lastSnapshot)
+		end)
+
+		it("writes under the GUID after the move, without moving anything again", function()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+			handler(nil, "PLAYER_LOGOUT")
+
+			assert.equals(GUID, _G.LegacyNextDB.characters[GUID].key)
+			assert.is_nil(_G.LegacyNextDB.characters["Tester-Realm"])
+			assert.is_nil(ns.lastSnapshot:find("migrated", 1, true), ns.lastSnapshot)
+		end)
+
+		it("forgets a GUID-keyed character by Name-Realm", function()
+			local printed = {}
+			_G.print = function(message) printed[#printed + 1] = tostring(message) end
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+			assert.is_table(_G.LegacyNextDB.characters[GUID])
+
+			_G.SlashCmdList.LEGACYNEXT("roster forget Tester-Realm")
+
+			assert.truthy(printed[#printed]:find("forgot Tester-Realm", 1, true), printed[#printed])
+			assert.is_nil(_G.LegacyNextDB.characters[GUID])
+		end)
+
+		it("says why a forget matched nothing", function()
+			local printed = {}
+			_G.print = function(message) printed[#printed + 1] = tostring(message) end
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+
+			_G.SlashCmdList.LEGACYNEXT("roster forget Nobody-Realm")
+
+			assert.truthy(printed[#printed]:find("not forgotten: no character Nobody-Realm", 1, true),
+				printed[#printed])
+		end)
 	end)
 
 	it("keeps an earlier session's characters", function()
