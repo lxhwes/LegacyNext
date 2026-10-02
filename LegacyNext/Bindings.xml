@@ -1,0 +1,6 @@
+<Bindings>
+	<!-- Loaded by file name, not from the TOC. The label and LegacyNext_Toggle are in Core.lua. -->
+	<Binding name="LEGACYNEXT_TOGGLE" category="ADDONS">
+		LegacyNext_Toggle();
+	</Binding>
+</Bindings>

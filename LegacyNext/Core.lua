@@ -283,6 +283,21 @@ function LegacyNext_OnAddonCompartmentClick()
 	ns.UI.Toggle()
 end
 
+-- Key Bindings > AddOns. Bindings.xml loads by file name: none of the eight Blizzard addons that
+-- ship one lists it in its TOC. The row label is BINDING_NAME_<name>, and category "ADDONS"
+-- titles the section through _G.ADDONS, the Game Menu's own AddOns label.
+--   label   used: Blizzard_SharedXML/BindingUtil.lua:142-149
+--   section used: Blizzard_SettingsDefinitions_Frame/Keybindings.lua:220-227, :248-249
+--   ADDONS  used: Blizzard_GameMenu/Shared/GameMenuFrame.lua:230
+--   no TOC line:  Blizzard_PingUI/Blizzard_PingUI.toc, Blizzard_GroupFinder_VanillaStyle/
+--                 Blizzard_GroupFinder_VanillaStyle.toc
+-- pin:  966519c (1.60.1.70124)
+BINDING_NAME_LEGACYNEXT_TOGGLE = "Open or close LegacyNext"
+
+function LegacyNext_Toggle()
+	ns.UI.Toggle()
+end
+
 SLASH_LEGACYNEXT1 = "/legacynext"
 SLASH_LEGACYNEXT2 = "/lgn"
 

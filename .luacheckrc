@@ -15,6 +15,8 @@ globals = {
 	"SLASH_LEGACYNEXT2",
 	"SlashCmdList",
 	"LegacyNext_OnAddonCompartmentClick",
+	"LegacyNext_Toggle",
+	"BINDING_NAME_LEGACYNEXT_TOGGLE",
 }
 
 -- WoW globals the addon reads. Keep this list to what we actually call: an entry here is a
