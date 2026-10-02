@@ -8,7 +8,8 @@ on a real Alchemist, through the parent line. D10 found no secrets on 70124. U1,
 the frame, the icon and the Roster tab drawn as designed. ~~218 tests~~ 221 tests after the
 PR #5 review, none pending. Open in
 game: D10's name rows, which decide the roster key, then C3, U2 and C2. The vendor pin is
-`1.60.1.70124`.
+~~`1.60.1.70124`~~ `1.60.1.70170`. Nothing we call changed, but three Blizzard call sites did,
+and the docs were re-cited.
 
 **As of the morning of 2026-10-01: Phase 4 (v1 roster) has started on the report that SavedVariables
 now load back. ~~That report is untested here, and S1 tests it.~~ S1's first paste came back
@@ -63,6 +64,21 @@ toggle key binding and `## Category: Achievements`, is stacked on PR #6.
   `Store` into `LegacyNextCharDB`. A filter whose category has gone falls back to All.
 
 258 tests, none pending. All of it is source-verified only. **U6** is the look.
+
+## Vendor pin moved to 1.60.1.70170 — 2026-10-01
+
+`966519c` → `9a789c0`. Six `Blizzard_LegacySystem` files changed. No constant, signature or API doc
+on our surface moved, and `## Interface: 16001` still matches. The citations that shifted were
+re-derived. Detail in `docs/beta-builds.md`.
+
+Two of the call-site changes bear on open questions:
+
+- Blizzard's summary now reads `GetTreeCurrencyInfo` with `excludeStagedChanges = false`. `Api`
+  keeps `true`, so a snapshot records committed spend and never a player's unsaved tree edits.
+  Open for Alex if the window should match Blizzard's panel instead.
+- `ToggleLegacySystemUI` does nothing at zero points now. The "open Blizzard's panel on one
+  challenge" idea, under the Legacy Forever entry below, would need to hide or disable itself at
+  zero points.
 
 ## S1 closed, and the frame seen — 2026-10-01, late morning
 
