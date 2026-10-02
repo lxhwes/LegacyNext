@@ -70,8 +70,10 @@ The window keeps its tab, filter, position and size for each character. Drag the
 corner to resize it.
 
 Click a challenge row to open Blizzard's Legacy panel on that challenge. Shift-click it to put
-its link in the chat box. Blizzard's panel only opens once the account has earned a Legacy
-point, and neither works in combat.
+its link in the chat box. Opening Blizzard's panel needs at least one account Legacy point
+and is blocked in combat. Shift-click linking works in combat with a chat box open.
+If Blizzard's search or completion filters hide the challenge, the addon explains which
+filters to clear before trying again.
 
 ## Commands
 

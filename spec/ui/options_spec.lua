@@ -40,9 +40,9 @@ local function load()
 		hidden = false,
 		locked = false,
 		IsHidden = function() return ns.MinimapButton.hidden end,
-		SetHidden = function(value) ns.MinimapButton.hidden = value end,
+		SetHidden = function(value) ns.MinimapButton.hidden = value return true end,
 		IsLocked = function() return ns.MinimapButton.locked end,
-		SetLocked = function(value) ns.MinimapButton.locked = value end,
+		SetLocked = function(value) ns.MinimapButton.locked = value return true end,
 	}
 	helper.loadAddonFile("LegacyNext/UI/Options.lua", ns)
 	return ns
@@ -61,6 +61,7 @@ describe("Options", function()
 	after_each(function()
 		_G.Settings = nil
 		_G.InCombatLockdown = nil
+		_G.C_Timer = nil
 	end)
 
 	it("registers one LegacyNext category with a checkbox per setting, then adds it last", function()
@@ -103,6 +104,51 @@ describe("Options", function()
 		lock.set(true)
 		assert.is_true(ns.MinimapButton.locked)
 		assert.is_true(lock.get())
+	end)
+
+	it("reports refused settings writes and refreshes after Blizzard publishes the requested value", function()
+		local log = stubSettings()
+		local ns = load()
+		ns.MinimapButton.SetHidden = function() return false, "read-only" end
+		ns.MinimapButton.SetLocked = function() return false, "read-only" end
+		local timers = {}
+		_G.C_Timer = { After = function(delay, fn)
+			assert.equals(0, delay)
+			timers[#timers + 1] = fn
+		end }
+		local displayed = {}
+		_G.Settings.NotifyUpdate = function(variable)
+			for _, setting in ipairs(log.settings) do
+				if setting.variable == variable then displayed[variable] = setting.get() end
+			end
+		end
+		ns.Options.Register()
+
+		for _, name in ipairs({ "Show minimap button", "Lock minimap button" }) do
+			local setting = byName(log, name)
+			local ok, reason = setting.set(not setting.get())
+			assert.is_false(ok)
+			assert.equals("read-only", reason)
+			-- SettingMixin.ApplyValue publishes the requested value after calling the setter (:136).
+			displayed[setting.variable] = not setting.get()
+		end
+		for _, timer in ipairs(timers) do timer() end
+
+		assert.equals(2, #ns.said)
+		assert.equals("could not change Show minimap button: read-only", ns.said[1])
+		assert.equals("could not change Lock minimap button: read-only", ns.said[2])
+		assert.is_true(displayed.LEGACYNEXT_MINIMAP_SHOW)
+		assert.is_false(displayed.LEGACYNEXT_MINIMAP_LOCK)
+	end)
+
+	it("guards missing or throwing Settings notifications", function()
+		stubSettings()
+		local ns = load()
+		ns.Options.Register()
+
+		assert.has_no.errors(function() ns.Options.NotifyChanged("minimapHidden") end)
+		_G.Settings.NotifyUpdate = function() error("panel unavailable") end
+		assert.has_no.errors(function() ns.Options.NotifyChanged("minimapLocked") end)
 	end)
 
 	it("uses variable names no other addon would", function()

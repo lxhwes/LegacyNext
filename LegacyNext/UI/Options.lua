@@ -41,22 +41,55 @@ end
 
 local CHECKBOXES = {
 	{
+		key = "minimapHidden",
 		variable = "LEGACYNEXT_MINIMAP_SHOW",
 		name = "Show minimap button",
 		tooltip = "The LegacyNext button on the minimap's edge. The minimap's addon dropdown lists LegacyNext either way.",
 		default = true,
 		get = function() return not ns.MinimapButton.IsHidden() end,
-		set = function(value) ns.MinimapButton.SetHidden(not value) end,
+		set = function(value) return ns.MinimapButton.SetHidden(not value) end,
 	},
 	{
+		key = "minimapLocked",
 		variable = "LEGACYNEXT_MINIMAP_LOCK",
 		name = "Lock minimap button",
 		tooltip = "Stop the minimap button moving when dragged.",
 		default = false,
 		get = function() return ns.MinimapButton.IsLocked() end,
-		set = function(value) ns.MinimapButton.SetLocked(value) end,
+		set = function(value) return ns.MinimapButton.SetLocked(value) end,
 	},
 }
+
+-- External writes need a notification (Blizzard_Settings_Shared/Blizzard_Settings.lua:206-210,
+-- Blizzard_Setting.lua:180-188 at 9a789c0); a proxy getter alone does not refresh a checkbox.
+function Options.NotifyChanged(key)
+	local settings = G("Settings")
+	if not Options.category or type(settings) ~= "table" or type(settings.NotifyUpdate) ~= "function" then
+		return
+	end
+	for _, box in ipairs(CHECKBOXES) do
+		if box.key == key then
+			pcall(settings.NotifyUpdate, box.variable)
+			return
+		end
+	end
+end
+
+local function setCheckbox(box, value)
+	local ok, reason = box.set(value)
+	if not ok then
+		say("could not change " .. box.name .. ": " .. tostring(reason))
+		-- ApplyValue publishes the requested value after the setter (:136), ignoring its result
+		-- (ProxySettingMixin :333-335). Refresh after that event to show the stored value instead.
+		-- C_Timer.After(seconds, callback): UITimerDocumentation.lua:11-19, used with 0 in
+		-- Blizzard_SharedXMLGame/DressUpModelFrameMixin.lua:188 at 9a789c0.
+		local timer = G("C_Timer")
+		if type(timer) == "table" and type(timer.After) == "function" then
+			pcall(timer.After, 0, function() Options.NotifyChanged(box.key) end)
+		end
+	end
+	return ok, reason
+end
 
 local function register(settings)
 	local category = settings.RegisterVerticalLayoutCategory(CATEGORY_NAME)
@@ -67,7 +100,7 @@ local function register(settings)
 	local boolean = type(settings.VarType) == "table" and settings.VarType.Boolean or "boolean"
 	for _, box in ipairs(CHECKBOXES) do
 		local setting = settings.RegisterProxySetting(category, box.variable, boolean, box.name, box.default,
-			box.get, box.set)
+			box.get, function(value) return setCheckbox(box, value) end)
 		settings.CreateCheckbox(category, setting, box.tooltip)
 	end
 	settings.RegisterAddOnCategory(category)

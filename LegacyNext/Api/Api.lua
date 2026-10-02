@@ -875,27 +875,34 @@ local function inCombat()
 	return result and result[1] and true or false
 end
 
--- Whether a named frame is shown: true or false, or nil plus "secret". A missing frame or a
--- throw is not shown, since the panel loads on demand. A method, so it is guarded here rather
--- than through call, and tallied under the same name for /lgn probe.
+-- A missing load-on-demand frame is closed; an unreadable existing frame stops the toggle.
 local function frameShown(name)
 	local path = name .. ".IsShown"
 	local frame = resolve(name)
-	if type(frame) ~= "table" or type(frame.IsShown) ~= "function" then
+	if frame == nil then
 		record(path, "missing")
 		return false
+	end
+	if type(frame) ~= "table" or type(frame.IsShown) ~= "function" then
+		record(path, "missing")
+		return nil, "missing"
 	end
 	local ok, shown = pcall(frame.IsShown, frame)
 	if not ok then
 		record(path, "errors", tostring(shown))
-		return false
+		return nil, "error: " .. tostring(shown)
 	end
 	if isSecret(shown) then
 		record(path, "secret")
 		return nil, "secret"
 	end
+	if type(shown) ~= "boolean" then
+		local reason = "unexpected " .. type(shown)
+		record(path, "errors", reason)
+		return nil, reason
+	end
 	record(path, "ok")
-	return shown == true
+	return shown
 end
 
 --- Opens Blizzard's Legacy panel on one challenge. True, or nil plus a reason for chat.
@@ -910,6 +917,12 @@ end
 --                                 used: Blizzard_LegacySystem/Blizzard_LegacyChallenges.lua:310-320
 --   the Legacy override of Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:2811;
 --   it does not switch pages itself
+-- AchievementFrame_FindDisplayedAchievement(id) -> displayedId
+--   Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:3441-3469, used by the override :315
+-- AchievementFrameAchievements_GetSelectedAchievementId() -> id (0 if none)
+--   Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:950-956; Legacy uses the same
+--   selection behavior (Blizzard_LegacyChallengeDetailPane.lua:6). Filters omit rows (:39-50),
+--   and the select returns nothing even when no row was selected (Blizzard_LegacyChallenges.lua:310-320).
 -- GetCurrentRenownLevel           doc:  MajorFactionsDocumentation.lua:11
 -- InCombatLockdown                doc:  RestrictedActionsDocumentation.lua:45
 -- pin:  9a789c0 (1.60.1.70170)
@@ -954,9 +967,22 @@ function Api.OpenLegacyChallenge(id)
 	end
 	record("EventRegistry.TriggerEvent", "ok")
 
+	local displayed, displayReason = call("AchievementFrame_FindDisplayedAchievement", id)
+	if not displayed or type(displayed[1]) ~= "number" then
+		return nil, "panel opened, AchievementFrame_FindDisplayedAchievement " .. tostring(displayReason or "no id")
+	end
 	local selected, selectReason = call("AchievementFrame_SelectAchievement", id, true)
 	if not selected then
 		return nil, "panel opened, AchievementFrame_SelectAchievement " .. tostring(selectReason)
+	end
+	local current, currentReason = call("AchievementFrameAchievements_GetSelectedAchievementId")
+	if not current or type(current[1]) ~= "number" then
+		return nil, "panel opened, AchievementFrameAchievements_GetSelectedAchievementId "
+			.. tostring(currentReason or "no id")
+	end
+	if current[1] ~= displayed[1] then
+		return nil, "panel opened, challenge not selected; clear Blizzard's search and enable Completed and Incomplete"
+			.. " filters, then try again"
 	end
 	return true
 end

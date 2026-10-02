@@ -1368,6 +1368,35 @@ Minimap (`Blizzard_Minimap/`):
 
 ---
 
+## PR #11 review research — 2026-10-02
+
+Source-only at `9a789c0` (`1.60.1.70170`). U9 and U11 include the live regression checks.
+
+- Blizzard's category provider excludes categories when completion or search filters hide
+  their challenges (`Blizzard_LegacySystem/Blizzard_LegacyChallenges.lua:44-85`). Its detail
+  provider also excludes rows (`Blizzard_LegacyChallengeDetailPane.lua:39-50`), and its select
+  override returns no success flag (`Blizzard_LegacyChallenges.lua:310-320`). A successful
+  `pcall` alone therefore cannot confirm selection.
+- `AchievementFrame_FindDisplayedAchievement(id)` resolves a chain to its displayed tier
+  (`Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:3441-3469`). The override uses
+  it at `Blizzard_LegacyChallenges.lua:315`. `AchievementFrameAchievements_GetSelectedAchievementId()`
+  returns the selected id, or 0 when none is selected
+  (`Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:950-956`). The detail pane creates
+  that shared selection behavior through `AchievementFrameAchievements_OnLoad`
+  (`Blizzard_LegacyChallengeDetailPane.lua:6`). The addon compares these scalar ids and reports
+  an unselected challenge with a filter-clearing hint. It does not change the shared search.
+- `Settings.NotifyUpdate(variable)` calls the registered setting's `NotifyUpdate()`
+  (`Blizzard_Settings_Shared/Blizzard_Settings.lua:206-210`). That method publishes the
+  getter's current value (`Blizzard_Setting.lua:180-188`), which updates displayed controls.
+  External visibility and lock writes now use it.
+- Proxy setters' return values are discarded (`Blizzard_Setting.lua:333-335`), and
+  `SettingMixin:ApplyValue` publishes the requested value after invoking the setter
+  (`:124-136`). A refused write therefore needs both a chat explanation and a later
+  notification to restore the checkbox. The addon queues the refresh with
+  `C_Timer.After(0, callback)` (`UITimerDocumentation.lua:11-19`, a zero-delay caller at
+  `Blizzard_SharedXMLGame/DressUpModelFrameMixin.lua:188`). Inline recorders test that order;
+  these observations do not claim a live-client verification.
+
 ## In-game commands (retired 2026-09-26)
 
 This section used to hold the Phase 1 command list, C1 to C9. **Those IDs are retired and are

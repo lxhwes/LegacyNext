@@ -83,6 +83,8 @@ read_globals = {
 	"LegacySystemFrame",
 	"EventRegistry",
 	"AchievementFrame_SelectAchievement",
+	"AchievementFrame_FindDisplayedAchievement",
+	"AchievementFrameAchievements_GetSelectedAchievementId",
 	"GetAchievementLink",
 	"ChatFrameUtil",
 	"ChatEdit_InsertLink",

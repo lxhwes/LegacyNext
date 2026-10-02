@@ -22,9 +22,9 @@ Open, roughly in the order worth doing:
 |---|---|---|---|
 | S2 | Install `main` (after `e513d27`), log in on **Geo** first, then `/lgn roster` and paste it. Then log in on **Bong** and `/lgn roster` again. Section S2 below | Whether a stored `Name-Realm` row moves to the GUID on that character's login, keeping its professions and tree spend, with one row per character after | 2 min |
 | U8 | With the same install, open `/lgn`, then `/lgn uidump` and paste it; drag the corner grip; `/reload`. Section U8 below | Whether the resize grip draws and works, the bounds hold, the layout follows the size, and the size comes back | 2 min |
-| U9 | Install `feat/beta2`. Click a Next Up row; shift-click another with the chat box open. Section U9 below | Whether a row click opens Blizzard's Legacy panel on that challenge, and whether shift-click puts its link in chat. Both paths are source-only at `9a789c0` | 2 min |
+| U9 | Install `feat/beta2`. Click a Next Up row, repeat with Blizzard's search and incomplete filter excluding it; shift-click another with the chat box open. Section U9 below | Whether row clicks select the displayed challenge tier or explain an excluded selection, and whether shift-click links it, including in combat. Source-only at `9a789c0` | 3 min |
 | U10 | Same install. Find the LegacyNext button on the minimap edge, drag it, hover it, `/reload`; hover the dropdown entry. Section U10 below | Whether the hand-rolled minimap button draws, drags round the edge, keeps its spot, and shows the summary tooltip, and whether the dropdown entry shows it too | 2 min |
-| U11 | Same install. Esc > Options > AddOns > LegacyNext: untick and retick the minimap button. Section U11 below | Whether the Settings category registers on Forever and its toggles take effect | 1 min |
+| U11 | Same install. Esc > Options > AddOns > LegacyNext: untick and retick the minimap button, then `/lgn minimap` with the category still displayed. Section U11 below | Whether the Settings category registers, its toggles take effect, and its checkbox follows the slash command | 2 min |
 | C2 | **Partly answered 2026-10-01**: `CRITERIA_UPDATE` fires on an Alchemy skill-up, and none of the other four did. Still open: the four that need a completion or a spent point. `/etrace` during the C4 session for `ACHIEVEMENT_EARNED`, and the C1 session for `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED` and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED`. Section C2 below | Whether the frame's `ACHIEVEMENT_EARNED` refresh ever fires on Forever, and whether trait and faction events are worth adding | Free with C1 and C4 |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees**, then `/lgn dump trees` | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
@@ -118,13 +118,21 @@ for anyone, and the addon says so instead.
 4. Close the panel. Open the chat box (Enter), then shift-click a row. Does a challenge link
    appear in the box? Send it to yourself and hover it.
 5. Shift-click with the chat box closed. Paste the `LegacyNext:` line.
-6. If it is quick: click a row in combat. Paste the line. Then, still in combat or just after,
-   watch for "Interface action failed because of an AddOn".
+6. Put a search in Blizzard's Challenges page that excludes a Next Up row, then click that row.
+   Does the addon say "challenge not selected" and ask you to clear the search and enable
+   Completed and Incomplete? Clear the search, enable both filters, and retry. Does it select?
+7. Untick Blizzard's Incomplete filter, click an excluded row, and check the same explanation.
+   Retick it and retry. If the clicked row is a higher tier of a chain, Blizzard may select its
+   first incomplete tier; that counts as success.
+8. If it is quick: click a row in combat. Paste the refusal. With the chat box open, shift-click
+   a row in combat; does the link still appear? Watch for "Interface action failed because of
+   an AddOn".
 
 What I am reading it for: step 2 is the open question. The select only works if the challenges
 page builds its list inside the same call that shows it. If the panel opens on Challenges with
-nothing selected, the page builds later, and the select needs a one-frame delay. A `could not
-open the Legacy panel:` line names the failing step. Step 6's message would mean opening
+nothing selected even with both filters enabled and no search, the page may build later and
+the select may need a one-frame delay. A `could not open the Legacy panel:` line names the
+failing step. Steps 6–7 check the PR #11 selection-confirmation fix. Step 8's message would mean opening
 Blizzard's panel from our click taints its panel manager.
 
 ## U10 — the minimap button
@@ -152,6 +160,9 @@ inside the map means the edge offset is wrong. Say roughly how far.
 2. Untick "Show minimap button". Does the button go? Tick it again.
 3. Tick "Lock minimap button" and try to drag the button. Does it stay put? Untick it.
 4. `/lgn config` out of combat: does it open on LegacyNext?
+5. With the category still displayed, run `/lgn minimap` twice. Does "Show minimap button"
+   untick and retick with the button's visibility? Click the checkbox once afterwards; does
+   that click change the button immediately?
 
 What I am reading it for: the uidump's `options` line from U10 reading `registered = true`. A
 `reason` there names the missing piece of Blizzard's Settings API.

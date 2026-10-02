@@ -712,6 +712,7 @@ describe("Api", function()
 		local function stubPanel(opts)
 			opts = opts or {}
 			calls = {}
+			local selectedId = opts.selectedId or 0
 			local frame = panel(opts.shown or false)
 			inject("LegacySystemFrame", frame)
 			inject("ToggleLegacySystemUI", function()
@@ -723,7 +724,10 @@ describe("Api", function()
 			end })
 			inject("AchievementFrame_SelectAchievement", function(id, force)
 				calls[#calls + 1] = "select " .. tostring(id) .. " " .. tostring(force)
+				if not opts.filtered then selectedId = opts.displayedId or id end
 			end)
+			inject("AchievementFrame_FindDisplayedAchievement", function(id) return opts.displayedId or id end)
+			inject("AchievementFrameAchievements_GetSelectedAchievementId", function() return selectedId end)
 			return frame
 		end
 
@@ -789,6 +793,99 @@ describe("Api", function()
 			assert.equals("LegacySystemFrame.IsShown secret", reason)
 			assert.same({}, calls)
 			assert.equals(1, Api.GetFailures()["LegacySystemFrame.IsShown"].secret)
+		end)
+
+		it("does not toggle when the visibility read throws", function()
+			local Api = loadApi().Api
+			local frame = stubPanel({ shown = true })
+			frame.IsShown = function() error("visibility unavailable") end
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.truthy(reason:find("visibility unavailable", 1, true))
+			assert.same({}, calls)
+			assert.equals(1, Api.GetFailures()["LegacySystemFrame.IsShown"].errors)
+		end)
+
+		it("does not toggle when an existing frame has no visibility method", function()
+			local Api = loadApi().Api
+			stubPanel().IsShown = nil
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("LegacySystemFrame.IsShown missing", reason)
+			assert.same({}, calls)
+		end)
+
+		it("does not toggle on a non-boolean visibility result", function()
+			local Api = loadApi().Api
+			stubPanel().IsShown = function() return 1 end
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("LegacySystemFrame.IsShown unexpected number", reason)
+			assert.same({}, calls)
+		end)
+
+		it("still toggles when the load-on-demand frame does not exist yet", function()
+			local Api = loadApi().Api
+			local frame = stubPanel()
+			_G.LegacySystemFrame = nil
+			inject("ToggleLegacySystemUI", function()
+				calls[#calls + 1] = "toggle"
+				_G.LegacySystemFrame = frame
+				frame.shown = true
+			end)
+
+			assert.is_true(Api.OpenLegacyChallenge(61499))
+			assert.equals("toggle", calls[1])
+		end)
+
+		it("explains an excluded challenge even when the select call returns normally", function()
+			local Api = loadApi().Api
+			for _, previousId in ipairs({ 0, 61502 }) do
+				stubPanel({ shown = true, filtered = true, selectedId = previousId })
+
+				local ok, reason = Api.OpenLegacyChallenge(61499)
+
+				assert.is_nil(ok)
+				assert.truthy(reason:find("challenge not selected", 1, true))
+				assert.truthy(reason:find("search", 1, true))
+				assert.truthy(reason:find("Incomplete", 1, true))
+			end
+		end)
+
+		it("accepts Blizzard selecting the displayed tier of a challenge chain", function()
+			local Api = loadApi().Api
+			stubPanel({ displayedId = 61502 })
+
+			assert.is_true(Api.OpenLegacyChallenge(61504))
+		end)
+
+		it("reports an unreadable selection instead of claiming success", function()
+			local Api = loadApi().Api
+			stubPanel()
+			inject("AchievementFrameAchievements_GetSelectedAchievementId", function() error("selection unavailable") end)
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.truthy(reason:find("selection unavailable", 1, true))
+		end)
+
+		it("rejects a secret selected id before comparing it", function()
+			local Api = loadApi().Api
+			stubPanel()
+			inject("AchievementFrameAchievements_GetSelectedAchievementId", function() return 999 end)
+			inject("issecretvalue", function(value) return value == 999 end)
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("panel opened, AchievementFrameAchievements_GetSelectedAchievementId secret", reason)
 		end)
 
 		it("names the missing toggle", function()

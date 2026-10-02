@@ -684,6 +684,35 @@ describe("addon lifecycle", function()
 			assert.is_false(_G.LegacyNextDB.settings.minimapHidden)
 		end)
 
+		it("notifies an already displayed settings checkbox after /lgn minimap", function()
+			local log = stubSettings()
+			_G.Settings.NotifyUpdate = function(variable)
+				log.variable = variable
+				log.checked = not ns.MinimapButton.IsHidden()
+			end
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.equals("LEGACYNEXT_MINIMAP_SHOW", log.variable)
+			assert.is_false(log.checked)
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.is_true(log.checked)
+		end)
+
+		it("reports a refused slash-command setting write instead of success", function()
+			_G.LegacyNextDB = { schema = 2, settings = { minimapHidden = false } }
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			local said = {}
+			_G.print = function(text) said[#said + 1] = text end
+
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+
+			assert.is_false(_G.LegacyNextDB.settings.minimapHidden)
+			assert.equals(1, #said)
+			assert.truthy(said[1]:find("could not change minimap button: saved schema 2", 1, true))
+		end)
+
 		it("opens the settings from /lgn config", function()
 			local log = stubSettings()
 			handler(nil, "ADDON_LOADED", "LegacyNext")

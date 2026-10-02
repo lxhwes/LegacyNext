@@ -389,8 +389,12 @@ SlashCmdList["LEGACYNEXT"] = function(input)
 		ns.UI.Hide()
 	elseif command == "minimap" then
 		local hidden = not ns.MinimapButton.IsHidden()
-		ns.MinimapButton.SetHidden(hidden)
-		say(hidden and "minimap button hidden. /lgn minimap brings it back." or "minimap button shown.")
+		local ok, reason = ns.MinimapButton.SetHidden(hidden)
+		if ok then
+			say(hidden and "minimap button hidden. /lgn minimap brings it back." or "minimap button shown.")
+		else
+			say("could not change minimap button: " .. tostring(reason))
+		end
 	elseif command == "config" or command == "options" then
 		ns.Options.Open()
 	elseif command == "uidump" then

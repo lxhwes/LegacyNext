@@ -104,12 +104,18 @@ LegacySystemFrame
 Legacy.SelectPage
 CHALLENGES_PAGE_IDX
 AchievementFrame_SelectAchievement
+AchievementFrame_FindDisplayedAchievement
+AchievementFrameAchievements_GetSelectedAchievementId
 GetAchievementLink
 ChatFrameUtil.InsertLink
 IsModifiedClick
+ChatEdit_InsertLink
+IsShiftKeyDown
+InCombatLockdown
 # The Settings category and the minimap button (UI/)
 RegisterVerticalLayoutCategory
 RegisterProxySetting
 RegisterAddOnCategory
 OpenToCategory
 CreateCheckbox
+NotifyUpdate

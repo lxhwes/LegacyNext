@@ -61,7 +61,7 @@ end
 describe("MinimapButton", function()
 	after_each(function()
 		for _, name in ipairs({ "Minimap", "CreateFrame", "GameTooltip", "GetCursorPosition", "GetTime",
-			"InCombatLockdown" }) do
+			"InCombatLockdown", "issecretvalue" }) do
 			_G[name] = nil
 		end
 	end)
@@ -136,6 +136,63 @@ describe("MinimapButton", function()
 		assert.is_false(ns.MinimapButton.button.shown)
 	end)
 
+	it("returns write failures without changing visibility or lock state", function()
+		local ns = load()
+		ns.MinimapButton.Init()
+		ns.Store.PutSetting = function() return false, "saved schema 2, this build reads 1" end
+
+		local ok, reason = ns.MinimapButton.SetHidden(true)
+		assert.is_false(ok)
+		assert.equals("saved schema 2, this build reads 1", reason)
+		assert.is_true(ns.MinimapButton.button.shown)
+		assert.is_false(ns.MinimapButton.IsHidden())
+		ok, reason = ns.MinimapButton.SetLocked(true)
+		assert.is_false(ok)
+		assert.equals("saved schema 2, this build reads 1", reason)
+		assert.is_false(ns.MinimapButton.IsLocked())
+	end)
+
+	it("returns a reason when there is no settings writer", function()
+		local ns = load()
+		ns.Store.PutSetting = nil
+
+		local ok, reason = ns.MinimapButton.SetHidden(true)
+
+		assert.is_nil(ok)
+		assert.equals("Store.PutSetting missing", reason)
+	end)
+
+	it("notifies settings after successful visibility and lock changes", function()
+		local ns = load()
+		local changes = {}
+		ns.Options = { NotifyChanged = function(key) changes[#changes + 1] = key end }
+
+		assert.is_true(ns.MinimapButton.SetHidden(true))
+		assert.is_true(ns.MinimapButton.SetLocked(true))
+		assert.same({ "minimapHidden", "minimapLocked" }, changes)
+	end)
+
+	it("checks secrecy before rejecting a non-finite number", function()
+		local ns = load({ minimapAngle = math.huge })
+		local checked = false
+		_G.issecretvalue = function(value)
+			if value == math.huge then checked = true return true end
+			return false
+		end
+
+		assert.is_true(ns.MinimapButton.Init())
+		assert.is_true(checked)
+		assert.equals(ns.MinimapButton.DEFAULT_ANGLE, ns.MinimapButton.button.angle)
+	end)
+
+	it("rejects numbers safely when the secrecy check throws", function()
+		local ns = load({ minimapAngle = 90 })
+		_G.issecretvalue = function() error("guard unavailable") end
+
+		assert.has_no.errors(function() ns.MinimapButton.Init() end)
+		assert.equals(ns.MinimapButton.DEFAULT_ANGLE, ns.MinimapButton.button.angle)
+	end)
+
 	describe("angles", function()
 		it("puts 0 degrees to the right and 90 at the top", function()
 			local ns = load()
@@ -184,6 +241,38 @@ describe("MinimapButton", function()
 
 			assert.is_nil(rawget(button, "script_OnUpdate"))
 			assert.is_nil(ns.Store.saved.minimapAngle)
+		end)
+
+		it("leaves the angle alone when cursor geometry is secret", function()
+			local ns = load()
+			ns.MinimapButton.Init()
+			local button = ns.MinimapButton.button
+			_G.GetCursorPosition = function() return 1000, 1000 end
+			_G.issecretvalue = function(value) return value == 1000 end
+
+			button.script_OnDragStart(button)
+			button.script_OnUpdate(button)
+			button.script_OnDragStop(button)
+
+			assert.equals(ns.MinimapButton.DEFAULT_ANGLE, ns.Store.saved.minimapAngle)
+		end)
+
+		it("restores the saved angle and reports a rejected drag write", function()
+			local ns = load({ minimapAngle = 45 })
+			local said = {}
+			ns.say = function(text) said[#said + 1] = text end
+			ns.MinimapButton.Init()
+			local button = ns.MinimapButton.button
+			ns.Store.PutSetting = function() return false, "read-only" end
+			_G.GetCursorPosition = function() return 1000, 1000 end
+
+			button.script_OnDragStart(button)
+			button.script_OnUpdate(button)
+			button.script_OnDragStop(button)
+
+			assert.equals(45, button.angle)
+			assert.equals(45, ns.Store.saved.minimapAngle)
+			assert.equals("could not save minimap position: read-only", said[1])
 		end)
 	end)
 

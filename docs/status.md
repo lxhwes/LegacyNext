@@ -5,7 +5,8 @@ Last updated 2026-10-02.
 **Where we are, 2026-10-02, later: beta2's features are built on `feat/beta2`, unseen in
 game.** A row click opens Blizzard's Legacy panel on that challenge, and shift-click links it in
 chat. There is a draggable minimap button with a summary tooltip, and a settings page under
-Options > AddOns. The dropdown entry shows the same tooltip. 385 tests, none pending. One in-game session closes S2, U8, U9, U10 and U11,
+Options > AddOns. The dropdown entry shows the same tooltip. PR #11's two review findings and
+five Copilot comments are fixed, with 404 tests, none pending. One in-game session checks S2, U8, U9, U10 and U11,
 then `v0.1.0-beta2`. PR #11. Section "Beta2 features" below.
 
 **As of 2026-10-02: the repo is being readied to go public.** The README, CHANGELOG
@@ -127,6 +128,28 @@ Nothing found changes beta2. Forever Companion is the one to watch.
 `UI/` reaches Blizzard's `Settings` and `Minimap` by name, as it already does for templates and
 `GameTooltip`. `Api/` stays the only place game data is read. The two new modules are in the TOC
 before `Core.lua`, and the lifecycle spec loads the TOC, so a missing line fails a test.
+
+## PR #11 review fixes — 2026-10-02
+
+Alex asked for both review passes to be addressed, favoring our review if they disagreed.
+All five Copilot comments were valid and compatible with the two findings from our review.
+
+- A challenge click now confirms Blizzard's selected id against its displayed chain tier.
+  An excluded row produces a search/completion-filter hint instead of reporting success.
+  The shared achievement search stays untouched. U9 includes both excluded-row cases.
+- Existing frames with unreadable visibility stop the toggle; a missing load-on-demand
+  frame still allows the normal opening path.
+- The minimap's number guard checks secrecy under `pcall` before NaN/infinity comparisons.
+- Visibility and lock writes propagate Store's failures. The slash command and Settings
+  setters explain them; a rejected drag restores its saved angle. Settings is notified on
+  external writes, and a rejected checkbox write queues a refresh after Blizzard's own
+  requested-value event. U11 includes the displayed-checkbox/slash-command case.
+- The build-bump watchlist includes the missing fallback globals and both new selection
+  reads. README combat restrictions now match the separate opening and linking paths.
+
+19 regression tests added. The research and citations are in `docs/legacy-internals.md`,
+"PR #11 review research". Full busted: 404 passing, no pending. Luacheck: no warnings or errors.
+Live verification remains with S2 and U8–U11.
 
 ## Public flip prep — 2026-10-02
 

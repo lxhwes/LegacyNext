@@ -42,11 +42,17 @@ end
 
 -- A finite number that is not a secret value: comparing or formatting a secret throws.
 local function plainNumber(value)
-	if type(value) ~= "number" or value ~= value or value == math.huge or value == -math.huge then
+	if type(value) ~= "number" then
 		return false
 	end
 	local isSecret = G("issecretvalue")
-	return not (type(isSecret) == "function" and isSecret(value))
+	if type(isSecret) == "function" then
+		local ok, secret = pcall(isSecret, value)
+		if not ok or secret then
+			return false
+		end
+	end
+	return value == value and value ~= math.huge and value ~= -math.huge
 end
 
 local function settings()
@@ -60,7 +66,14 @@ end
 local function saveSetting(name, value)
 	local Store = ns.Store
 	if type(Store) == "table" and type(Store.PutSetting) == "function" then
-		Store.PutSetting(name, value)
+		return Store.PutSetting(name, value)
+	end
+	return nil, "Store.PutSetting missing"
+end
+
+local function notifySetting(name)
+	if ns.Options and type(ns.Options.NotifyChanged) == "function" then
+		ns.Options.NotifyChanged(name)
 	end
 end
 
@@ -150,7 +163,14 @@ end
 local function onDragStop(button)
 	button:SetScript("OnUpdate", nil)
 	if plainNumber(button.angle) then
-		saveSetting("minimapAngle", button.angle)
+		local ok, reason = saveSetting("minimapAngle", button.angle)
+		if not ok then
+			button.angle = savedAngle()
+			place(button, button.angle)
+			if type(ns.say) == "function" then
+				ns.say("could not save minimap position: " .. tostring(reason))
+			end
+		end
 	end
 end
 
@@ -323,12 +343,22 @@ function Button.Init()
 end
 
 function Button.SetHidden(hidden)
-	saveSetting("minimapHidden", hidden and true or false)
+	local ok, reason = saveSetting("minimapHidden", hidden and true or false)
+	if not ok then
+		return ok, reason
+	end
 	apply()
+	notifySetting("minimapHidden")
+	return true
 end
 
 function Button.SetLocked(locked)
-	saveSetting("minimapLocked", locked and true or false)
+	local ok, reason = saveSetting("minimapLocked", locked and true or false)
+	if not ok then
+		return ok, reason
+	end
+	notifySetting("minimapLocked")
+	return true
 end
 
 -- What the button decided, for /lgn uidump.
