@@ -778,6 +778,10 @@ that are currently known to be false or unverified.
 - [x] **U2** — whether long names get `...` or need the tooltip alone. They get it, 2026-10-01
 - [ ] **C2** — whether the achievement events fire; the frame registers them regardless
 - [ ] Competition recheck immediately before release
+- [ ] **Resizable main window** (Alex, 2026-10-01). Not started. The frame is a fixed 520x480
+      (`UI/UI.lua:15`), and the scroll child's width and the on-screen position clamp both derive
+      from those constants, so both need to follow the live size. The size would be saved per
+      character through `Store` into `LegacyNextCharDB`, next to the position
 
 Two of the three release-mechanics fears were reported problems nobody had reproduced, and
 both turned out to be fixed upstream two days before we checked. The lesson stands either
