@@ -52,6 +52,15 @@ local function toNumber(value, default)
 	return default
 end
 
+-- An icon the frame can draw: a file id or a texture path. Anything else is nil, so the UI
+-- tests one field rather than re-checking the type.
+function Model.Icon(value)
+	if type(value) == "number" or (type(value) == "string" and value ~= "") then
+		return value
+	end
+	return nil
+end
+
 -- One criterion, normalised to have/need with need >= 1 and have clamped into [0, need].
 local function criterionProgress(criterion)
 	local need = toNumber(criterion.need, 1)
@@ -361,6 +370,19 @@ local function rewardName(reward)
 	return reward.name or reward.toastDescription
 end
 
+-- Every reward's name, and the first reward's icon for the header.
+local function takeNextRewards(summary, rewards)
+	for index, reward in ipairs(rewards or {}) do
+		local name = rewardName(reward)
+		if name then
+			summary.nextRewardNames[#summary.nextRewardNames + 1] = name
+		end
+		if index == 1 and type(reward) == "table" then
+			summary.nextRewardIcon = Model.Icon(reward.icon)
+		end
+	end
+end
+
 -- Header numbers from Api.GetRewardTrack output. The next threshold is recomputed from the
 -- sparse threshold list rather than trusted from Api, so a level change between two reads
 -- cannot leave the two disagreeing.
@@ -377,6 +399,7 @@ function Model.RewardSummary(track)
 		nextThreshold = nil,
 		pointsToNext = nil,
 		nextRewardNames = {},
+		nextRewardIcon = nil,
 		thresholdsReached = 0,
 		thresholdsTotal = 0,
 		complete = false,
@@ -393,12 +416,7 @@ function Model.RewardSummary(track)
 			elseif not summary.nextThreshold then
 				summary.nextThreshold = level
 				summary.pointsToNext = level - earned
-				for _, reward in ipairs(threshold.rewards or {}) do
-					local name = rewardName(reward)
-					if name then
-						summary.nextRewardNames[#summary.nextRewardNames + 1] = name
-					end
-				end
+				takeNextRewards(summary, threshold.rewards)
 			end
 		end
 	end
@@ -408,12 +426,7 @@ function Model.RewardSummary(track)
 		if #thresholds == 0 and type(track.nextThreshold) == "number" then
 			summary.nextThreshold = track.nextThreshold
 			summary.pointsToNext = track.pointsToNext
-			for _, reward in ipairs(track.nextRewards or {}) do
-				local name = rewardName(reward)
-				if name then
-					summary.nextRewardNames[#summary.nextRewardNames + 1] = name
-				end
-			end
+			takeNextRewards(summary, track.nextRewards)
 		elseif #thresholds > 0 and earned then
 			summary.complete = true
 		end
@@ -492,6 +505,7 @@ function Model.Header(rewardTrack, rewardTrackReason)
 	return {
 		lines = headerLines(summary, rewardTrackReason or summaryReason),
 		summary = summary,
+		icon = summary and summary.nextRewardIcon or nil,
 		state = summary and "ok" or "error",
 		reason = summary and nil or (rewardTrackReason or summaryReason),
 	}
@@ -655,6 +669,7 @@ function Model.BuildView(input)
 			id = entry.challenge.id,
 			name = entry.challenge.name or ("Challenge " .. tostring(entry.challenge.id)),
 			category = entry.challenge.categoryName,
+			icon = Model.Icon(entry.challenge.icon),
 			progressText = progressText(entry.progress),
 			pointsText = pointsText(entry.challenge.points),
 			measurable = entry.progress.measurable,

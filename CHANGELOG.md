@@ -11,6 +11,11 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 
 ### Added
 
+- The window remembers its tab, category filter and position for each character.
+- Blizzard's top tabs for Next Up and Roster, so the selected one stands out.
+- Achievement icons on Next Up and tradeskill rows, and the next reward's icon in the header.
+- Roster names in class colours, with the current character tinted.
+
 - Tagged releases: a pushed `v*` tag is linted, tested and packaged into a GitHub release, and
   the tag becomes `## Version`. A copy straight from the repo reports its version as `dev`.
 - Roster tab (v1): the window has a second tab listing every saved character with Legacy points

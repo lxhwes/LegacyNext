@@ -582,6 +582,7 @@ local function tradeskillRows(candidates)
 			name = tostring(challenge.name or ("Challenge " .. tostring(challenge.id))) .. Model.SEPARATOR
 				.. tostring(best.label or best.name or best.key),
 			category = challenge.categoryName,
+			icon = Model.Icon(challenge.icon),
 			progressText = tostring(best.skill) .. "/" .. tostring(entry.need),
 			pointsText = Model.PointsText(challenge.points),
 			measurable = true,
@@ -639,6 +640,7 @@ function Model.BuildRosterView(input)
 				key = row.key,
 				name = characterName(row, withRealm),
 				category = type(row.realm) == "string" and row.realm or nil,
+				classToken = type(row.classToken) == "string" and row.classToken ~= "" and row.classToken or nil,
 				progressText = spendText(row, columns),
 				pointsText = type(row.unspent) == "number" and tostring(row.unspent) or "?",
 				measurable = true,

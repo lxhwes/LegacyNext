@@ -9,6 +9,7 @@ end
 describe("Store", function()
 	after_each(function()
 		_G.LegacyNextDB = nil
+		_G.LegacyNextCharDB = nil
 	end)
 
 	it("starts a fresh table when nothing was saved, and says so", function()
@@ -136,6 +137,77 @@ describe("Store", function()
 		assert.equals(171, _G.LegacyNextDB.skillLineParents[2937].parentId)
 		assert.equals(171, Store.GetSkillLineParents()[2937].parentId)
 		assert.is_false((Store.PutSkillLineParents("junk")))
+	end)
+
+	describe("window state", function()
+		it("reads nothing and refuses writes before attach", function()
+			local Store = loadStore()
+
+			assert.same({}, Store.GetUIState())
+			local ok, reason = Store.PutUIState("tab", "roster")
+			assert.is_false(ok)
+			assert.equals("store not attached", reason)
+			assert.is_nil(_G.LegacyNextCharDB)
+		end)
+
+		it("keeps it per character, in LegacyNextCharDB, as a copy", function()
+			local Store = loadStore()
+			Store.Attach()
+			local point = { left = 10, top = 600 }
+
+			assert.is_true(Store.PutUIState("tab", "roster"))
+			assert.is_true(Store.PutUIState("point", point))
+			point.left = 99
+
+			assert.equals("roster", _G.LegacyNextCharDB.ui.tab)
+			assert.equals(10, _G.LegacyNextCharDB.ui.point.left)
+			local read = Store.GetUIState()
+			assert.same({ tab = "roster", point = { left = 10, top = 600 } }, read)
+			read.point.left = 50
+			assert.equals(10, Store.GetUIState().point.left)
+			assert.is_nil(_G.LegacyNextDB.ui)
+		end)
+
+		it("reads what was saved, adds to it, and clears a field set to nil", function()
+			_G.LegacyNextCharDB = { other = true, ui = { tab = "roster", filter = 15 } }
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.same({ tab = "roster", filter = 15 }, Store.GetUIState())
+			assert.is_true(Store.PutUIState("filter", nil))
+
+			assert.same({ tab = "roster" }, Store.GetUIState())
+			assert.is_true(_G.LegacyNextCharDB.other)
+		end)
+
+		it("replaces a saved table that is junk", function()
+			_G.LegacyNextCharDB = "oops"
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.same({}, Store.GetUIState())
+			assert.is_true(Store.PutUIState("tab", "roster"))
+			assert.equals("roster", _G.LegacyNextCharDB.ui.tab)
+		end)
+
+		-- The read-only rule protects the account's alt list from a downgrade; window state is
+		-- this character's and holds nothing a downgrade could lose.
+		it("still saves under a newer account schema", function()
+			_G.LegacyNextDB = { schema = 2 }
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.is_true(Store.PutUIState("tab", "roster"))
+			assert.equals("roster", Store.GetUIState().tab)
+			assert.is_nil(_G.LegacyNextDB.ui)
+		end)
+
+		it("refuses a field name that is not a string", function()
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.is_false((Store.PutUIState(1, "x")))
+		end)
 	end)
 
 	-- Hypothetical until S1: the client assigning the loaded table after ADDON_LOADED.
