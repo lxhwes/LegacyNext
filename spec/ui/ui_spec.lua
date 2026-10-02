@@ -56,6 +56,11 @@ local function newWidget(kind, name, template)
 				return function(_, enabled) self.mouse = enabled end
 			elseif key == "LockHighlight" or key == "UnlockHighlight" then
 				return function() self.locked = key == "LockHighlight" end
+			elseif key == "SetTexture" then
+				-- nil clears it, so read it with rawget
+				return function(_, texture) self.texture = texture end
+			elseif key == "SetFontObject" then
+				return function(_, font) self.font = font end
 			end
 			return function() end
 		end,
@@ -89,6 +94,10 @@ local function unloadUI()
 	_G.PanelTemplates_SelectTab = nil
 	_G.PanelTemplates_DeselectTab = nil
 	_G.PanelTemplates_TabResize = nil
+	_G.RAID_CLASS_COLORS = nil
+	_G.C_ClassColor = nil
+	_G.GameFontNormal = nil
+	_G.GameFontHighlight = nil
 end
 
 -- A C_Timer double that holds callbacks until the test runs them, so ordering is explicit.
@@ -363,6 +372,181 @@ describe("UI", function()
 		inCombat = false
 		ns.UI.frame.script_OnEvent(ns.UI.frame, "PLAYER_REGEN_ENABLED")
 		assert.equals(2, counter.calls)
+	end)
+
+	-- Views built by hand in the shape Model hands over: row.icon and header.icon are a texture
+	-- file id, a path or nil, and a character row's classToken is a string or nil.
+	describe("icons and class colours", function()
+		local MEDIA = "Interface\\AddOns\\LegacyNext\\Media\\icon"
+
+		local function view(rows, headerIcon)
+			return { header = { lines = { "Legacy Track", "Next: Reward" }, icon = headerIcon, state = "ok" },
+				filters = {}, rows = rows, state = "ok" }
+		end
+		local function challenge(name, icon)
+			return { kind = "challenge", name = name, progressText = "1/2", pointsText = "1", measurable = true,
+				icon = icon }
+		end
+		local function tradeskill(name, icon)
+			return { kind = "tradeskill", name = name, progressText = "75/150", pointsText = "1", measurable = true,
+				icon = icon }
+		end
+		local function character(name, classToken, current)
+			return { kind = "character", name = name, progressText = "0/0/0", pointsText = "0", measurable = true,
+				classToken = classToken, current = current }
+		end
+		local function heading(name)
+			return { kind = "columns", name = name, progressText = "P/A/R", pointsText = "Free" }
+		end
+
+		local function nameLeft(row)
+			for _, anchor in ipairs(row.name.anchors) do
+				if anchor[1] == "LEFT" then return anchor[2] end
+			end
+		end
+
+		it("draws a row's icon left of its name, and keeps names aligned without one", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ challenge("A", 1001), challenge("B", nil), challenge("C", MEDIA) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals(1001, rawget(rows[1].icon, "texture"))
+			assert.is_true(rows[1].icon.shown)
+			assert.is_false(rows[2].icon.shown)
+			assert.is_nil(rawget(rows[2].icon, "texture"))
+			assert.equals(MEDIA, rawget(rows[3].icon, "texture"))
+			assert.is_true(nameLeft(rows[1]) > 0)
+			assert.equals(nameLeft(rows[1]), nameLeft(rows[2]))
+			assert.equals(nameLeft(rows[1]), nameLeft(rows[3]))
+		end)
+
+		it("leaves names where they were when no row has an icon", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ challenge("A"), challenge("B") }))
+
+			for _, row in ipairs(ns.UI.frame.rows) do
+				assert.equals(0, nameLeft(row))
+				assert.is_false(row.icon.shown)
+			end
+		end)
+
+		it("draws the next reward's icon before header line 2, and drops it when there is none", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ challenge("A") }, 2002))
+			local frame = ns.UI.frame
+			assert.equals(2002, rawget(frame.headerIcon, "texture"))
+			assert.is_true(frame.headerIcon.shown)
+			assert.same({ "LEFT", frame.headerIcon, "RIGHT", 4, 0 }, frame.headerLines[2].anchors[1])
+			assert.equals("Next: Reward", frame.headerLines[2].text)
+
+			ns.UI.Render(view({ challenge("A") }))
+			assert.is_false(frame.headerIcon.shown)
+			assert.is_nil(rawget(frame.headerIcon, "texture"))
+			assert.same({ "TOPLEFT", frame.headerLines[1], "BOTTOMLEFT", 0, -4 }, frame.headerLines[2].anchors[1])
+		end)
+
+		it("colours a character's name by class and tints the current row", function()
+			_G.RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.5, b = 0 } }
+			local ns = loadUI()
+
+			ns.UI.Render(view({ heading("Character"), character("Ann  L10 Druid", "DRUID", true),
+				character("Bob  L5 Mage", "MAGE", false), character("Cy  L1", nil, false) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals("Character", rows[1].name.text)
+			assert.is_false(rows[1].tint.shown)
+			assert.equals("|cffff8000Ann  L10 Druid|r", rows[2].name.text)
+			assert.is_true(rows[2].tint.shown)
+			assert.equals("Bob  L5 Mage", rows[3].name.text)
+			assert.is_false(rows[3].tint.shown)
+			assert.equals("Cy  L1", rows[4].name.text)
+			for _, row in ipairs(rows) do
+				assert.equals(0, nameLeft(row))
+				assert.is_false(row.icon.shown)
+			end
+		end)
+
+		it("asks C_ClassColor for a class RAID_CLASS_COLORS lacks, and survives it throwing", function()
+			_G.RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.5, b = 0 } }
+			_G.C_ClassColor = {
+				GetClassColor = function(token)
+					if token == "PRIEST" then error("bad class") end
+					if token == "MAGE" then return { r = 0, g = 0.5, b = 1 } end
+				end,
+			}
+			local ns = loadUI()
+
+			ns.UI.Render(view({ character("Bob", "MAGE", false), character("Pat", "PRIEST", false),
+				character("Sam", "SHAMAN", false) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals("|cff0080ffBob|r", rows[1].name.text)
+			assert.equals("Pat", rows[2].name.text)
+			assert.equals("Sam", rows[3].name.text)
+		end)
+
+		it("keeps today's look with no class colour: the current character in gold, no tint", function()
+			_G.GameFontNormal = { font = "GameFontNormal" }
+			_G.GameFontHighlight = { font = "GameFontHighlight" }
+			local ns = loadUI()
+
+			ns.UI.Render(view({ character("Ann", "DRUID", true), character("Bob", "MAGE", false) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals("Ann", rows[1].name.text)
+			assert.equals(_G.GameFontNormal, rows[1].name.font)
+			assert.is_false(rows[1].tint.shown)
+			assert.equals(_G.GameFontHighlight, rows[2].name.font)
+		end)
+
+		it("draws a tradeskill row's icon, with the roster's other rows left as they are", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ heading("Character"), character("Ann", nil, true),
+				heading("Tradeskill challenge"), tradeskill("Journeyman Alchemist  Ann", 3003) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals(3003, rawget(rows[4].icon, "texture"))
+			assert.is_true(rows[4].icon.shown)
+			assert.is_true(nameLeft(rows[4]) > 0)
+			for index = 1, 3 do
+				assert.equals(0, nameLeft(rows[index]))
+				assert.is_false(rows[index].icon.shown)
+			end
+		end)
+
+		-- Rows are pooled across tabs and redraws.
+		it("never leaves a stale icon, colour or tint on a reused row", function()
+			_G.RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.5, b = 0 } }
+			local ns = loadUI()
+			ns.UI.Render(view({ heading("Character"), character("Ann", "DRUID", true),
+				heading("Tradeskill challenge"), tradeskill("Journeyman Alchemist  Ann", 3003) }, 2002))
+			local rows = ns.UI.frame.rows
+
+			ns.UI.Render(view({ challenge("A"), challenge("B"), challenge("C"), challenge("D") }))
+
+			assert.equals(4, #rows)
+			for index, row in ipairs(rows) do
+				assert.equals(({ "A", "B", "C", "D" })[index], row.name.text)
+				assert.is_false(row.tint.shown)
+				assert.is_false(row.icon.shown)
+				assert.is_nil(rawget(row.icon, "texture"))
+				assert.equals(0, nameLeft(row))
+			end
+			assert.is_false(ns.UI.frame.headerIcon.shown)
+
+			ns.UI.Render(view({ challenge("A", 1001), challenge("B", 1002) }))
+			ns.UI.Render(view({ heading("Character"), character("Bob", "MAGE", false) }))
+
+			for index = 1, 2 do
+				assert.is_false(rows[index].icon.shown)
+				assert.equals(0, nameLeft(rows[index]))
+			end
+			assert.equals("Bob", rows[2].name.text)
+		end)
 	end)
 
 	describe("window state", function()
