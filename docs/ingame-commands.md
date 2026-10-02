@@ -20,13 +20,7 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
-| D10 | **Partly answered 2026-10-01**: the secrets half is done, with no row `secret`, `error` or `missing` on 70124. Still open: **the five name rows**, which the installed build did not have. Install from the branch that adds them (or from main once it merges), `/reload`, then `/lgn dump probe` on a character with a surname. The client is on 70170 now, so the same run re-checks the secrets half on the new build. Section D10 below | Which name call carries Forever's surname, and whether `UnitGUID` reads, for a roster key that cannot shift | 30 s |
-| U5 | Click the minimap's addon dropdown (the small numbered button under the calendar), then click `LegacyNext` in it, twice. Section U5 below | Whether Forever shows Blizzard's Addon Compartment at all, and whether our `## AddonCompartmentFunc` entry lists and toggles the window. Read from source only: the TOC loads it for `mainline`, and Forever's `camelot` type is inferred to count as `mainline` | 30 s, any login |
-| U7 | Escape > Options > Key Bindings > AddOns, bind a key to "Open or close LegacyNext", press it twice in and out of combat; then the AddOns list. Section U7 below | Whether `Bindings.xml` loads without a TOC line and lands under AddOns, and whether `## Category: Achievements` groups the addon in the AddOns list | 1 min |
-| U6 | `/lgn uidump`, then on each tab a screenshot, then `/reload` and a relog and say where the window opened. Section U6 below | Whether the polish pass draws as built: Blizzard's top tabs (or the underline fallback), row and reward icons, class-coloured roster names with the current one tinted, and the window coming back with its last tab, filter and position | 3 min |
-| U2 | **Partly answered 2026-10-01** (v2 of the block): `IsProtected` `false,false`, `IsTruncated` true, and all three templates present. Still open: **whether the test string near the top of the screen ends in `...` or is cut off mid-word**, which only a look at the screen answers. Run the block under U2 below, or Alex's gist "LegacyNext U2 v2", and look | Whether long rows get an ellipsis for free or rely on the tooltip alone | 30 s |
-| C3 | **Geo now has Alchemy at 1**, so this is two commands: `/lgn dump challenges 1` and `/lgn uidump`, on Geo. The in-progress tier was already seen in a screenshot 2026-10-01. Section C3 below | The mid-progress ranking fixture: a real type-7 criterion with `have` above 0, to replace the derived values in the Model tests | 1 min |
-| C2 | `/etrace` on the five events in section C2 below, during any session that raises a skill or earns a challenge | Which fire. **Partly answered 2026-10-01 for the roster's own events**: `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and `TRAIT_CONFIG_UPDATED` registers without error. None of the five below has been seen yet. The frame depends on `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE`, and neither has been seen firing on Forever. The other three decide whether trait and faction events are worth adding | Free with C3 |
+| C2 | **Partly answered 2026-10-01**: `CRITERIA_UPDATE` fires on an Alchemy skill-up, and none of the other four did. Still open: the four that need a completion or a spent point. `/etrace` during the C4 session for `ACHIEVEMENT_EARNED`, and the C1 session for `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED` and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED`. Section C2 below | Whether the frame's `ACHIEVEMENT_EARNED` refresh ever fires on Forever, and whether trait and faction events are worth adding | Free with C1 and C4 |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees**, then `/lgn dump trees` | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
 | C4 | A completed challenge, then `/lgn dump challenges` on its page | `wasEarnedByMe` true on a real completion | needs play |
@@ -49,6 +43,12 @@ Closed — kept so a citation still resolves:
 | U1 | 2026-10-01 | Screenshot of Next Up: the header's middle dot renders, the filter bar wraps to two lines, nothing is cropped. Also the first real "in progress" tier | `docs/status.md` |
 | U3 | 2026-10-01 | The gold ring icon draws in the AddOns list | `docs/status.md` |
 | U4 | 2026-10-01 | `/lgn uidump roster` and two screenshots: headings over their columns, the current character in gold, the footnote below the rows, and the tradeskill tooltip naming Geo | `roster_geo_restart.lua`, `docs/status.md` |
+| D10 | 2026-10-01 | Probe on 70170, Geo Prizm: no secrets, the name calls' second return carries the surname, `UnitGUID` reads a `Player-` string. Also found `WOW_PROJECT_ID` reads 18, not 1 | `CLAUDE.md`, `docs/legacy-internals.md` |
+| C3 | 2026-10-01 | `/lgn dump challenges 1` on Geo, 70170: the three Alchemy type-7 criteria at `have = 1`, `completed = false`, progress-bar bit set. The rest of page 1 matches 69913 field for field, apart from one description | `spec/fixtures/dump_challenges_page1_geo.lua`, `spec/model/model_spec.lua`, `spec/fixtures/README.md` |
+| U5 | 2026-10-01 | The minimap's addon dropdown lists LegacyNext with the gold ring icon, and the click toggles the window, on `WOW_PROJECT_ID` 18 | `docs/legacy-internals.md`, `docs/status.md` |
+| U7 | 2026-10-01 | The key binding lists, toggles the window, and works in combat. `## Category: Achievements` groups LegacyNext under Achievements in the AddOns list | `docs/legacy-internals.md`, `docs/status.md` |
+| U6 | 2026-10-01 | The polish pass as built: Blizzard's top tabs, row and reward icons, class-coloured roster names with the current one tinted. Tab, filter and position come back after a `/reload` and after a relog | `docs/legacy-internals.md`, `docs/status.md` |
+| U2 | 2026-10-01 | `IsProtected` `false,false`, all three templates present, `IsTruncated` true with `GetStringWidth` reading the unbounded width, and on 70170 the clipped test string drawn as "Reach exalted re...", so the client adds the ellipsis | `docs/ui-templates.md` |
 
 See `docs/status.md` for what each finding changed.
 
@@ -56,7 +56,7 @@ Below is the detail behind each **open** row: what to type, and what I am readin
 instructions for closed rows were cut on 2026-09-26. They are in git history
 (`git log -p docs/ingame-commands.md`), and each row's result is in the Closed table above.
 Prefer `/lgn dump`, `/lgn probe` and `/lgn uidump` over hand-written Lua. Raw Lua is only for
-something the addon does not read yet, like U2.
+something the addon does not read yet, as U2 was.
 
 **Before any session:** copy the inner `LegacyNext` folder (the one holding `LegacyNext.toc`)
 over `_classic_beta_/Interface/AddOns/LegacyNext/`, then `/reload`. If the client throws a Lua
@@ -64,143 +64,10 @@ error, paste the first one. It stops reporting after 100.
 
 ---
 
-## U2 — truncation and protection
-
-One WoWLua block, run with the window open. **Rewritten 2026-10-01**: the first version printed
-nothing in chat. WoWLua may send `print` to its own output pane, and an error before the last
-line would have stopped it with no message. This one guards every step, writes straight to the
-chat frame as well as through `print`, and names any step that errors instead of stopping.
-
-```lua
-local out = {};
-local function w(s) out[#out+1] = tostring(s); end;
-local function try(label, fn) local ok, v = pcall(fn); w(label .. "=" .. (ok and tostring(v) or ("ERROR " .. tostring(v)))); end;
-local f = LegacyNextFrame;
-w("frame=" .. tostring(f ~= nil));
-if f then
-  try("shown", function() return f:IsShown(); end);
-  try("IsProtected", function() local p, e = f:IsProtected(); return tostring(p) .. "," .. tostring(e); end);
-end;
-local fs;
-try("fontstring", function() fs = UIParent:CreateFontString(nil, "OVERLAY", "GameFontHighlight"); fs:SetPoint("CENTER", 0, 200); fs:SetWidth(120); fs:SetWordWrap(false); fs:SetText("Reach exalted reputation with the Frostwolf Clan"); return fs ~= nil; end);
-if fs then
-  try("truncated", function() return fs:IsTruncated(); end);
-  try("stringWidth", function() return fs:GetStringWidth(); end);
-  try("unbounded", function() return fs:GetUnboundedStringWidth(); end);
-end;
-local x = C_XMLUtil and C_XMLUtil.GetTemplateInfo;
-w("GetTemplateInfo=" .. tostring(x ~= nil));
-if x then
-  for _, name in ipairs({ "WowScrollBoxList", "MinimalScrollBar", "BasicFrameTemplateWithInset" }) do
-    try(name, function() return x(name) ~= nil; end);
-  end;
-end;
-local bar = string.char(124);
-local line = ("LGN U2: " .. table.concat(out, " ; ")):gsub(bar, "!");
-local cf = DEFAULT_CHAT_FRAME;
-if cf and cf.AddMessage then cf:AddMessage(line); end;
-print(line);
-```
-
-It writes one line starting `LGN U2:` to the main chat window, and leaves a 120-pixel-wide test
-string near the top of the screen (`/reload` clears it). If chat stays empty, look in WoWLua's
-own output pane. Any `|` comes back as `!`.
-
-**What I need back:** that line, and whether the test string on screen ends in `...` or is cut
-off mid-word.
-
-**What I'm reading it for:**
-
-- `frame=true`, `shown=true` and `IsProtected=false,false`. Anything else means the frame
-  picked up protection, and the combat handling in `UI/` needs another look.
-- `truncated=true`. Already seen in v2, along with `stringWidth` equal to `unbounded` rather
-  than at or under 120, so `IsTruncated()` is the only width check that detects a clipped
-  string (`docs/status.md`). Only your answer about `...` is still open, and it decides
-  whether long rows get an ellipsis for free or rely on the tooltip alone.
-- The three template rows `true`. `WowScrollBoxList` and `MinimalScrollBar` are what a later
-  scroll rewrite would use. `BasicFrameTemplateWithInset` is the frame we already draw.
-- Any `ERROR` names the step and the message. That is a finding in its own right.
-
-## U7 — the key binding and the AddOns-list category
-
-1. Escape > Options > Key Bindings. Look for an **AddOns** section holding "Open or close
-   LegacyNext". Bind any free key, then press it twice to open and close the window. Do it once
-   more in combat.
-2. Open the AddOns list and say whether LegacyNext sits under an **Achievements** group.
-
-What I am reading it for: the row under AddOns, which proves `Bindings.xml` loaded from the
-folder with no TOC line, and the window toggling both times, in combat too. Missing from Key
-Bindings means the file did not load; say so and I will look for another route.
-
-## U5 — the minimap addon dropdown
-
-Nothing to type. At the minimap's top right is the calendar button, which shows today's date.
-Directly below it is a smaller round button showing how many addons it lists
-(`AddonCompartment.xml` anchors it to `GameTimeFrame`, the calendar). Click that one, not the
-calendar. `LegacyNext` should be listed with the gold ring icon on the right. Click that entry
-once and the window should open. Open the dropdown and click it again, and the window should
-close. Say which of these happened:
-
-- No small button under the calendar. Forever does not load the compartment, or hides it.
-- The button, but no `LegacyNext` in it. The compartment lists only addons enabled for **all
-  characters** (`AddonCompartment.lua:80`), so check the AddOns list's character dropdown first.
-- Listed, but the click does nothing or errors. Paste the error.
-
-Also say what is at the right of the entry: the ring, a green square (the texture failed to
-load) or nothing. The compartment draws `## IconTexture` itself at 16 x 16
-(`AddonCompartment.lua:40-52`). It is a different path from U3's 20 px markup in the AddOns
-list, so one can work without the other.
-
-## U6 — the polish pass
-
-On a build with the polish pass installed:
-
-1. `/lgn`, then `/lgn uidump`. Paste it. The `== CLIENT ==` footer's `tabTemplate` says which
-   tab the client gave us: `PanelTopTabButtonTemplate`, or the `UIPanelButtonTemplate` fallback.
-2. A screenshot of Next Up, and one of Roster.
-3. Pick a category filter, drag the window somewhere off-centre, and click Roster. `/reload`.
-   Say whether it opened in the same place on Roster. Then log out to another character and
-   back, and say the same.
-
-What I am reading it for: the selected tab clearly raised against the other one; a small icon
-left of every challenge name, with the names still lined up; the next reward's icon before
-"Next:"; roster names in class colours, with a faint gold tint behind the current character.
-And the window keeping its tab, filter and spot across both a `/reload` and a relog.
-
-## D10 — the probe on 1.60.1.70170
-
-`/lgn dump probe`, then paste the whole window. Do it before S1's first `/lgn roster`, so the
-two share a login.
-
-What I am reading it for: the meta block's `build` reading 70170 or later, `issecretvalue` reading
-`guard active`, every constant and flag reading `(runtime)`, and no row reading `secret`. D2
-and D5 are the baseline. A `secret` row is the finding that matters. It means Midnight's
-restrictions reached an API we call, and it goes into `CLAUDE.md` before anything else.
-
-Added 2026-10-01: five name rows, `UnitName`, `UnitFullName`, `UnitNameUnmodified`,
-`UnitGUID` and `C_PlayerInfo.ShouldDisplaySurname`. Run it on a character whose surname is
-set, and say which one that is. The three name rows show every return, comma-separated
-(`Geo, nil` or `Geo, Classic Beta PvP`), so a surname or realm in the second slot shows up
-too. I am reading which name row carries the surname, and whether
-`UnitGUID` reads `ok` with a `Player-` value rather than `secret`. That decides whether the
-roster can key characters by GUID instead of by a name that has already changed shape once.
-
-## C3 — one dump on an Alchemist
-
-Tradeskill challenges are type-7 skill thresholds (`Journeyman Alchemist` is skill line 2937,
-`need = 150`), so any Alchemy skill above zero is real partial progress. Geo has Alchemy at 1.
-
-1. On Geo, `/lgn dump challenges 1`. Journeyman, Expert and Artisan Alchemist are on page 1.
-   Paste it.
-2. `/lgn uidump`. Paste it.
-
-What I am reading it for: `have` above 0 on the three type-7 criteria, and whether `completed`
-stays false with it. The screenshot of 2026-10-01 already showed the three in their own "in
-progress" tier, so the uidump is the text form of what you saw.
-
 ## C2 — events, via `/etrace`
 
-Filter the trace to these five, then do the C3 session:
+`CRITERIA_UPDATE` was seen firing on a skill-up, 2026-10-01. The other four stay open:
+search the trace for them during the C1 and C4 sessions.
 
 ```
 ACHIEVEMENT_EARNED
@@ -210,7 +77,7 @@ TRAIT_TREE_CHANGED
 MAJOR_FACTION_RENOWN_LEVEL_CHANGED
 ```
 
-`CRITERIA_UPDATE` should fire as the Alchemy skill rises. `ACHIEVEMENT_EARNED` fires only on
+`ACHIEVEMENT_EARNED` fires only on
 a completion, so it may take a later session (the same one as C4). The trait and faction
 events need a point spent. Tell me which fire and what payload `TRAIT_CONFIG_UPDATED` carries.
 Blizzard's Legacy UI registers none of the trait or faction ones, so there is no precedent.

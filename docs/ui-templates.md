@@ -19,7 +19,8 @@ reported `frameTemplate = "BasicFrameTemplateWithInset"` and
 1.60.1 (69913). Tier A held for both. ~~The Tier C items below — auto-ellipsis (U2) and combat
 behaviour — are still open.~~ U2 settled most of them on 70124, 2026-10-01: the frame reads
 `IsProtected() = false, false`, both ScrollBox templates exist at runtime, and truncation is
-detectable. Whether a clipped string draws `...` is the one part still open.
+detectable. ~~Whether a clipped string draws `...` is the one part still open.~~ It does: U2
+closed on 70170, 2026-10-01.
 
 Scope note: this pass widened the sparse checkout (same SHA) with `Blizzard_SharedXML{,Base,Game}`,
 `Blizzard_FrameXML{,Base,Util}`, `Blizzard_Fonts_Shared`, `Blizzard_UIParent{,PanelManager,Util}`,
@@ -227,8 +228,13 @@ detectable, not that "..." is drawn. Plan on `IsTruncated()` plus a tooltip.
 "Reach exalted reputation with the Frostwolf Clan" read `IsTruncated() = true`, and
 `GetStringWidth()` and `GetUnboundedStringWidth()` both read 300.67. **So `GetStringWidth`
 reports the full text width on a clipped string, not the drawn width.** Detect truncation with
-`IsTruncated()`, never by comparing widths. Whether the clipped string ends in "..." on screen
-is still open.
+`IsTruncated()`, never by comparing widths. ~~Whether the clipped string ends in "..." on screen
+is still open.~~
+
+[verified in game 2026-10-01, 70170, U2] **The client draws the ellipsis itself.** The same
+string, set up by a `/run` line, drew as "Reach exalted re..." and `IsTruncated()` read `true`.
+A fixed-width, no-wrap name string gets `...` for free, so the tooltip is for the full text,
+not the only sign that something was cut.
 
 GameTooltip: `SetOwner`, `AddLine`, `Show` are absent from the generated docs (no
 `Name = "SetOwner"` anywhere in the 639 files), so **Tier B**. Blizzard's Legacy code does exactly

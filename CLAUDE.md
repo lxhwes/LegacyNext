@@ -58,18 +58,21 @@ cross-account or guild sync, writing to trait configs.
 
 - Interface 16001, build 1.60.1. Ships on the `wow_classic` product line; beta folder is
   `_classic_beta_`.
-- **It is the retail API.** `WOW_PROJECT_ID` reports Mainline, 269 `C_*` namespaces, most
-  Classic-era globals are gone. Blizzard: "shares Mainline WoW's UI architecture, including
+- **It is the retail API.** 269 `C_*` namespaces, and most Classic-era globals are gone.
+  **`WOW_PROJECT_ID` is not stable across builds** [verified in game 2026-10-01]. It read 1
+  (Mainline) through 70124 and **18 on 70170**, a value no vendored constants file defines.
+  Blizzard's own TOC and Lua gating may follow it, and other addons that test for Mainline
+  will break. Blizzard: "shares Mainline WoW's UI architecture, including
   the vast majority of APIs available in 12.1.5".
 - Forever's API docs differ from live retail 12.1.0 — 26 extra doc files, ~6k line diff.
   **Do not assume retail behavior**; check the forever branch source.
 - Midnight addon restrictions (secret values) apply. **`issecretvalue` exists on this client
   and the guard is active** [verified in game 2026-09-19 via `/lgn probe`, and again on 70124
-  on 2026-10-01, D10], and no API the probe read returned a secret. That is a tested negative,
-  not an assumption, but it is a per-build one, so re-run the probe after any bump. It does
-  **not** yet cover `UnitFullName`, `UnitNameUnmodified` or `UnitGUID`, which are documented
-  `SecretWhenUnitIdentityRestricted` and were added to the probe after that run. D10's name
-  rows are their first read.
+  on 70124 and 70170 on 2026-10-01, D10], and no API the probe read returned a secret. That
+  is a tested negative, not an assumption, but it is a per-build one, so re-run the probe
+  after any bump. Since 70170 it covers `UnitFullName`, `UnitNameUnmodified` and `UnitGUID`
+  too, which are documented `SecretWhenUnitIdentityRestricted`. All three read `ok` on the
+  player.
 - **SavedVariables load back** [verified in game 2026-10-01, build 70124, queue row S1]:
   across a logout and a character switch, and off disk after a full client restart, with no
   `LATE LOAD` either time. The beta bug that wrote them but never loaded them back is fixed,
@@ -126,7 +129,9 @@ that changes how code gets written.
 - **Class challenges carry no machine-readable level threshold through the API** [2026-09-19].
   `Novice / Experienced / Master Druid` (61502–61504) are levels 25/45/60, but
   `criteriaExpected == 0` and the number appears only in `description` prose. Profession
-  challenges are the opposite — `criteriaType` 7 gives `assetId` 2937, `need` 150.
+  challenges are the opposite — `criteriaType` 7 gives `assetId` 2937, `need` 150, and `have`
+  is the character's current skill [verified in game 2026-10-01, C3: Alchemy 1 read `have = 1`
+  on all three tiers].
   **The client data does hold the level** [DB2, 2026-09-30]. Each class challenge has one
   type-5 criterion whose `CriteriaTree.Amount` is 25, 45 or 60. We know of no API that returns
   it. The PvP rank challenges are the same case, with type 261 in the data.
@@ -233,7 +238,10 @@ split one character into two rows across builds. `C_PlayerInfo.ShouldDisplaySurn
 at every pin (`PlayerInfoDocumentation.lua:358`).
 `C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator` arrived in 70009
 (`NameUtilDocumentation.lua:11`), and its doc says full names carry a "surname separator".
-Which call carries the surname now, and whether `UnitGUID` reads, is D10.
+**The surname is the second return** [verified in game 2026-10-01, 70170, D10]. `UnitName`,
+`UnitFullName` and `UnitNameUnmodified` all read `Geo, Prizm`, the slot the docs name
+`server`. Never read a name call's second return as a realm. `UnitGUID("player")` reads
+`ok`, a `Player-` string and not a secret, so it is available as a roster key.
 The client data backs the parent reading [DB2, 2026-09-30]. All six tradeskill lines are
 tier-4 children of the Classic lines: 2937 → 171, 2938 → 164, 2940 → 333, 2941 → 202,
 2945 → 165, 2948 → 197. **The live lookup returns exactly that map** [verified in game
@@ -245,8 +253,10 @@ with all eleven documented fields (`TradeSkillUITypesDocumentation.lua:361-376`)
 read, kept stored", and the login reads were kept. Both reach the roster at login and on
 events, never at logout.
 `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and the second fires on every skill-up
-[verified in game 2026-10-01]. `TRAIT_CONFIG_UPDATED` registers without error. Whether it
-fires is C2.
+[verified in game 2026-10-01]. `TRAIT_CONFIG_UPDATED` registers without error. **`CRITERIA_UPDATE` fires on a skill-up**
+[verified in game 2026-10-01, C2], so the frame's 5 s refresh has a live trigger. On that
+skill-up `ACHIEVEMENT_EARNED` and the trait and faction events did not fire, and whether they
+fire on a completion or a spent point is still C2.
 
 Reference source, read-only, on the forever branch: the directories `vendor/PINS.md` lists
 (the Legacy addons, the generated API docs, `Blizzard_AchievementUI`, and the UI template,
@@ -341,7 +351,8 @@ Alex runs everything in game and pastes output back, so **round trips are the sc
 resource**. Batch every open question into one script rather than a sequence of commands.
 
 Available: **WoWLua** (multi-line editor, so the 255-character chat limit no longer shapes
-anything) and **idTip** (IDs in tooltips, for spot checks). In the client: `/etrace` — use it
+anything), **but it does not load on 70170** (Alex, 2026-10-01). Until it does, raw Lua is a
+`/run` line of 255 characters or fewer, or a new `/lgn` read. Also **idTip** (IDs in tooltips, for spot checks). In the client: `/etrace` — use it
 instead of writing an event probe — plus `/api` (runtime API browser, worth cross-checking
 against our pin) and `/tinspect` (beats `/dump` on nested tables).
 

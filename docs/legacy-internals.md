@@ -1116,6 +1116,78 @@ is in gold, and the footnote draws below the rows. The selected tab shows as whi
 the same red button, which reads, but faintly. The roster uidump said `read took 37 ms`
 against U1's 21 ms. The window read now takes a snapshot and reads the roster too.
 
+## D10 closed, and U6 — 2026-10-01, evening
+
+Captures from Alex on build 1.60.1 (70170), with `main` at `eff7956` installed, on Geo Prizm,
+a level 6 Druid with Alchemy 1:
+
+- `/lgn dump probe`, Alex's gist "D10 lgn dump probe". Written up here and not fixtured, as
+  with D2 and D5
+- `/lgn uidump`, Alex's gist "lgn uidump"
+- two screenshots, Next Up and Roster, plus Alex's answers on window state
+
+**The surname is the second return** [verified in game]. `UnitName`, `UnitFullName` and
+`UnitNameUnmodified` each read `Geo, Prizm`. The docs name that slot `server`
+(`UnitDocumentation.lua:2489`, `:1224`, `:2523`). `C_PlayerInfo.ShouldDisplaySurname` read
+`true`. With the morning section above, the history for `UnitName` is this. 69913 returned
+`"Bong Wrip"` as the first value, and from 70124 the first value is the first name alone. The
+70124 probe printed only the first return, so whether 70124 already put the surname second is
+not known. The roster key reads `UnitName`'s first return and `GetRealmName`
+(`Api.lua:732-733`), so the second slot never reached it.
+
+**`UnitGUID` reads** [verified in game]: `ok`, `Player-4619-012F81BC`, not a secret. That
+makes a GUID-keyed roster possible. Whether to switch is a decision, not a finding, and is in
+`docs/status.md`.
+
+**No secrets on 70170** [verified in game], the same result as 70124. Every row and tally
+entry read `ok`, apart from `GetMajorFactionData`'s expected `partial`, which drops the same
+14 ColorMixin methods. `issecretvalue` read `guard active`, and all six constants and both
+flags read `(runtime)`. The trait config handle was 11385528, the same number as 70124's
+probe, also on Geo. CLAUDE.md's rule against caching it stands.
+
+**`WOW_PROJECT_ID` moved from 1 to 18** [verified in game]. Every earlier capture, the 70124
+fixtures included, has `wowProjectId = 1`. This one has 18. The vendored constants files define
+1, 2, 5, 11, 14 and 19 (`Blizzard_FrameXMLBase/Mists/Constants.lua:138-143`), and nothing for
+18. We never gate on it. The probe's `GetProfessions` row reads `4`, which is the first
+return (Alchemy's index), not a count.
+
+**The polish pass, seen** [verified in game, U6]. The uidump's `tabTemplate` read
+`PanelTopTabButtonTemplate`, so the client gave us Blizzard's top tabs, not the fallback. In
+the screenshots the selected tab is raised and gold and the other is darker, which replaces
+the faint selected state U1 saw. Every challenge row has its icon, and the names line up. The
+next reward's icon (the air rifle) sits before "Next:". On Roster, Geo reads in Druid orange
+on a gold band, and Bong in Shaman blue. Rows, tiers and counts match the uidump: 41 ranked,
+the three Alchemy rows in progress at 1/150, 1/225 and 1/300. The read took 26 ms. After a
+filter change, a drag and a switch to Roster, `/reload` brought back the tab, the filter and
+the position. A relog was not reported. One cosmetic note: the scroll bar draws on Roster with
+nothing to scroll.
+
+**C3: real partial progress** [verified in game]. `/lgn dump challenges 1` on Geo, the same
+login, is `spec/fixtures/dump_challenges_page1_geo.lua`. Journeyman, Expert and Artisan
+Alchemist (62012-62014) each carry one type-7 criterion on line 2937 at `have = 1`, with
+`completed = false`, `flags = 1`, `isProgressBar = true` and `quantityString` `"1 / 150"`.
+`have` follows the character's skill, as the type-7 reading predicted. Compared field by field
+with `dump_challenges_page1_fresh.lua` (69913), nothing else on the page changed in four
+builds, IDs and flags included, apart from Rank 13's description, which gained an "of". The
+failure tally was clean.
+
+**U5 and U7** [verified in game]. The minimap's addon dropdown lists LegacyNext with the gold
+ring icon, and the click toggles the window, so the compartment loads on Forever with
+`WOW_PROJECT_ID` at 18. The key binding toggles the window, in combat too, so `Bindings.xml`
+loads with no TOC line. The AddOns list groups LegacyNext under Achievements.
+
+**U6's relog** [verified in game]. After logging out to another character and back, the
+window kept its tab, filter and position, as it did across `/reload`. U6 is closed.
+
+**C2, in part** [verified in game]. With `/etrace` running through an Alchemy skill-up,
+`CRITERIA_UPDATE` fired and `ACHIEVEMENT_EARNED`, `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED`
+and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED` did not. That is the first sighting of either event
+the frame depends on. The other four need a completion or a spent point.
+
+**U2: the ellipsis is free** [verified in game]. WoWLua does not load on 70170, so the test
+ran as a 232-character `/run` line. The 120 px no-wrap string read `IsTruncated() = true` and
+drew as "Reach exalted re...". Detail in `docs/ui-templates.md`.
+
 ---
 
 ## Client data (DB2) via wago.tools — 2026-09-30

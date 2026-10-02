@@ -2,7 +2,18 @@
 
 Last updated 2026-10-01.
 
-**Where we are, 2026-10-01, late morning: v1's data layer and Roster tab have run in game, and
+**Where we are, 2026-10-01, evening: D10 and C3 are closed, and the polish pass, the minimap
+entry and the key binding have been seen working in game.** On 70170 the probe found no
+secrets. The surname is the name calls' second return, and `UnitGUID` reads, so the roster
+could key by GUID, which is Alex's call (section below). `WOW_PROJECT_ID` moved from 1 to 18.
+C3 gave the first real mid-progress fixture, and the in-progress tier test now runs on it.
+U6 saw Blizzard's top tabs, the icons and the class colours, and window state survived a
+`/reload` and a relog. U2, U5, U6 and U7 are closed, and U2 found the client draws `...` on a
+clipped name by itself. `CRITERIA_UPDATE` fires on a skill-up (C2, in part). 265 tests, none
+pending. Open in game: only C2's other four events, C1 and C4, which all need real play. Nothing in the queue blocks code. Details in
+`docs/legacy-internals.md`.
+
+**As of late morning 2026-10-01: v1's data layer and Roster tab have run in game, and
 S1 is closed.** Saved data loads back off disk after a full restart. The tradeskill join works
 on a real Alchemist, through the parent line. D10 found no secrets on 70124. U1, U3 and U4 saw
 the frame, the icon and the Roster tab drawn as designed. The window also has an entry in the
@@ -34,17 +45,25 @@ version line. Phase 4 has not started. The vendor pin is at `1.60.1.70009`.**
 
 `Api/` and `Debug/` work on two characters. Enumeration confirmed three times by separate code
 paths — 111 challenges, 65 points. **No secrets on our surface**, and that is a tested negative
-rather than an assumption: `issecretvalue` exists and the guard is active. Tested on 69913.
-**D10** re-tests it on 70124.
+rather than an assumption: `issecretvalue` exists and the guard is active. Tested on 69913,
+~~**D10** re-tests it on 70124~~ and by D10 on 70124 and 70170.
 
 `Model/` ranks, groups and summarises against the fixtures (38 tests, run under an environment
 that errors on any non-stdlib global). `UI/` renders through a widget double (10 tests).
 `/lgn` opens the window; `/lgn uidump` prints what it rendered as text and matches
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
-Blocking: **D10**'s name rows (the roster key, 30 s on the branch build) and **C3** (two
-commands on Geo, for the mid-progress fixture). Not blocking: **U5**, **U6**, **U7**, **U2** and **C2**. The
-queue is `docs/ingame-commands.md`.
+Blocking: nothing. ~~**D10**'s name rows~~ and ~~**C3**~~ both closed 2026-10-01. Not
+blocking: **C2**. ~~**U2**~~, ~~**U5**~~, ~~**U6**~~ and ~~**U7**~~ closed 2026-10-01. The queue is `docs/ingame-commands.md`.
+
+## Roster key — open, 2026-10-01, evening
+
+D10 answered the question this was waiting on. The roster keys characters as `Name-Realm`,
+from `UnitName`'s first return and `GetRealmName`. That first return held the full name on
+69913 and the first name from 70124, so one character can already split into two rows across
+builds. `UnitGUID("player")` reads a `Player-` string with no secret on 70170. Keying by GUID
+would survive name changes, at the cost of a SavedVariables migration for rows already
+stored. Not decided. It touches `Api`, `Store` and `Model/Roster`, so it needs Alex's go-ahead.
 
 ## Polish pass — 2026-10-01, evening
 
@@ -614,7 +633,7 @@ categories, doc order, every row verbatim) and labelled as such; **D9** replaces
 | | Decision | Settled as |
 |---|---|---|
 | Scroll | ScrollBox vs `UIPanelScrollFrameTemplate` | **`UIPanelScrollFrameTemplate`**, via `pcall`, falling back to a bare `ScrollFrame` with wheel scrolling by hand. ScrollBox is Tier A on the branch (`docs/ui-templates.md`) but unproven in game, and 65 text rows in a pool do not need a data provider. Revisit only if U1 shows a problem |
-| Truncation | Long names in a ~40-char row | `SetWordWrap(false)` + `SetMaxLines(1)` on a fixed-width name string, tooltip on hover with the full name, description and every criterion. Whether the client draws `...` is Tier C: **U2** |
+| Truncation | Long names in a ~40-char row | `SetWordWrap(false)` + `SetMaxLines(1)` on a fixed-width name string, tooltip on hover with the full name, description and every criterion. ~~Whether the client draws `...` is Tier C: **U2**~~ It does, verified in game 2026-10-01 (U2) |
 | States | Empty vs error | Three: `error` ("Could not read your challenges: <reason>"), `empty` ("No Legacy challenges found"), `done` ("Nothing left to earn", with a per-category variant). Header failures are separate and never blank the list |
 | Refresh | Throttle policy | On show; `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE` registered only while shown; ~~coalesced to one rebuild per second~~ 1 s for `ACHIEVEMENT_EARNED`, 5 s for `CRITERIA_UPDATE` (2026-09-26), via `C_Timer.After` (feature-detected); deferred to `PLAYER_REGEN_ENABLED` when `InCombatLockdown()`, on first open too since 2026-09-26. The frame itself is not protected, the 900-call sweep is the reason |
 | Escape | `UISpecialFrames` | Inserted when the table exists. The template's own close button is rewired to `frame:Hide()` because `UIPanelCloseButton_OnClick` routes through `HideUIPanel`, which refuses in combat (`UIParentPanelManager.lua:854-861`) |
@@ -756,7 +775,7 @@ that are currently known to be false or unverified.
 
 - [x] **D9** — categories capture in client order, `spec/fixtures/categories_full.lua`,
       2026-09-19
-- [ ] **U2** — whether long names get `...` or need the tooltip alone
+- [x] **U2** — whether long names get `...` or need the tooltip alone. They get it, 2026-10-01
 - [ ] **C2** — whether the achievement events fire; the frame registers them regardless
 - [ ] Competition recheck immediately before release
 
