@@ -609,4 +609,65 @@ describe("addon lifecycle", function()
 			assert.truthy(said[1]:find("could not link it: open a chat box first", 1, true))
 		end)
 	end)
+
+	describe("minimap button and settings", function()
+		after_each(function()
+			_G.Minimap = nil
+			_G.Settings = nil
+		end)
+
+		local function stubSettings()
+			local log = {}
+			_G.Settings = {
+				RegisterVerticalLayoutCategory = function() return { GetID = function() return 9 end } end,
+				RegisterProxySetting = function(_, variable) return { variable = variable } end,
+				CreateCheckbox = function() end,
+				RegisterAddOnCategory = function() log.registered = true end,
+				OpenToCategory = function(id) log.opened = id end,
+			}
+			return log
+		end
+
+		it("builds the button and registers the settings at login", function()
+			_G.Minimap = _G.CreateFrame()
+			local log = stubSettings()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			assert.is_true(ns.MinimapButton.Describe().created)
+			assert.is_true(log.registered)
+			assert.is_nil(ns.minimapReason)
+			assert.is_nil(ns.optionsReason)
+		end)
+
+		it("keeps the reasons when neither can come up, and still logs in", function()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			assert.has_no.errors(function() handler(nil, "PLAYER_LOGIN") end)
+
+			assert.equals("no Minimap frame", ns.minimapReason)
+			assert.equals("Settings.RegisterVerticalLayoutCategory missing", ns.optionsReason)
+			assert.is_table(_G.LegacyNextDB.characters["Tester-Realm"])
+		end)
+
+		it("toggles the button from /lgn minimap and saves it account-wide", function()
+			_G.Minimap = _G.CreateFrame()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.is_true(_G.LegacyNextDB.settings.minimapHidden)
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.is_false(_G.LegacyNextDB.settings.minimapHidden)
+		end)
+
+		it("opens the settings from /lgn config", function()
+			local log = stubSettings()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			_G.SlashCmdList.LEGACYNEXT("config")
+
+			assert.equals(9, log.opened)
+		end)
+	end)
 end)
