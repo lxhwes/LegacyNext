@@ -734,7 +734,7 @@ describe("UI", function()
 				return { rawget(widget, "width"), rawget(widget, "height") }
 			end
 
-			pending("restores the saved size and clamps the position with it", function()
+			it("restores the saved size and clamps the position with it", function()
 				local ns = loadWithStore({ ui = { size = { width = 700, height = 600 },
 					point = { left = 1500, top = 500 } } })
 
@@ -748,7 +748,7 @@ describe("UI", function()
 				assert.equals(600, described.height)
 			end)
 
-			pending("clamps a saved size between the minimum and the screen", function()
+			it("clamps a saved size between the minimum and the screen", function()
 				for _, case in ipairs({
 					{ saved = { width = 100, height = 5000 }, want = { 400, 1080 } },
 					{ saved = { width = 5000, height = 100 }, want = { 1920, 360 } },
@@ -763,7 +763,7 @@ describe("UI", function()
 				end
 			end)
 
-			pending("keeps a saved size above the minimum when the screen cannot be read", function()
+			it("keeps a saved size above the minimum when the screen cannot be read", function()
 				local ns = loadWithStore({ ui = { size = { width = 3000, height = 100 } } })
 				rawset(_G.UIParent, "GetWidth", function() return nil end)
 
@@ -772,7 +772,7 @@ describe("UI", function()
 				assert.same({ 3000, 360 }, sizeOf(ns.UI.frame))
 			end)
 
-			pending("opens at 520x480 when the saved size is unusable", function()
+			it("opens at 520x480 when the saved size is unusable", function()
 				for _, size in ipairs({ "junk", { width = "x", height = 500 }, { width = 0 / 0, height = 500 },
 					{ width = 600, height = math.huge }, { height = 500 } }) do
 					local ns = loadWithStore({ ui = { size = size } })
@@ -784,7 +784,7 @@ describe("UI", function()
 				end
 			end)
 
-			pending("is resizable from 400x360 up to the screen, with Blizzard's grip", function()
+			it("is resizable from 400x360 up to the screen, with Blizzard's grip", function()
 				local ns = loadWithStore(nil)
 
 				ns.UI.Show()
@@ -805,7 +805,7 @@ describe("UI", function()
 				assert.equals(480, described.height)
 			end)
 
-			pending("falls back to SetMinResize and SetMaxResize without SetResizeBounds", function()
+			it("falls back to SetMinResize and SetMaxResize without SetResizeBounds", function()
 				local ns = loadWithStore(nil)
 				patchMainFrame(function(frame) rawset(frame, "SetResizeBounds", false) end)
 
@@ -818,7 +818,7 @@ describe("UI", function()
 				assert.equals("SetMinResize", ns.UI.Describe().resize)
 			end)
 
-			pending("stays a fixed size, with no grip, when no bounds method exists", function()
+			it("stays a fixed size, with no grip, when no bounds method exists", function()
 				local ns = loadWithStore(nil)
 				patchMainFrame(function(frame)
 					rawset(frame, "SetResizeBounds", false)
@@ -835,7 +835,7 @@ describe("UI", function()
 				assert.equals("none", ns.UI.Describe().grip)
 			end)
 
-			pending("stays a fixed size when setting the bounds throws", function()
+			it("stays a fixed size when setting the bounds throws", function()
 				local ns = loadWithStore(nil)
 				patchMainFrame(function(frame)
 					rawset(frame, "SetResizeBounds", function() error("bad bounds") end)
@@ -847,7 +847,7 @@ describe("UI", function()
 				assert.equals("none", ns.UI.Describe().resize)
 			end)
 
-			pending("draws the grip with the chat size-grabber art when the template is missing", function()
+			it("draws the grip with the chat size-grabber art when the template is missing", function()
 				local ns = loadWithStore(nil)
 				local create = _G.CreateFrame
 				_G.CreateFrame = function(kind, name, parent, template)
@@ -867,7 +867,7 @@ describe("UI", function()
 				assert.equals("plain", ns.UI.Describe().grip)
 			end)
 
-			pending("sizes from the bottom-right corner and saves size and position on release", function()
+			it("sizes from the bottom-right corner and saves size and position on release", function()
 				local ns = loadWithStore(nil)
 				ns.UI.Show()
 				local frame, grip = ns.UI.frame, ns.UI.frame.grip
@@ -887,7 +887,7 @@ describe("UI", function()
 				assert.same({ left = 40, top = 900 }, _G.LegacyNextCharDB.ui.point)
 			end)
 
-			pending("sizes only on the left button", function()
+			it("sizes only on the left button", function()
 				local ns = loadWithStore(nil)
 				ns.UI.Show()
 				local frame, grip = ns.UI.frame, ns.UI.frame.grip
@@ -901,7 +901,7 @@ describe("UI", function()
 			end)
 
 			-- U2: the frame is not protected, so sizing it is allowed in combat.
-			pending("sizes in combat", function()
+			it("sizes in combat", function()
 				local ns = loadWithStore(nil)
 				_G.InCombatLockdown = function() return true end
 				ns.UI.Show()
@@ -915,7 +915,7 @@ describe("UI", function()
 				assert.same({ width = 520, height = 480 }, _G.LegacyNextCharDB.ui.size)
 			end)
 
-			pending("saves no size when the frame cannot say how big it is", function()
+			it("saves no size when the frame cannot say how big it is", function()
 				local ns = loadWithStore(nil)
 				ns.UI.Show()
 				local frame, grip = ns.UI.frame, ns.UI.frame.grip
@@ -927,7 +927,7 @@ describe("UI", function()
 				assert.is_nil(_G.LegacyNextCharDB and _G.LegacyNextCharDB.ui and _G.LegacyNextCharDB.ui.size)
 			end)
 
-			pending("stops sizing and saves when the window closes mid-drag", function()
+			it("stops sizing and saves when the window closes mid-drag", function()
 				local ns = loadWithStore(nil)
 				ns.UI.Show()
 				local frame, grip = ns.UI.frame, ns.UI.frame.grip
@@ -966,7 +966,7 @@ describe("UI", function()
 					return tops
 				end
 
-				pending("follows the live width once per burst of size changes, without a read", function()
+				it("follows the live width once per burst of size changes, without a read", function()
 					local ns, frame, pending = opened()
 					local reads = 0
 					local source = ns.UI.source
@@ -997,7 +997,7 @@ describe("UI", function()
 					assert.equals(0, reads)
 				end)
 
-				pending("re-measures the footnote at the new width", function()
+				it("re-measures the footnote at the new width", function()
 					local _, frame, pending = opened()
 					local rowsHeight = frame.listChild.height - 12 - 28
 					rawset(frame.status, "GetStringHeight", function(self)
@@ -1011,7 +1011,7 @@ describe("UI", function()
 					assert.equals(rowsHeight + 12 + 60, frame.listChild.height)
 				end)
 
-				pending("leaves the layout alone when only the height changed", function()
+				it("leaves the layout alone when only the height changed", function()
 					local _, frame, pending = opened()
 					local cleared = 0
 					local button = frame.filterBar.buttons[1]
@@ -1026,7 +1026,7 @@ describe("UI", function()
 					assert.equals(0, cleared)
 				end)
 
-				pending("lays out at once on release, not after the timer", function()
+				it("lays out at once on release, not after the timer", function()
 					local _, frame = opened()
 					local grip = frame.grip
 
@@ -1037,7 +1037,7 @@ describe("UI", function()
 					assert.equals(700, frame.listChild.width)
 				end)
 
-				pending("does nothing before the first view is drawn", function()
+				it("does nothing before the first view is drawn", function()
 					local ns = loadWithStore(nil)
 					local pending = fakeTimer()
 					ns.UI.SetDataSource(nil)
