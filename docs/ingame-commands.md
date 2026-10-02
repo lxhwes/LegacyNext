@@ -22,6 +22,9 @@ Open, roughly in the order worth doing:
 |---|---|---|---|
 | S2 | Install `main` (after `e513d27`), log in on **Geo** first, then `/lgn roster` and paste it. Then log in on **Bong** and `/lgn roster` again. Section S2 below | Whether a stored `Name-Realm` row moves to the GUID on that character's login, keeping its professions and tree spend, with one row per character after | 2 min |
 | U8 | With the same install, open `/lgn`, then `/lgn uidump` and paste it; drag the corner grip; `/reload`. Section U8 below | Whether the resize grip draws and works, the bounds hold, the layout follows the size, and the size comes back | 2 min |
+| U9 | Install `feat/beta2`. Click a Next Up row; shift-click another with the chat box open. Section U9 below | Whether a row click opens Blizzard's Legacy panel on that challenge, and whether shift-click puts its link in chat. Both paths are source-only at `9a789c0` | 2 min |
+| U10 | Same install. Find the LegacyNext button on the minimap edge, drag it, hover it, `/reload`. Section U10 below | Whether the hand-rolled minimap button draws, drags round the edge, keeps its spot, and shows the summary tooltip | 2 min |
+| U11 | Same install. Esc > Options > AddOns > LegacyNext: untick and retick the minimap button. Section U11 below | Whether the Settings category registers on Forever and its toggles take effect | 1 min |
 | C2 | **Partly answered 2026-10-01**: `CRITERIA_UPDATE` fires on an Alchemy skill-up, and none of the other four did. Still open: the four that need a completion or a spent point. `/etrace` during the C4 session for `ACHIEVEMENT_EARNED`, and the C1 session for `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED` and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED`. Section C2 below | Whether the frame's `ACHIEVEMENT_EARNED` refresh ever fires on Forever, and whether trait and faction events are worth adding | Free with C1 and C4 |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees**, then `/lgn dump trees` | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
@@ -100,6 +103,56 @@ What I am reading it for: the uidump's `== CLIENT ==` frame line reading `resize
 `width` and `height`. A missing grip with `resizable = false` means the client lacks the resize
 methods, and the window stays fixed, which is the designed fallback. In combat and after a
 relog are worth one try each if it is quick.
+
+## U9 — row clicks: Blizzard's Legacy panel and the chat link
+
+Needs a character with at least one Legacy point. At zero points Blizzard's panel does not open
+for anyone, and the addon says so instead.
+
+1. `/lgn`. Hover a Next Up row. Does the tooltip end with "Click to open in the Legacy panel.
+   Shift-click to link it."?
+2. Click a row. Does Blizzard's Legacy panel open on the Challenges tab, with that challenge's
+   category open and the challenge selected? Paste any chat line starting `LegacyNext:`.
+3. Click a different row with the panel already open. Does the selection move, and the panel
+   stay open?
+4. Close the panel. Open the chat box (Enter), then shift-click a row. Does a challenge link
+   appear in the box? Send it to yourself and hover it.
+5. Shift-click with the chat box closed. Paste the `LegacyNext:` line.
+6. If it is quick: click a row in combat. Paste the line. Then, still in combat or just after,
+   watch for "Interface action failed because of an AddOn".
+
+What I am reading it for: step 2 is the open question. The select only works if the challenges
+page builds its list inside the same call that shows it. If the panel opens on Challenges with
+nothing selected, the page builds later, and the select needs a one-frame delay. A `could not
+open the Legacy panel:` line names the failing step. Step 6's message would mean opening
+Blizzard's panel from our click taints its panel manager.
+
+## U10 — the minimap button
+
+1. Find the LegacyNext button on the minimap's edge, lower left. Is the gold ring icon round,
+   inside the usual minimap-button border?
+2. Hover it. Paste or describe the tooltip: the reward track line, your unspent points, three
+   challenges and "and N more", then the hint.
+3. Left-click: does the window toggle? Right-click: does the settings page open?
+4. Drag it round the edge to somewhere else. Does it follow the rim? `/reload`. Is it still
+   there?
+5. `/lgn minimap` twice: hidden, then back.
+6. `/lgn uidump` and paste it.
+
+What I am reading it for: the uidump's `== CLIENT ==` `minimap` line, with `created = true`,
+`masked = true`, the `angle` you left it at and no `reason`. A button sitting off the rim or
+inside the map means the edge offset is wrong. Say roughly how far.
+
+## U11 — the settings page
+
+1. Esc > Options > AddOns. Is there a LegacyNext entry, with "Show minimap button" ticked and
+   "Lock minimap button" unticked?
+2. Untick "Show minimap button". Does the button go? Tick it again.
+3. Tick "Lock minimap button" and try to drag the button. Does it stay put? Untick it.
+4. `/lgn config` out of combat: does it open on LegacyNext?
+
+What I am reading it for: the uidump's `options` line from U10 reading `registered = true`. A
+`reason` there names the missing piece of Blizzard's Settings API.
 
 ## C2 — events, via `/etrace`
 

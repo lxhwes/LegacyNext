@@ -1295,6 +1295,77 @@ What it adds to our picture:
   progress shown" tier.
 - **Release evidence** that closed our CurseForge check. See `docs/distribution.md` §3.
 
+## Beta2 UI research — 2026-10-02
+
+Source only, at `9a789c0` (1.60.1.70170), after widening the checkout to `Blizzard_Settings`,
+`Blizzard_Settings_Shared` and `Blizzard_Minimap`. Paths are under `Interface/AddOns/`. U9, U10
+and U11 check it in game.
+
+**`Blizzard_AchievementUI`'s Mainline code loads on Forever.** An earlier reading said only its
+bootstrap and the one-line `Camelot/Blizzard_AchievementUI.lua` did. That was wrong. `[Family]`
+resolves to Mainline: tocs pair `[Family]… [ExcludeLoadGameType camelot]` with `[Game]…
+[AllowLoadGameType camelot]` (`Blizzard_FrameXMLBase.toc:15-16`, `Blizzard_Minimap.toc:13-14`).
+And `Blizzard_LegacySystem` depends on the addon (`Blizzard_LegacySystem.toc:4`) and calls into
+its Mainline functions. The camelot line (`Blizzard_AchievementUI.toc:8`) loads on top of it.
+
+Opening the Legacy panel on one challenge, which supersedes the three-call sketch under
+"Legacy Forever" above:
+
+- `LegacySystemFrame` is a UI panel, `area="left"`, `pushable=1`, `width=1005`
+  (`Blizzard_LegacySystem/Blizzard_LegacySystemRegistration.lua:2-11`). `ToggleFrame` goes
+  through `ShowUIPanel`, which refuses addon calls in combat
+  (`Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua:854-860`, `:886`). It can also
+  refuse a panel that does not fit (`:185-188`), so the caller checks `IsShown` after it.
+- The page switch has to come first. `AchievementFrame_SelectAchievement`'s Legacy override
+  (`Blizzard_LegacyChallenges.lua:310-320`) fires `Legacy.OpenToChallengeCategory` and
+  `Legacy.SelectChallenge` but never switches pages. The category list is built only in
+  `ChallengesPage:OnShow` (`:31-41`), and `OpenToCategory` does nothing without it
+  (`Blizzard_LegacyChallengeCategoryList.lua:136-153`). The order is: toggle, then
+  `Legacy.SelectPage` with 2 (`Blizzard_LegacySystem.lua:1`, `:12-15`, `:69-79`), then select.
+  First load selects page 1 (`:19`).
+- Not provable from source: whether the page's `OnShow` runs inside `SetShown`, synchronously.
+  U9 answers it.
+
+Chat links: Blizzard's challenge rows inherit `AchievementTemplateMixin`
+(`Blizzard_LegacySystem/Blizzard_LegacyChallengeButton.lua:202`, `:223-224`), whose click runs
+`IsModifiedClick("CHATLINK")`, then `ChatFrameUtil.InsertLink(GetAchievementLink(id))`
+(`Blizzard_AchievementUI/Mainline/Blizzard_AchievementUI.lua:1130-1159`). None of
+`GetAchievementLink`, `IsModifiedClick` or `ChatFrameUtil` is in the generated docs or defined
+in the checkout.
+
+Settings (`Blizzard_Settings_Shared/Blizzard_Settings.lua` unless named):
+
+- The shared addon has `## AllowLoad: Both` and no game-type gate (`Blizzard_Settings_Shared.toc:7`).
+  `Blizzard_Settings` itself is load-on-demand and holds one line. `SettingsPanel:Open()`
+  loads it (`Blizzard_SettingsPanel.lua:308-310`).
+- `RegisterVerticalLayoutCategory(name)` `:154`, `RegisterProxySetting(category, variable,
+  varType, name, default, get, set)` `:178`, `CreateCheckbox(category, setting, tooltip)` `:388`,
+  `RegisterAddOnCategory(category)` `:134`, `OpenToCategory(categoryID)` `:144`, `VarType` `:11-16`.
+- `RegisterAddOnSetting` keeps a reference to the table it is handed and writes defaults into it
+  (`Blizzard_Setting.lua:398-427`). That is why we use proxy settings.
+- `OpenToCategory` calls `C_SettingsUtil.OpenSettingsPanel`, documented `HasRestrictions`
+  (`SettingsUtilDocumentation.lua:15-18`), and the panel then shows through `ShowUIPanel`. That
+  is blocked in combat for addon calls.
+- Nothing in the checkout calls these as an addon would. The only example is the readme comment
+  (`Blizzard_ImplementationReadme.lua:53-98`), which no toc loads.
+
+Minimap (`Blizzard_Minimap/`):
+
+- `Minimap` is 198x198 inside `MinimapContainer` inside `MinimapCluster`
+  (`Mainline/Minimap.xml:3-9`, `:186-199`). The camelot skin masks it round
+  (`Camelot/Skin.lua:34`). No `GetMinimapShape` exists anywhere in the checkout.
+- Edit Mode scales `MinimapContainer`, not `Minimap` (`Mainline/Minimap.lua:374-382`; Camelot
+  wraps it, `Camelot/Diel.lua:47-67`). A child of `Minimap` scales with it, and its radius math
+  stays in the minimap's own units.
+- Nothing walks `Minimap`'s children or moves third-party ones. In some zones
+  `C_Minimap.ShouldUseHybridMinimap` swaps in `HybridMinimap` (`Mainline/Minimap.lua:226-236`).
+  That addon is outside the checkout, so whether our button shows over it is unknown.
+- Textures with an in-pin user: `Interface\Minimap\MiniMap-TrackingBorder`
+  (`Blizzard_FrameXML/ItemDisplay.xml:84`), `Interface\Minimap\UI-Minimap-ZoomButton-Highlight`
+  (`Mainline/Minimap.xml:411`), and the round mask `Interface\CharacterFrame\TempPortraitAlphaMask`
+  (`Blizzard_SharedXML/Shared/FrameTemplate/RingedFrameTemplate.xml:51`). The classic
+  `UI-Minimap-Background` appears nowhere, so the button draws its own dark disc.
+
 ---
 
 ## In-game commands (retired 2026-09-26)
