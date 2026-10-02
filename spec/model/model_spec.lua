@@ -64,9 +64,9 @@ local function names(entries)
 	return out
 end
 
--- Page 1 plus the criteria-type excerpts, as one challenge list.
-local function combinedChallenges()
-	local page1 = fixture("dump_challenges_page1_fresh").challenges
+-- Page 1 plus the criteria-type excerpts, as one challenge list. Fresh page 1 unless named.
+local function combinedChallenges(pageFixture)
+	local page1 = fixture(pageFixture or "dump_challenges_page1_fresh").challenges
 	local types = fixture("dump_criteria_types")
 	local list = deepCopy(page1)
 	for _, key in ipairs({ "dungeons", "reputation", "seasonJourney", "raid", "partiallyDone", "explorerMeta" }) do
@@ -113,6 +113,18 @@ describe("Model", function()
 			assert.equals(0, progress.fraction)
 			assert.equals(1, progress.criteriaLeft)
 			assert.is_false(progress.started)
+		end)
+
+		it("reads a captured part-done skill criterion as started", function()
+			-- C3: Geo at Alchemy 1 on 70170, the first real mid-progress point-bearing capture.
+			local geo = fixture("dump_challenges_page1_geo").challenges
+			local progress = Model.Progress(byName(geo, "Journeyman Alchemist"))
+			assert.is_true(progress.measurable)
+			assert.equals(1, progress.have)
+			assert.equals(150, progress.need)
+			assert.equals(1 / 150, progress.fraction)
+			assert.equals(1, progress.criteriaLeft)
+			assert.is_true(progress.started)
 		end)
 
 		it("uses need/have on a type-243 criterion whose progress-bar bit is clear", function()
@@ -201,6 +213,22 @@ describe("Model", function()
 			}, names(entries))
 		end)
 
+		it("puts the captured part-done challenges in their own tier, first", function()
+			local entries = Model.Rank(fixture("dump_challenges_page1_geo").challenges)
+			assert.same(
+				{ "Journeyman Alchemist", "Expert Alchemist", "Artisan Alchemist" },
+				{ names(entries)[1], names(entries)[2], names(entries)[3] }
+			)
+			for index = 1, 3 do
+				assert.equals(1, entries[index].tier)
+			end
+			for index = 4, #entries do
+				assert.is_not_equal(1, entries[index].tier)
+			end
+		end)
+
+		-- Still derived after C3: the capture's fractions fall in client order, so it cannot
+		-- tell ordering by fraction from client order. This test moves Artisan ahead.
 		it("puts partial progress ahead of untouched, by fraction", function()
 			local list = deepCopy(fixture("dump_challenges_page1_fresh").challenges)
 			byName(list, "Artisan Alchemist").criteria[1].have = 290 -- derived: captured 0
@@ -516,12 +544,13 @@ describe("Model", function()
 		end)
 
 		it("adds an in progress tier above the rest once anything is part-done", function()
-			local challenges = combinedChallenges()
-			byName(challenges, "Expert Alchemist").criteria[1].have = 10 -- derived: captured 0
-			local view = Model.BuildView(input({ challenges = challenges }))
+			-- Was a derived have = 10 until C3 captured real progress on 2026-10-01.
+			local view = Model.BuildView(input({ challenges = combinedChallenges("dump_challenges_page1_geo") }))
 			assert.same({ Model.TIER_TEXT[1], Model.TIER_TEXT[2], Model.TIER_TEXT[3] }, dividerTexts(view))
-			assert.equals("Expert Alchemist", view.rows[2].name)
-			assert.equals("10/225", view.rows[2].progressText)
+			assert.equals("Journeyman Alchemist", view.rows[2].name)
+			assert.equals("1/150", view.rows[2].progressText)
+			assert.equals("Artisan Alchemist", view.rows[4].name)
+			assert.equals("1/300", view.rows[4].progressText)
 		end)
 
 		describe("other-class challenges", function()

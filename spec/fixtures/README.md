@@ -28,6 +28,9 @@ Rules for using it:
 
 - Mark it in the file, at the value: `-- derived: captured 0, varied to test ordering`
 - Only in `Model/` tests, never in an `Api/` fixture or a `spec/stubs/` return
-- Keep **C3** open until a real mid-progress point-bearing capture replaces them
+- ~~Keep **C3** open until a real mid-progress point-bearing capture replaces them~~ C3 closed
+  2026-10-01 with `dump_challenges_page1_geo.lua`, three Alchemy criteria at `have = 1`. The
+  in-progress tier test now runs on it. The derived values left test orderings the capture
+  cannot show: fractions out of client order, ties, overshoot
 
 A derived value is a stand-in with a receipt. An invented shape is a lie that compiles.
