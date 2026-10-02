@@ -21,6 +21,8 @@ Open, roughly in the order worth doing:
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
 | D10 | **Partly answered 2026-10-01**: the secrets half is done, with no row `secret`, `error` or `missing` on 70124. Still open: **the five name rows**, which the installed build did not have. Install from the branch that adds them (or from main once it merges), `/reload`, then `/lgn dump probe` on a character with a surname. The client is on 70170 now, so the same run re-checks the secrets half on the new build. Section D10 below | Which name call carries Forever's surname, and whether `UnitGUID` reads, for a roster key that cannot shift | 30 s |
+| U5 | Click the minimap's addon dropdown (the small numbered button under the calendar), then click `LegacyNext` in it, twice. Section U5 below | Whether Forever shows Blizzard's Addon Compartment at all, and whether our `## AddonCompartmentFunc` entry lists and toggles the window. Read from source only: the TOC loads it for `mainline`, and Forever's `camelot` type is inferred to count as `mainline` | 30 s, any login |
+| U7 | Escape > Options > Key Bindings > AddOns, bind a key to "Open or close LegacyNext", press it twice in and out of combat; then the AddOns list. Section U7 below | Whether `Bindings.xml` loads without a TOC line and lands under AddOns, and whether `## Category: Achievements` groups the addon in the AddOns list | 1 min |
 | U6 | `/lgn uidump`, then on each tab a screenshot, then `/reload` and a relog and say where the window opened. Section U6 below | Whether the polish pass draws as built: Blizzard's top tabs (or the underline fallback), row and reward icons, class-coloured roster names with the current one tinted, and the window coming back with its last tab, filter and position | 3 min |
 | U2 | **Partly answered 2026-10-01** (v2 of the block): `IsProtected` `false,false`, `IsTruncated` true, and all three templates present. Still open: **whether the test string near the top of the screen ends in `...` or is cut off mid-word**, which only a look at the screen answers. Run the block under U2 below, or Alex's gist "LegacyNext U2 v2", and look | Whether long rows get an ellipsis for free or rely on the tooltip alone | 30 s |
 | C3 | **Geo now has Alchemy at 1**, so this is two commands: `/lgn dump challenges 1` and `/lgn uidump`, on Geo. The in-progress tier was already seen in a screenshot 2026-10-01. Section C3 below | The mid-progress ranking fixture: a real type-7 criterion with `have` above 0, to replace the derived values in the Model tests | 1 min |
@@ -118,6 +120,36 @@ off mid-word.
 - The three template rows `true`. `WowScrollBoxList` and `MinimalScrollBar` are what a later
   scroll rewrite would use. `BasicFrameTemplateWithInset` is the frame we already draw.
 - Any `ERROR` names the step and the message. That is a finding in its own right.
+
+## U7 — the key binding and the AddOns-list category
+
+1. Escape > Options > Key Bindings. Look for an **AddOns** section holding "Open or close
+   LegacyNext". Bind any free key, then press it twice to open and close the window. Do it once
+   more in combat.
+2. Open the AddOns list and say whether LegacyNext sits under an **Achievements** group.
+
+What I am reading it for: the row under AddOns, which proves `Bindings.xml` loaded from the
+folder with no TOC line, and the window toggling both times, in combat too. Missing from Key
+Bindings means the file did not load; say so and I will look for another route.
+
+## U5 — the minimap addon dropdown
+
+Nothing to type. At the minimap's top right is the calendar button, which shows today's date.
+Directly below it is a smaller round button showing how many addons it lists
+(`AddonCompartment.xml` anchors it to `GameTimeFrame`, the calendar). Click that one, not the
+calendar. `LegacyNext` should be listed with the gold ring icon on the right. Click that entry
+once and the window should open. Open the dropdown and click it again, and the window should
+close. Say which of these happened:
+
+- No small button under the calendar. Forever does not load the compartment, or hides it.
+- The button, but no `LegacyNext` in it. The compartment lists only addons enabled for **all
+  characters** (`AddonCompartment.lua:80`), so check the AddOns list's character dropdown first.
+- Listed, but the click does nothing or errors. Paste the error.
+
+Also say what is at the right of the entry: the ring, a green square (the texture failed to
+load) or nothing. The compartment draws `## IconTexture` itself at 16 x 16
+(`AddonCompartment.lua:40-52`). It is a different path from U3's 20 px markup in the AddOns
+list, so one can work without the other.
 
 ## U6 — the polish pass
 

@@ -5,9 +5,10 @@ Last updated 2026-10-01.
 **Where we are, 2026-10-01, late morning: v1's data layer and Roster tab have run in game, and
 S1 is closed.** Saved data loads back off disk after a full restart. The tradeskill join works
 on a real Alchemist, through the parent line. D10 found no secrets on 70124. U1, U3 and U4 saw
-the frame, the icon and the Roster tab drawn as designed. ~~218 tests~~ 221 tests after the
-PR #5 review, none pending. Open in
-game: D10's name rows, which decide the roster key, then C3, U2 and C2. The vendor pin is
+the frame, the icon and the Roster tab drawn as designed. The window also has an entry in the
+minimap's addon dropdown (U5), a toggle key binding (U7) and the polish pass (U6), all unseen in
+game. ~~218 tests~~ 221 tests after the PR #5 review, 263 with those three, none pending. Open
+in game: D10's name rows, which decide the roster key, then U5, U6, U7, C3, U2 and C2. The vendor pin is
 ~~`1.60.1.70124`~~ `1.60.1.70170`. Nothing we call changed, but three Blizzard call sites did,
 and the docs were re-cited.
 
@@ -42,7 +43,7 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
 Blocking: **D10**'s name rows (the roster key, 30 s on the branch build) and **C3** (two
-commands on Geo, for the mid-progress fixture). Not blocking: **U6**, **U2** and **C2**. The
+commands on Geo, for the mid-progress fixture). Not blocking: **U5**, **U6**, **U7**, **U2** and **C2**. The
 queue is `docs/ingame-commands.md`.
 
 ## Polish pass — 2026-10-01, evening
@@ -64,6 +65,38 @@ toggle key binding and `## Category: Achievements`, is stacked on PR #6.
   `Store` into `LegacyNextCharDB`. A filter whose category has gone falls back to All.
 
 258 tests, none pending. All of it is source-verified only. **U6** is the look.
+
+## Minimap entry — 2026-10-01
+
+Alex asked for a minimap button and chose Blizzard's Addon Compartment over a draggable icon.
+The TOC names `LegacyNext_OnAddonCompartmentClick`, a global in `Core.lua`, and any click
+toggles the window as `/lgn` does. The entry reuses `## IconTexture`.
+
+Why not a draggable icon. Its position has to be saved, and SavedVariables are S1's open
+question. It would also parent a frame to Blizzard's Minimap, which v0's scope rules out.
+LibDBIcon would add the project's first external libs. Revisit after S1 if the dropdown is not
+enough. (S1 closed later the same day: saved data loads, so a saved icon position is now
+possible.)
+
+Evidence is source only, at `966519c`. `Blizzard_Minimap.toc` loads `AddonCompartment.lua` for
+`mainline`. The same TOC excludes `camelot` from another `mainline` line, which is why Forever
+is inferred to load it. The compartment lists only addons enabled for every character
+(`AddonCompartment.lua:80`). **U5** checks all of it in 30 s. The evidence holds at the 70170
+pin, `9a789c0`: that diff does not touch `Blizzard_Minimap`.
+
+Stacked on this branch the same evening, from the polish pass: a toggle key binding
+(`LEGACYNEXT_TOGGLE`, Key Bindings > AddOns, through `Bindings.xml`) and
+`## Category: Achievements` for the AddOns list. Source-only, at `966519c`. **U7** checks both.
+
+**PR #6 review, the same day.** A subagent review found nine problems, none in the code path.
+Eight are fixed on the branch. U5 sent Alex to the clock, but the button is anchored under the
+calendar, which also shows a number. U5 also offered a question mark for a failed icon, which
+the compartment never draws. Two citations named `:98` for the call at `:99`. `Blizzard_Minimap`
+is now on `vendor/PINS.md`'s outside-the-checkout list. `docs/icon-design.md` records the 16 px
+draw, and `README.md` names the dropdown and its all-characters catch. The S1 caveat left
+`CLAUDE.md`, since this section already holds it. Not done: routing the click through the
+slash handler with a nil-`ns.UI` guard. `Core.lua` calls `ns.UI.SetDataSource` at load, so a
+missing UI fails before the handler exists.
 
 ## Vendor pin moved to 1.60.1.70170 — 2026-10-01
 

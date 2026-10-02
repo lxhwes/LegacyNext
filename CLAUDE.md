@@ -26,7 +26,9 @@ earned there grant in every ruleset; PvP challenges cannot be done there.)
 - Per challenge: name, category, points awarded, criteria remaining ("3/5 dungeons")
 - Category filter
 - Reward track readout: current level, points to next reward, next reward name
-- Slash-command-opened standalone frame. No hooking Blizzard frames in v0.
+- Slash-command-opened standalone frame. No hooking Blizzard frames in v0. Also opened from
+  the minimap's Addon Compartment, which is TOC metadata (`## AddonCompartmentFunc`) rather
+  than a hook.
 
 **v1 "Roster"** — needs SavedVariables:
 - Per-character snapshot on login/logout/relevant events: class, level, professions + skill,

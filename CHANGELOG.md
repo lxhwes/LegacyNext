@@ -60,6 +60,8 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
   on `CRITERIA_UPDATE` at most every five seconds while open, and defers any rebuild,
   including the first on open, until combat ends. A read that throws shows as the window's
   error state instead of a Lua error.
+- A key binding to open and close the window, under Key Bindings > AddOns.
+- LegacyNext sits under Achievements in the AddOns list.
 
 ## Versioning
 

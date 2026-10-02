@@ -5,6 +5,8 @@
 ## SavedVariables: LegacyNextDB
 ## SavedVariablesPerCharacter: LegacyNextCharDB
 ## IconTexture: Interface\AddOns\LegacyNext\Media\icon
+## AddonCompartmentFunc: LegacyNext_OnAddonCompartmentClick
+## Category: Achievements
 
 Store\Store.lua
 Api\Api.lua

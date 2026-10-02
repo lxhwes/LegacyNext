@@ -52,18 +52,21 @@ step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
 `bd2470a`, checked directory by directory on 2026-09-26, again at `966519c` on 2026-09-30, and at `9a789c0`
 on 2026-10-01.
 
-Four directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
+Six directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
 `Blizzard_SharedTalentUI` (`docs/legacy-internals.md`), `Blizzard_MajorFactions`
-(`docs/legacy-internals.md`, toast events) and `Blizzard_Professions` (`CLAUDE.md`,
-`docs/status.md`). `Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on this list until the
+(`docs/legacy-internals.md`, toast events), `Blizzard_Professions` (`CLAUDE.md`,
+`docs/status.md`) and `Blizzard_Minimap` (`LegacyNext/Core.lua`, `docs/ingame-commands.md`,
+`docs/icon-design.md`, the addon compartment; read with `git show 966519c:<path>`).
+`Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on this list until the
 widening above brought them in. They were read by running `git sparse-checkout set Interface`
 at an earlier pin — 53 MB, 4405 files — and then narrowing back. Widen the same way to re-check
 them; the pin does not move. The whole-tree diff from `bd2470a` to `966519c` touched none of the
-four. The diff from `966519c` to `9a789c0` touches three. `Blizzard_MajorFactions` changed only an
+five. The diff from `966519c` to `9a789c0` touches three. `Blizzard_MajorFactions` changed only an
 `.xml`, and we cite its `.lua`. `Blizzard_MicroMenu` and `Blizzard_Professions` changed, and the
 citations into them in `CLAUDE.md` and `docs/legacy-internals.md` were re-derived by `git show`
-at the new pin on 2026-10-01. The professions join
-now also cites `Blizzard_ProfessionsTemplates`, a fifth directory outside this set.
+at the new pin on 2026-10-01. `Blizzard_Minimap` did not change, so the compartment citations
+hold. The professions join now also cites `Blizzard_ProfessionsTemplates`, a sixth directory
+outside this set.
 
 ### Recreate
 

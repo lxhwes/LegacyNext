@@ -73,6 +73,11 @@ API, so they sit below it rather than being drawn as 0%.
 | `/lgn roster` | Preview of v1: every character this addon has seen, their Legacy tree spend and professions, and which of them is closest to each tradeskill challenge. As text for now |
 | `/lgn roster forget <Name-Realm>` | Remove a deleted character from the roster |
 
+The window also opens from the minimap's addon dropdown, the small numbered button under the
+calendar. Click LegacyNext there to open or close it. The dropdown lists only addons enabled
+for all characters, so if LegacyNext is missing, check the character dropdown in the AddOns
+list.
+
 `uidump`, `probe` and `dump` are for bug reports. Paste their output into an issue and it says exactly what
 the client handed back.
 
