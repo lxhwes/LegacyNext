@@ -10,9 +10,9 @@ retail. The checkout itself is gitignored; this file is the record.
 |---|---|
 | Remote | https://github.com/Gethe/wow-ui-source.git |
 | Branch | `forever` |
-| Commit | `966519cf0ad2c10301ea011a88c14b25697c9687` |
-| `version.txt` | `1.60.1.70124` |
-| Pinned on | 2026-09-30 (was `bd2470a`, `1.60.1.70009`, 2026-09-26; before that `70ef1b2`, `1.60.1.69913`, 2026-09-18) |
+| Commit | `9a789c074b8e73c5d604ef2d6af3bb5b3aefb348` |
+| `version.txt` | `1.60.1.70170` |
+| Pinned on | 2026-10-01 (was `966519c`, `1.60.1.70124`, 2026-09-30; `bd2470a`, `1.60.1.70009`, 2026-09-26; before that `70ef1b2`, `1.60.1.69913`, 2026-09-18) |
 
 Sparse checkout (cone mode) covers only:
 
@@ -24,7 +24,7 @@ Interface/AddOns/Blizzard_AchievementUI
 version.txt
 ```
 
-All four directories were present at this commit, at `bd2470a`, and at `966519c`.
+All four directories were present at `70ef1b2`, `bd2470a`, `966519c` and this commit, `9a789c0`.
 
 Widened on 2026-09-19 (then at `70ef1b2`) for the UI template research in
 `docs/ui-templates.md` (22 MB total afterwards):
@@ -49,9 +49,10 @@ Interface/AddOns/Blizzard_AddOnList
 `docs/icon-design.md`. Add them with `git sparse-checkout add <path>...` after the recreate
 step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
 `LegacyNext/UI/UI.lua` resolve only with them present. All seventeen were still present at
-`bd2470a`, checked directory by directory on 2026-09-26, and again at `966519c` on 2026-09-30.
+`bd2470a`, checked directory by directory on 2026-09-26, again at `966519c` on 2026-09-30, and at `9a789c0`
+on 2026-10-01.
 
-Five directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
+Six directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
 `Blizzard_SharedTalentUI` (`docs/legacy-internals.md`), `Blizzard_MajorFactions`
 (`docs/legacy-internals.md`, toast events), `Blizzard_Professions` (`CLAUDE.md`,
 `docs/status.md`) and `Blizzard_Minimap` (`LegacyNext/Core.lua`, `docs/ingame-commands.md`,
@@ -59,8 +60,13 @@ Five directories cited across the docs are still outside this set: `Blizzard_Mic
 `Blizzard_FrameXML` and `Blizzard_FrameXMLBase` were on this list until the
 widening above brought them in. They were read by running `git sparse-checkout set Interface`
 at an earlier pin — 53 MB, 4405 files — and then narrowing back. Widen the same way to re-check
-them; the pin does not move. The whole-tree diff from `bd2470a` to `966519c` touches none of the
-five, so their citations hold at this pin.
+them; the pin does not move. The whole-tree diff from `bd2470a` to `966519c` touched none of the
+five. The diff from `966519c` to `9a789c0` touches three. `Blizzard_MajorFactions` changed only an
+`.xml`, and we cite its `.lua`. `Blizzard_MicroMenu` and `Blizzard_Professions` changed, and the
+citations into them in `CLAUDE.md` and `docs/legacy-internals.md` were re-derived by `git show`
+at the new pin on 2026-10-01. `Blizzard_Minimap` did not change, so the compartment citations
+hold. The professions join now also cites `Blizzard_ProfessionsTemplates`, a sixth directory
+outside this set.
 
 ### Recreate
 

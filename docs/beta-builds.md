@@ -10,6 +10,55 @@ gap in this file should mean "nobody checked", not "nothing happened".
 
 Beta opened 2026-09-17. Launch is 2026-11-04.
 
+## 1.60.1.70170 — 2026-10-01
+
+Pin: `966519c` → `9a789c0` (mirror commit dated 2026-10-01). `## Interface:` stays 16001, which
+is what the formula computes from `1.60.1.70170` and what the `.toc` reads. Fourth data point,
+still agreeing.
+
+**Touches us**
+
+No constant, signature, struct or doc file on our surface changed. `constants.diff` is empty. Every
+watchlist hit is a Blizzard call site, and three of them change what our docs say:
+
+- `GetTreeCurrencyInfo`'s `excludeStagedChanges` flipped from `true` to `false` in Blizzard's
+  summary read (`Blizzard_LegacySystemUtil.lua:41-43`), to match the talent panel while changes
+  are staged. `Api` still passes `true` (`LegacyNext/Api/Api.lua:653`). Our numbers now differ
+  from Blizzard's summary only while a player has unsaved tree edits. Left as is; see
+  `docs/status.md`.
+- `ToggleLegacySystemUI` now returns early when `GetCurrentRenownLevel(2802) <= 0`
+  (`Blizzard_LegacySystem_Bootstrap.lua:8-10`). At zero points Blizzard's panel no longer opens,
+  and that covers the key binding too. This bears on the "open Blizzard's panel on one challenge" idea.
+- The reward track reads `GetMajorFactionData` on every `Refresh` and treats nil as "not available
+  yet" (`Blizzard_LegacyRewardTrack.lua:168-172`). `Api.GetRewardTrack` already returns nil plus a
+  reason for it (`LegacyNext/Api/Api.lua:541-545`), and each window open re-reads.
+
+**Does not touch us**
+
+- The other Legacy edits move currency reads behind a cache, `LegacySystem.GetCurrencyInfo` and
+  `RegisterCurrencyInfoCallback` (`Blizzard_LegacySystemUtil.lua:62-73`). The cap tooltip still
+  formats `maxQuantity`, now from `OnEnter` (`Blizzard_LegacyTree.lua:303`).
+- API docs: six files, none on our surface. New `C_Spell.GetItemCooldown`, `UnitUsesAmmo`,
+  `PLAYER_PVP_FLAG_CHANGED`, and `EventToastEventType.RenownFactionLeveledUp` (27).
+- New `Blizzard_AchievementUI/Camelot/Blizzard_AchievementUI.lua`, one line setting
+  `ACHIEVEMENTUI_MAX_SUMMARY_ACHIEVEMENTS = 0`.
+- Outside the sparse checkout, `Blizzard_Professions` moved the parent-line expression into
+  `Professions.GetEffectiveSkillLineID()` (`Blizzard_ProfessionsTemplates/Blizzard_Professions.lua:1678-1681`).
+  The join `CLAUDE.md` describes is unchanged. Its line numbers moved.
+
+**Citations**
+
+`CITATIONS_SUSPECT` fired on `docs/legacy-internals.md`, `docs/ui-templates.md` and this file.
+`verify_citations.py` caught 3 broken lines. A diff-based line map between the two pins found the
+rest, which had shifted onto other lines and still passed. All of them were re-derived and checked by content in
+`docs/legacy-internals.md`, `docs/ui-templates.md` and `CLAUDE.md`. Older entries in this file
+keep their own pins and were left alone. One drift predates this bump:
+`MainMenuBarMicroButtons.lua:1045` had read `end` since at least `966519c`, and is now `:1054`.
+
+**Needs in-game confirmation**
+
+- D10, the probe, now targets 70170.
+
 ## 1.60.1.70124 — 2026-09-30
 
 Pin: `bd2470a` → `966519c` (mirror commit dated 2026-09-30). Covers two builds, since
