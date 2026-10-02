@@ -556,4 +556,57 @@ describe("addon lifecycle", function()
 		assert.is_table(_G.LegacyNextDB.characters["Alt-Realm"])
 		assert.is_table(_G.LegacyNextDB.characters["Tester-Realm"])
 	end)
+
+	describe("challenge clicks", function()
+		local said
+
+		before_each(function()
+			said = {}
+			_G.print = function(text) said[#said + 1] = text end
+		end)
+
+		local function stubActions(linkClick)
+			local done = {}
+			ns.Api.IsLinkClick = function() return linkClick end
+			ns.Api.LinkChallenge = function(id) done[#done + 1] = "link " .. id return true end
+			ns.Api.OpenLegacyChallenge = function(id) done[#done + 1] = "open " .. id return true end
+			return done
+		end
+
+		it("opens Blizzard's panel on a plain click", function()
+			local done = stubActions(false)
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.same({ "open 61499" }, done)
+			assert.same({}, said)
+		end)
+
+		it("links the challenge on a chat-link click", function()
+			local done = stubActions(true)
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.same({ "link 61499" }, done)
+		end)
+
+		it("says why the panel did not open", function()
+			stubActions(false)
+			ns.Api.OpenLegacyChallenge = function() return nil, "in combat" end
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.equals(1, #said)
+			assert.truthy(said[1]:find("could not open the Legacy panel: in combat", 1, true))
+		end)
+
+		it("says why the link did not land", function()
+			stubActions(true)
+			ns.Api.LinkChallenge = function() return nil, "open a chat box first" end
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.truthy(said[1]:find("could not link it: open a chat box first", 1, true))
+		end)
+	end)
 end)
