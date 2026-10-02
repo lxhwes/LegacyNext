@@ -20,6 +20,8 @@ Button.EDGE = 5
 -- A summary read is the window's ~900-call sweep, so hovering reuses one for this long.
 Button.SUMMARY_TTL = 30
 Button.HINT = "Click to open or close. Right-click for settings. Drag to move."
+-- The dropdown entry toggles on any click (Core.lua, LegacyNext_OnAddonCompartmentClick).
+Button.COMPARTMENT_HINT = "Click to open or close."
 Button.COMBAT_LINE = "Summary after combat"
 
 -- Textures the pin shows in use: the ring (Blizzard_FrameXML/ItemDisplay.xml:84), the
@@ -193,9 +195,11 @@ local function summary()
 	return result
 end
 
-local function onEnter(button)
+-- The summary tooltip on any owner: this button, or the minimap dropdown's entry, which only
+-- differ in what a click does.
+function Button.ShowTooltip(owner, hint)
 	local tooltip = G("GameTooltip")
-	if not tooltip or not pcall(tooltip.SetOwner, tooltip, button, "ANCHOR_LEFT") then
+	if not tooltip or not pcall(tooltip.SetOwner, tooltip, owner, "ANCHOR_LEFT") then
 		return
 	end
 	tooltip:AddLine("LegacyNext", 1, 1, 1)
@@ -209,15 +213,23 @@ local function onEnter(button)
 			tooltip:AddLine(tostring(line.text), 0.7, 0.7, 0.7, true)
 		end
 	end
-	tooltip:AddLine(Button.HINT, 0.5, 0.5, 0.5, true)
+	tooltip:AddLine(hint or Button.HINT, 0.5, 0.5, 0.5, true)
 	tooltip:Show()
 end
 
-local function onLeave()
+function Button.HideTooltip()
 	local tooltip = G("GameTooltip")
 	if tooltip then
 		tooltip:Hide()
 	end
+end
+
+local function onEnter(button)
+	Button.ShowTooltip(button, Button.HINT)
+end
+
+local function onLeave()
+	Button.HideTooltip()
 end
 
 --------------------------------------------------------------------------------------------

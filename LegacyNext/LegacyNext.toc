@@ -6,6 +6,8 @@
 ## SavedVariablesPerCharacter: LegacyNextCharDB
 ## IconTexture: Interface\AddOns\LegacyNext\Media\icon
 ## AddonCompartmentFunc: LegacyNext_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: LegacyNext_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: LegacyNext_OnAddonCompartmentLeave
 ## Category: Achievements
 ## X-Curse-Project-ID: 1721646
 

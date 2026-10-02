@@ -332,6 +332,17 @@ function LegacyNext_OnAddonCompartmentClick()
 	ns.UI.Toggle()
 end
 
+-- Hovering the dropdown entry shows the minimap button's summary tooltip. Named by
+-- ## AddonCompartmentFuncOnEnter / OnLeave and called with (addonName, button)
+-- (AddonCompartment.lua:106-117 at 9a789c0).
+function LegacyNext_OnAddonCompartmentEnter(_, button)
+	ns.MinimapButton.ShowTooltip(button, ns.MinimapButton.COMPARTMENT_HINT)
+end
+
+function LegacyNext_OnAddonCompartmentLeave()
+	ns.MinimapButton.HideTooltip()
+end
+
 -- Key Bindings > AddOns. Bindings.xml loads by file name: none of the eight Blizzard addons that
 -- ship one lists it in its TOC. The row label is BINDING_NAME_<name>, and category "ADDONS"
 -- titles the section through _G.ADDONS, the Game Menu's own AddOns label.

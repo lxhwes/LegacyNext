@@ -15,6 +15,8 @@ globals = {
 	"SLASH_LEGACYNEXT2",
 	"SlashCmdList",
 	"LegacyNext_OnAddonCompartmentClick",
+	"LegacyNext_OnAddonCompartmentEnter",
+	"LegacyNext_OnAddonCompartmentLeave",
 	"LegacyNext_Toggle",
 	"BINDING_NAME_LEGACYNEXT_TOGGLE",
 }
