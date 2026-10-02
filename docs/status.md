@@ -41,8 +41,28 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
 Blocking: **D10**'s name rows (the roster key, 30 s on the branch build) and **C3** (two
-commands on Geo, for the mid-progress fixture). Not blocking: **U2** and **C2**. The queue is
-`docs/ingame-commands.md`.
+commands on Geo, for the mid-progress fixture). Not blocking: **U6**, **U2** and **C2**. The
+queue is `docs/ingame-commands.md`.
+
+## Polish pass — 2026-10-01, evening
+
+Alex asked for window dressing before release, and had sub-agents build it in worktrees, one
+branch each, with file ownership kept apart. This branch carries two of them. The third, a
+toggle key binding and `## Category: Achievements`, is stacked on PR #6.
+
+- **Model** gives challenge and tradeskill rows an `icon`, the header the next reward's icon,
+  and roster character rows a `classToken`. The text output, and so both golden files, did not
+  change.
+- **UI** draws them. Challenge names are indented for a 14 px icon, the reward icon sits before
+  "Next:", and roster names take the client's class colour. The current character, no longer
+  the only gold name, gets a faint gold tint.
+- **The tabs** are Blizzard's `PanelTopTabButtonTemplate`, selected through its own helpers,
+  so the chosen tab is raised. The evidence and the fallback are in `docs/ui-templates.md`,
+  section 7.
+- **Window state** comes back per character: last tab, Next Up filter and position, through
+  `Store` into `LegacyNextCharDB`. A filter whose category has gone falls back to All.
+
+258 tests, none pending. All of it is source-verified only. **U6** is the look.
 
 ## S1 closed, and the frame seen — 2026-10-01, late morning
 

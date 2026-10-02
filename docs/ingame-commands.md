@@ -21,6 +21,7 @@ Open, roughly in the order worth doing:
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
 | D10 | **Partly answered 2026-10-01**: the secrets half is done, with no row `secret`, `error` or `missing` on 70124. Still open: **the five name rows**, which the installed build did not have. Install from the branch that adds them (or from main once it merges), `/reload`, then `/lgn dump probe` on a character with a surname. Section D10 below | Which name call carries Forever's surname, and whether `UnitGUID` reads, for a roster key that cannot shift | 30 s |
+| U6 | `/lgn uidump`, then on each tab a screenshot, then `/reload` and a relog and say where the window opened. Section U6 below | Whether the polish pass draws as built: Blizzard's top tabs (or the underline fallback), row and reward icons, class-coloured roster names with the current one tinted, and the window coming back with its last tab, filter and position | 3 min |
 | U2 | **Partly answered 2026-10-01** (v2 of the block): `IsProtected` `false,false`, `IsTruncated` true, and all three templates present. Still open: **whether the test string near the top of the screen ends in `...` or is cut off mid-word**, which only a look at the screen answers. Run the block under U2 below, or Alex's gist "LegacyNext U2 v2", and look | Whether long rows get an ellipsis for free or rely on the tooltip alone | 30 s |
 | C3 | **Geo now has Alchemy at 1**, so this is two commands: `/lgn dump challenges 1` and `/lgn uidump`, on Geo. The in-progress tier was already seen in a screenshot 2026-10-01. Section C3 below | The mid-progress ranking fixture: a real type-7 criterion with `have` above 0, to replace the derived values in the Model tests | 1 min |
 | C2 | `/etrace` on the five events in section C2 below, during any session that raises a skill or earns a challenge | Which fire. **Partly answered 2026-10-01 for the roster's own events**: `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and `TRAIT_CONFIG_UPDATED` registers without error. None of the five below has been seen yet. The frame depends on `ACHIEVEMENT_EARNED` and `CRITERIA_UPDATE`, and neither has been seen firing on Forever. The other three decide whether trait and faction events are worth adding | Free with C3 |
@@ -117,6 +118,22 @@ off mid-word.
 - The three template rows `true`. `WowScrollBoxList` and `MinimalScrollBar` are what a later
   scroll rewrite would use. `BasicFrameTemplateWithInset` is the frame we already draw.
 - Any `ERROR` names the step and the message. That is a finding in its own right.
+
+## U6 — the polish pass
+
+On a build with the polish pass installed:
+
+1. `/lgn`, then `/lgn uidump`. Paste it. The `== CLIENT ==` footer's `tabTemplate` says which
+   tab the client gave us: `PanelTopTabButtonTemplate`, or the `UIPanelButtonTemplate` fallback.
+2. A screenshot of Next Up, and one of Roster.
+3. Pick a category filter, drag the window somewhere off-centre, and click Roster. `/reload`.
+   Say whether it opened in the same place on Roster. Then log out to another character and
+   back, and say the same.
+
+What I am reading it for: the selected tab clearly raised against the other one; a small icon
+left of every challenge name, with the names still lined up; the next reward's icon before
+"Next:"; roster names in class colours, with a faint gold tint behind the current character.
+And the window keeping its tab, filter and spot across both a `/reload` and a relog.
 
 ## D10 — the probe on 1.60.1.70124
 
