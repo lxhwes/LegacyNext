@@ -697,4 +697,208 @@ describe("Api", function()
 			assert.equals("missing", row(rows, "C_PlayerInfo.ShouldDisplaySurname").status)
 		end)
 	end)
+
+	-- The Legacy panel's open path, stubbed with trivial frames and recorders. It tests the order
+	-- and the refusals, not Blizzard's panel: whether the page builds synchronously is U9.
+	describe("OpenLegacyChallenge", function()
+		local calls
+
+		local function panel(shown)
+			local frame = { shown = shown }
+			function frame:IsShown() return self.shown end
+			return frame
+		end
+
+		local function stubPanel(opts)
+			opts = opts or {}
+			calls = {}
+			local frame = panel(opts.shown or false)
+			inject("LegacySystemFrame", frame)
+			inject("ToggleLegacySystemUI", function()
+				calls[#calls + 1] = "toggle"
+				frame.shown = opts.opens ~= false
+			end)
+			inject("EventRegistry", { TriggerEvent = function(_, event, id)
+				calls[#calls + 1] = event .. " " .. tostring(id)
+			end })
+			inject("AchievementFrame_SelectAchievement", function(id, force)
+				calls[#calls + 1] = "select " .. tostring(id) .. " " .. tostring(force)
+			end)
+			return frame
+		end
+
+		it("opens the panel, switches to the challenges page, then selects", function()
+			local Api = loadApi().Api
+			stubPanel()
+
+			assert.is_true(Api.OpenLegacyChallenge(61499))
+			assert.same({ "toggle", "Legacy.SelectPage 2", "select 61499 true" }, calls)
+		end)
+
+		it("does not toggle a panel that is already open, which would close it", function()
+			local Api = loadApi().Api
+			stubPanel({ shown = true })
+
+			assert.is_true(Api.OpenLegacyChallenge(61499))
+			assert.same({ "Legacy.SelectPage 2", "select 61499 true" }, calls)
+		end)
+
+		it("refuses in combat, before touching the panel", function()
+			local Api = loadApi().Api
+			stubPanel()
+			inject("InCombatLockdown", function() return true end)
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("in combat", reason)
+			assert.same({}, calls)
+		end)
+
+		it("refuses at zero Legacy points, where Blizzard's toggle does nothing", function()
+			local Api = loadApi().Api
+			stubPanel()
+			inject("C_MajorFactions", { GetCurrentRenownLevel = function() return 0 end })
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("no Legacy points yet", reason)
+			assert.same({}, calls)
+		end)
+
+		it("says so when the panel did not open", function()
+			local Api = loadApi().Api
+			stubPanel({ opens = false })
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("Legacy panel did not open", reason)
+			assert.same({ "toggle" }, calls)
+		end)
+
+		it("refuses a secret IsShown rather than toggle a panel that may be open", function()
+			local Api = loadApi().Api
+			local frame = stubPanel({ shown = true })
+			inject("issecretvalue", function(value) return value == frame.shown and value == true end)
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("LegacySystemFrame.IsShown secret", reason)
+			assert.same({}, calls)
+			assert.equals(1, Api.GetFailures()["LegacySystemFrame.IsShown"].secret)
+		end)
+
+		it("names the missing toggle", function()
+			local Api = loadApi().Api
+			stubPanel()
+			_G.ToggleLegacySystemUI = nil
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("ToggleLegacySystemUI missing", reason)
+		end)
+
+		it("reports a select that failed after the panel opened", function()
+			local Api = loadApi().Api
+			stubPanel()
+			_G.AchievementFrame_SelectAchievement = nil
+
+			local ok, reason = Api.OpenLegacyChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("panel opened, AchievementFrame_SelectAchievement missing", reason)
+		end)
+
+		it("refuses a missing id", function()
+			local Api = loadApi().Api
+			stubPanel()
+
+			local ok, reason = Api.OpenLegacyChallenge(nil)
+
+			assert.is_nil(ok)
+			assert.equals("no challenge id", reason)
+			assert.same({}, calls)
+		end)
+	end)
+
+	describe("LinkChallenge", function()
+		it("inserts the challenge's link into chat", function()
+			local Api = loadApi().Api
+			local inserted
+			inject("GetAchievementLink", function(id) return "link:" .. id end)
+			inject("ChatFrameUtil", { InsertLink = function(link) inserted = link return true end })
+
+			assert.is_true(Api.LinkChallenge(61499))
+			assert.equals("link:61499", inserted)
+		end)
+
+		it("falls back to ChatEdit_InsertLink when ChatFrameUtil is missing", function()
+			local Api = loadApi().Api
+			local inserted
+			inject("GetAchievementLink", function(id) return "link:" .. id end)
+			inject("ChatEdit_InsertLink", function(link) inserted = link return true end)
+
+			assert.is_true(Api.LinkChallenge(61499))
+			assert.equals("link:61499", inserted)
+		end)
+
+		it("says when no chat box took the link", function()
+			local Api = loadApi().Api
+			inject("GetAchievementLink", function(id) return "link:" .. id end)
+			inject("ChatFrameUtil", { InsertLink = function() return false end })
+
+			local ok, reason = Api.LinkChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("open a chat box first", reason)
+		end)
+
+		it("keeps InsertLink's own error when the fallback is missing too", function()
+			local Api = loadApi().Api
+			inject("GetAchievementLink", function(id) return "link:" .. id end)
+			inject("ChatFrameUtil", { InsertLink = function() error("no edit box") end })
+
+			local ok, reason = Api.LinkChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.truthy(reason:find("ChatFrameUtil.InsertLink error: .*no edit box"))
+		end)
+
+		it("names a missing link function", function()
+			local Api = loadApi().Api
+
+			local ok, reason = Api.LinkChallenge(61499)
+
+			assert.is_nil(ok)
+			assert.equals("GetAchievementLink unavailable", reason)
+		end)
+	end)
+
+	describe("IsLinkClick", function()
+		it("asks IsModifiedClick for the chat-link binding", function()
+			local Api = loadApi().Api
+			local asked
+			inject("IsModifiedClick", function(action) asked = action return true end)
+
+			assert.is_true(Api.IsLinkClick())
+			assert.equals("CHATLINK", asked)
+		end)
+
+		it("falls back to Shift when IsModifiedClick is missing", function()
+			local Api = loadApi().Api
+			inject("IsShiftKeyDown", function() return true end)
+
+			assert.is_true(Api.IsLinkClick())
+		end)
+
+		it("is false when neither can be read", function()
+			local Api = loadApi().Api
+
+			assert.is_false(Api.IsLinkClick())
+		end)
+	end)
 end)
