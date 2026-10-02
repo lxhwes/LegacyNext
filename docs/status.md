@@ -6,9 +6,9 @@ Last updated 2026-10-01.
 S1 is closed.** Saved data loads back off disk after a full restart. The tradeskill join works
 on a real Alchemist, through the parent line. D10 found no secrets on 70124. U1, U3 and U4 saw
 the frame, the icon and the Roster tab drawn as designed. The window also has an entry in the
-minimap's addon dropdown, unseen in game (U5). ~~218 tests~~ 221 tests after the
-PR #5 review, 223 with the minimap entry, none pending. Open in
-game: D10's name rows, which decide the roster key, then U5, C3, U2 and C2. The vendor pin is
+minimap's addon dropdown (U5), a toggle key binding (U7) and the polish pass (U6), all unseen in
+game. ~~218 tests~~ 221 tests after the PR #5 review, 263 with those three, none pending. Open
+in game: D10's name rows, which decide the roster key, then U5, U6, U7, C3, U2 and C2. The vendor pin is
 ~~`1.60.1.70124`~~ `1.60.1.70170`. Nothing we call changed, but three Blizzard call sites did,
 and the docs were re-cited.
 
@@ -43,8 +43,28 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 `spec/golden/uidump_combined.txt`. 90 tests, nothing pending.
 
 Blocking: **D10**'s name rows (the roster key, 30 s on the branch build) and **C3** (two
-commands on Geo, for the mid-progress fixture). Not blocking: **U5**, **U2** and **C2**. The queue is
-`docs/ingame-commands.md`.
+commands on Geo, for the mid-progress fixture). Not blocking: **U5**, **U6**, **U7**, **U2** and **C2**. The
+queue is `docs/ingame-commands.md`.
+
+## Polish pass — 2026-10-01, evening
+
+Alex asked for window dressing before release, and had sub-agents build it in worktrees, one
+branch each, with file ownership kept apart. This branch carries two of them. The third, a
+toggle key binding and `## Category: Achievements`, is stacked on PR #6.
+
+- **Model** gives challenge and tradeskill rows an `icon`, the header the next reward's icon,
+  and roster character rows a `classToken`. The text output, and so both golden files, did not
+  change.
+- **UI** draws them. Challenge names are indented for a 14 px icon, the reward icon sits before
+  "Next:", and roster names take the client's class colour. The current character, no longer
+  the only gold name, gets a faint gold tint.
+- **The tabs** are Blizzard's `PanelTopTabButtonTemplate`, selected through its own helpers,
+  so the chosen tab is raised. The evidence and the fallback are in `docs/ui-templates.md`,
+  section 7.
+- **Window state** comes back per character: last tab, Next Up filter and position, through
+  `Store` into `LegacyNextCharDB`. A filter whose category has gone falls back to All.
+
+258 tests, none pending. All of it is source-verified only. **U6** is the look.
 
 ## Minimap entry — 2026-10-01
 

@@ -56,6 +56,11 @@ local function newWidget(kind, name, template)
 				return function(_, enabled) self.mouse = enabled end
 			elseif key == "LockHighlight" or key == "UnlockHighlight" then
 				return function() self.locked = key == "LockHighlight" end
+			elseif key == "SetTexture" then
+				-- nil clears it, so read it with rawget
+				return function(_, texture) self.texture = texture end
+			elseif key == "SetFontObject" then
+				return function(_, font) self.font = font end
 			end
 			return function() end
 		end,
@@ -84,6 +89,15 @@ local function unloadUI()
 	_G.UISpecialFrames = nil
 	_G.C_Timer = nil
 	_G.InCombatLockdown = nil
+	_G.LegacyNextDB = nil
+	_G.LegacyNextCharDB = nil
+	_G.PanelTemplates_SelectTab = nil
+	_G.PanelTemplates_DeselectTab = nil
+	_G.PanelTemplates_TabResize = nil
+	_G.RAID_CLASS_COLORS = nil
+	_G.C_ClassColor = nil
+	_G.GameFontNormal = nil
+	_G.GameFontHighlight = nil
 end
 
 -- A C_Timer double that holds callbacks until the test runs them, so ordering is explicit.
@@ -360,6 +374,318 @@ describe("UI", function()
 		assert.equals(2, counter.calls)
 	end)
 
+	-- Views built by hand in the shape Model hands over: row.icon and header.icon are a texture
+	-- file id, a path or nil, and a character row's classToken is a string or nil.
+	describe("icons and class colours", function()
+		local MEDIA = "Interface\\AddOns\\LegacyNext\\Media\\icon"
+
+		local function view(rows, headerIcon)
+			return { header = { lines = { "Legacy Track", "Next: Reward" }, icon = headerIcon, state = "ok" },
+				filters = {}, rows = rows, state = "ok" }
+		end
+		local function challenge(name, icon)
+			return { kind = "challenge", name = name, progressText = "1/2", pointsText = "1", measurable = true,
+				icon = icon }
+		end
+		local function tradeskill(name, icon)
+			return { kind = "tradeskill", name = name, progressText = "75/150", pointsText = "1", measurable = true,
+				icon = icon }
+		end
+		local function character(name, classToken, current)
+			return { kind = "character", name = name, progressText = "0/0/0", pointsText = "0", measurable = true,
+				classToken = classToken, current = current }
+		end
+		local function heading(name)
+			return { kind = "columns", name = name, progressText = "P/A/R", pointsText = "Free" }
+		end
+
+		local function nameLeft(row)
+			for _, anchor in ipairs(row.name.anchors) do
+				if anchor[1] == "LEFT" then return anchor[2] end
+			end
+		end
+
+		it("draws a row's icon left of its name, and keeps names aligned without one", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ challenge("A", 1001), challenge("B", nil), challenge("C", MEDIA) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals(1001, rawget(rows[1].icon, "texture"))
+			assert.is_true(rows[1].icon.shown)
+			assert.is_false(rows[2].icon.shown)
+			assert.is_nil(rawget(rows[2].icon, "texture"))
+			assert.equals(MEDIA, rawget(rows[3].icon, "texture"))
+			assert.is_true(nameLeft(rows[1]) > 0)
+			assert.equals(nameLeft(rows[1]), nameLeft(rows[2]))
+			assert.equals(nameLeft(rows[1]), nameLeft(rows[3]))
+		end)
+
+		it("leaves names where they were when no row has an icon", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ challenge("A"), challenge("B") }))
+
+			for _, row in ipairs(ns.UI.frame.rows) do
+				assert.equals(0, nameLeft(row))
+				assert.is_false(row.icon.shown)
+			end
+		end)
+
+		it("draws the next reward's icon before header line 2, and drops it when there is none", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ challenge("A") }, 2002))
+			local frame = ns.UI.frame
+			assert.equals(2002, rawget(frame.headerIcon, "texture"))
+			assert.is_true(frame.headerIcon.shown)
+			assert.same({ "LEFT", frame.headerIcon, "RIGHT", 4, 0 }, frame.headerLines[2].anchors[1])
+			assert.equals("Next: Reward", frame.headerLines[2].text)
+
+			ns.UI.Render(view({ challenge("A") }))
+			assert.is_false(frame.headerIcon.shown)
+			assert.is_nil(rawget(frame.headerIcon, "texture"))
+			assert.same({ "TOPLEFT", frame.headerLines[1], "BOTTOMLEFT", 0, -4 }, frame.headerLines[2].anchors[1])
+		end)
+
+		it("colours a character's name by class and tints the current row", function()
+			_G.RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.5, b = 0 } }
+			local ns = loadUI()
+
+			ns.UI.Render(view({ heading("Character"), character("Ann  L10 Druid", "DRUID", true),
+				character("Bob  L5 Mage", "MAGE", false), character("Cy  L1", nil, false) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals("Character", rows[1].name.text)
+			assert.is_false(rows[1].tint.shown)
+			assert.equals("|cffff8000Ann  L10 Druid|r", rows[2].name.text)
+			assert.is_true(rows[2].tint.shown)
+			assert.equals("Bob  L5 Mage", rows[3].name.text)
+			assert.is_false(rows[3].tint.shown)
+			assert.equals("Cy  L1", rows[4].name.text)
+			for _, row in ipairs(rows) do
+				assert.equals(0, nameLeft(row))
+				assert.is_false(row.icon.shown)
+			end
+		end)
+
+		it("asks C_ClassColor for a class RAID_CLASS_COLORS lacks, and survives it throwing", function()
+			_G.RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.5, b = 0 } }
+			_G.C_ClassColor = {
+				GetClassColor = function(token)
+					if token == "PRIEST" then error("bad class") end
+					if token == "MAGE" then return { r = 0, g = 0.5, b = 1 } end
+				end,
+			}
+			local ns = loadUI()
+
+			ns.UI.Render(view({ character("Bob", "MAGE", false), character("Pat", "PRIEST", false),
+				character("Sam", "SHAMAN", false) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals("|cff0080ffBob|r", rows[1].name.text)
+			assert.equals("Pat", rows[2].name.text)
+			assert.equals("Sam", rows[3].name.text)
+		end)
+
+		it("keeps today's look with no class colour: the current character in gold, no tint", function()
+			_G.GameFontNormal = { font = "GameFontNormal" }
+			_G.GameFontHighlight = { font = "GameFontHighlight" }
+			local ns = loadUI()
+
+			ns.UI.Render(view({ character("Ann", "DRUID", true), character("Bob", "MAGE", false) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals("Ann", rows[1].name.text)
+			assert.equals(_G.GameFontNormal, rows[1].name.font)
+			assert.is_false(rows[1].tint.shown)
+			assert.equals(_G.GameFontHighlight, rows[2].name.font)
+		end)
+
+		it("draws a tradeskill row's icon, with the roster's other rows left as they are", function()
+			local ns = loadUI()
+
+			ns.UI.Render(view({ heading("Character"), character("Ann", nil, true),
+				heading("Tradeskill challenge"), tradeskill("Journeyman Alchemist  Ann", 3003) }))
+
+			local rows = ns.UI.frame.rows
+			assert.equals(3003, rawget(rows[4].icon, "texture"))
+			assert.is_true(rows[4].icon.shown)
+			assert.is_true(nameLeft(rows[4]) > 0)
+			for index = 1, 3 do
+				assert.equals(0, nameLeft(rows[index]))
+				assert.is_false(rows[index].icon.shown)
+			end
+		end)
+
+		-- Rows are pooled across tabs and redraws.
+		it("never leaves a stale icon, colour or tint on a reused row", function()
+			_G.RAID_CLASS_COLORS = { DRUID = { r = 1, g = 0.5, b = 0 } }
+			local ns = loadUI()
+			ns.UI.Render(view({ heading("Character"), character("Ann", "DRUID", true),
+				heading("Tradeskill challenge"), tradeskill("Journeyman Alchemist  Ann", 3003) }, 2002))
+			local rows = ns.UI.frame.rows
+
+			ns.UI.Render(view({ challenge("A"), challenge("B"), challenge("C"), challenge("D") }))
+
+			assert.equals(4, #rows)
+			for index, row in ipairs(rows) do
+				assert.equals(({ "A", "B", "C", "D" })[index], row.name.text)
+				assert.is_false(row.tint.shown)
+				assert.is_false(row.icon.shown)
+				assert.is_nil(rawget(row.icon, "texture"))
+				assert.equals(0, nameLeft(row))
+			end
+			assert.is_false(ns.UI.frame.headerIcon.shown)
+
+			ns.UI.Render(view({ challenge("A", 1001), challenge("B", 1002) }))
+			ns.UI.Render(view({ heading("Character"), character("Bob", "MAGE", false) }))
+
+			for index = 1, 2 do
+				assert.is_false(rows[index].icon.shown)
+				assert.equals(0, nameLeft(rows[index]))
+			end
+			assert.equals("Bob", rows[2].name.text)
+		end)
+	end)
+
+	describe("window state", function()
+		local categories = fixture("categories_full").categories
+		local tradeskills
+		for _, category in ipairs(categories) do
+			if category.name == "Tradeskills" then tradeskills = category.id end
+		end
+
+		-- Plays the client: this character's saved table is assigned before ADDON_LOADED, when
+		-- Core attaches the store. UIParent gets a screen size the clamp can read.
+		local function loadWithStore(saved)
+			_G.LegacyNextCharDB = saved
+			local ns = loadUI()
+			helper.loadAddonFile("LegacyNext/Model/Roster.lua", ns)
+			helper.loadAddonFile("LegacyNext/Store/Store.lua", ns)
+			ns.Store.Attach()
+			rawset(_G.UIParent, "GetWidth", function() return 1920 end)
+			rawset(_G.UIParent, "GetHeight", function() return 1080 end)
+			ns.UI.SetDataSource(function()
+				return {
+					challenges = fixture("dump_challenges_page1_fresh").challenges,
+					categories = categories,
+					snapshots = {},
+				}
+			end)
+			return ns
+		end
+
+		local function shownNames(frame)
+			local names = {}
+			for _, row in ipairs(frame.rows) do
+				if row.shown then names[#names + 1] = row.name.text end
+			end
+			return names
+		end
+
+		it("restores the saved filter and position on the first open", function()
+			local ns = loadWithStore({ ui = { filter = tradeskills, point = { left = 100, top = 700 } } })
+
+			ns.UI.Show()
+
+			assert.equals(tradeskills, ns.UI.view.filter)
+			assert.same({ "Journeyman Alchemist", "Expert Alchemist", "Artisan Alchemist" }, shownNames(ns.UI.frame))
+			assert.same({ "TOPLEFT", _G.UIParent, "BOTTOMLEFT", 100, 700 }, ns.UI.frame.anchors[1])
+		end)
+
+		it("restores the saved tab", function()
+			local ns = loadWithStore({ ui = { tab = "roster" } })
+
+			ns.UI.Show()
+
+			assert.equals("roster", ns.UI.Describe().tab)
+			assert.equals("roster", ns.UI.view.tab)
+			assert.is_true(ns.UI.frame.tabs[2].locked)
+		end)
+
+		it("ignores a saved tab it does not know", function()
+			local ns = loadWithStore({ ui = { tab = "bogus" } })
+
+			ns.UI.Show()
+
+			assert.equals("nextup", ns.UI.tab)
+		end)
+
+		-- Category ids churn between beta builds, so a saved one can name nothing.
+		it("falls back to All when the saved filter's category has gone", function()
+			local ns = loadWithStore({ ui = { filter = 999999 } })
+
+			assert.has_no.errors(function() ns.UI.Show() end)
+
+			assert.equals("ok", ns.UI.view.state)
+			assert.is_nil(ns.UI.view.filter)
+			assert.is_nil(ns.UI.filter)
+			assert.equals(11, #shownNames(ns.UI.frame))
+			assert.is_true(ns.UI.frame.filterBar.buttons[1].locked)
+		end)
+
+		it("saves the tab, the filter and the position as they change", function()
+			local ns = loadWithStore(nil)
+			ns.UI.Show()
+			local frame = ns.UI.frame
+
+			ns.UI.SetTab("roster")
+			assert.equals("roster", _G.LegacyNextCharDB.ui.tab)
+			ns.UI.SetTab("nextup")
+			assert.equals("nextup", _G.LegacyNextCharDB.ui.tab)
+
+			ns.UI.SetFilter(tradeskills)
+			assert.equals(tradeskills, _G.LegacyNextCharDB.ui.filter)
+			ns.UI.SetFilter(nil)
+			assert.is_nil(_G.LegacyNextCharDB.ui.filter)
+
+			rawset(frame, "GetLeft", function() return 40.5 end)
+			rawset(frame, "GetTop", function() return 600 end)
+			frame.script_OnDragStop(frame)
+			assert.same({ left = 40.5, top = 600 }, _G.LegacyNextCharDB.ui.point)
+		end)
+
+		it("saves no position when the frame cannot say where it is", function()
+			local ns = loadWithStore(nil)
+			ns.UI.Show()
+
+			ns.UI.frame.script_OnDragStop(ns.UI.frame)
+
+			assert.is_nil(_G.LegacyNextCharDB and _G.LegacyNextCharDB.ui and _G.LegacyNextCharDB.ui.point)
+		end)
+
+		it("clamps a saved position onto the screen", function()
+			local ns = loadWithStore({ ui = { point = { left = 5000, top = -50 } } })
+
+			ns.UI.Show()
+
+			-- 1920 - 520 wide, and the top no lower than the frame's 480 height.
+			assert.same({ "TOPLEFT", _G.UIParent, "BOTTOMLEFT", 1400, 480 }, ns.UI.frame.anchors[1])
+		end)
+
+		it("centres the frame when the saved position is unusable", function()
+			for _, point in ipairs({ "junk", { left = "x", top = 5 }, { left = 0 / 0, top = 5 },
+				{ left = 5, top = math.huge }, { top = 5 } }) do
+				local ns = loadWithStore({ ui = { point = point } })
+
+				ns.UI.Show()
+
+				assert.same({ "CENTER" }, ns.UI.frame.anchors[1])
+				unloadUI()
+			end
+		end)
+
+		it("centres the frame when the screen size cannot be read", function()
+			local ns = loadWithStore({ ui = { point = { left = 100, top = 700 } } })
+			rawset(_G.UIParent, "GetHeight", function() return nil end)
+
+			ns.UI.Show()
+
+			assert.same({ "CENTER" }, ns.UI.frame.anchors[1])
+		end)
+	end)
+
 	describe("roster tab", function()
 		local categories = fixture("categories_full").categories
 
@@ -566,6 +892,90 @@ describe("UI", function()
 			ns.UI.SetTab("bogus")
 
 			assert.equals("nextup", ns.UI.tab)
+		end)
+
+		-- Today's selected tab is white text on the same red button, which reads faintly.
+		describe("selected tab", function()
+			local function stubTabHelpers()
+				_G.PanelTemplates_SelectTab = function(tab) rawset(tab, "selected", true) end
+				_G.PanelTemplates_DeselectTab = function(tab) rawset(tab, "selected", false) end
+				local resized = {}
+				_G.PanelTemplates_TabResize = function(tab, padding, absoluteSize, minWidth)
+					resized[#resized + 1] = { tab = tab, padding = padding, absoluteSize = absoluteSize,
+						minWidth = minWidth }
+				end
+				return resized
+			end
+
+			it("uses Blizzard's top tab and its select helpers when both are there", function()
+				local resized = stubTabHelpers()
+				local ns = loadWithRoster()
+				ns.UI.SetDataSource(shamanSource(ns))
+				ns.UI.Show()
+				local tabs = ns.UI.frame.tabs
+
+				assert.equals("PanelTopTabButtonTemplate", tabs[1].template)
+				assert.equals("PanelTopTabButtonTemplate", tabs[2].template)
+				assert.equals("PanelTopTabButtonTemplate", ns.UI.Describe().tabTemplate)
+				assert.is_true(tabs[1].selected)
+				assert.is_false(tabs[2].selected)
+				assert.equals(2, #resized)
+				assert.equals(80, resized[1].minWidth)
+				-- The template resizes itself on show from the parent's minTabWidth.
+				assert.equals(80, rawget(ns.UI.frame, "minTabWidth"))
+				-- Widths follow the text, so each tab hangs off the one before it.
+				assert.same({ "TOPLEFT", tabs[1], "TOPRIGHT", 4, 0 }, tabs[2].anchors[1])
+
+				ns.UI.SetTab("roster")
+				assert.is_false(tabs[1].selected)
+				assert.is_true(tabs[2].selected)
+			end)
+
+			it("falls back to the panel button with a gold underline when the template fails", function()
+				stubTabHelpers()
+				local ns = loadWithRoster()
+				local create = _G.CreateFrame
+				_G.CreateFrame = function(kind, name, parent, template)
+					if template == "PanelTopTabButtonTemplate" then error("unknown template") end
+					return create(kind, name, parent, template)
+				end
+				ns.UI.SetDataSource(shamanSource(ns))
+				ns.UI.Show()
+				local tabs = ns.UI.frame.tabs
+
+				assert.equals("UIPanelButtonTemplate", tabs[1].template)
+				assert.equals("UIPanelButtonTemplate", ns.UI.Describe().tabTemplate)
+				assert.is_nil(rawget(tabs[1], "selected"))
+				assert.is_true(tabs[1].locked)
+				assert.is_true(rawget(tabs[1], "underline").shown)
+				assert.is_false(rawget(tabs[2], "underline").shown)
+
+				ns.UI.SetTab("roster")
+				assert.is_false(rawget(tabs[1], "underline").shown)
+				assert.is_true(rawget(tabs[2], "underline").shown)
+			end)
+
+			it("falls back the same way when the select helpers are missing", function()
+				local ns = loadWithRoster()
+				ns.UI.SetDataSource(shamanSource(ns))
+				ns.UI.Show()
+				local tabs = ns.UI.frame.tabs
+
+				assert.equals("UIPanelButtonTemplate", tabs[1].template)
+				assert.is_true(rawget(tabs[1], "underline").shown)
+				assert.is_false(rawget(tabs[2], "underline").shown)
+			end)
+
+			it("keeps the selection drawn when a select helper throws", function()
+				stubTabHelpers()
+				_G.PanelTemplates_SelectTab = function() error("GetAppropriateTooltip is nil") end
+				local ns = loadWithRoster()
+				ns.UI.SetDataSource(shamanSource(ns))
+
+				assert.has_no.errors(function() ns.UI.Show() end)
+				assert.is_true(ns.UI.frame.tabs[1].locked)
+				assert.equals(11, #ns.UI.frame.rows)
+			end)
 		end)
 	end)
 end)

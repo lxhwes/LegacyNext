@@ -78,6 +78,11 @@ read_globals = {
 
 	-- UI and Debug (reached through rawget; listed so the manifest stays honest)
 	"GameTooltip",
+	"PanelTemplates_SelectTab",
+	"PanelTemplates_DeselectTab",
+	"PanelTemplates_TabResize",
+	"RAID_CLASS_COLORS",
+	"C_ClassColor",
 	"C_Timer",
 	"InCombatLockdown",
 	"UISpecialFrames",

@@ -1,8 +1,9 @@
 local _, ns = ...
 
--- SavedVariables behind an interface. Nothing else in the addon names LegacyNextDB, so a change
--- in how the client persists it -- the beta bug where SavedVariables were written but never
--- loaded back, reported fixed 2026-09-30 and unverified until S1 -- stays a one-file change.
+-- SavedVariables behind an interface. Nothing else in the addon names LegacyNextDB or
+-- LegacyNextCharDB, so a change in how the client persists them -- the beta bug where
+-- SavedVariables were written but never loaded back, reported fixed 2026-09-30 and unverified
+-- until S1 -- stays a one-file change.
 --
 -- Layout, schema 1:
 --   LegacyNextDB = {
@@ -16,13 +17,20 @@ local _, ns = ...
 -- snapshotLog and skillLineParents are additive, so schema stays 1: an older build ignores
 -- them.
 --
+-- Per character, no schema, every field optional:
+--   LegacyNextCharDB = {
+--     ui = { tab = <tab id>, filter = <Next Up group id>, point = { left = x, top = y } },
+--   }
+--
 -- Store never interprets a snapshot. Merging, validating and rendering them is Model's job.
+-- Window state is the same: UI validates it.
 ns.Store = ns.Store or {}
 local Store = ns.Store
 
 Store.SCHEMA = 1
 Store.LOG_LIMIT = 10
 local GLOBAL_NAME = "LegacyNextDB"
+local CHARACTER_GLOBAL = "LegacyNextCharDB"
 
 local db = nil
 local diagnostics = { attached = false }
@@ -216,6 +224,46 @@ function Store.GetSnapshots()
 		end
 	end
 	return out
+end
+
+-- This character's table, read from the global on every call so a table the client assigns
+-- late is the one written. Nil before attach, when the client has not assigned it yet.
+local function characterTable(create)
+	if not diagnostics.attached then
+		return nil
+	end
+	local saved = rawget(_G, CHARACTER_GLOBAL)
+	if type(saved) ~= "table" and create then
+		saved = {}
+		rawset(_G, CHARACTER_GLOBAL, saved)
+	end
+	return type(saved) == "table" and saved or nil
+end
+
+--- This character's window state, as a copy; empty when none was saved.
+function Store.GetUIState()
+	local saved = characterTable(false)
+	if not saved or type(saved.ui) ~= "table" then
+		return {}
+	end
+	return copy(saved.ui)
+end
+
+--- Sets one field of this character's window state; nil clears it. Not gated on the account
+-- schema: the read-only rule guards the alt list, and this is not part of it.
+function Store.PutUIState(name, value)
+	local saved = characterTable(true)
+	if not saved then
+		return false, "store not attached"
+	end
+	if type(name) ~= "string" then
+		return false, "bad field name"
+	end
+	if type(saved.ui) ~= "table" then
+		saved.ui = {}
+	end
+	saved.ui[name] = copy(value)
+	return true
 end
 
 function Store.Diagnostics()

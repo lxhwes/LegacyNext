@@ -263,6 +263,31 @@ Separate axis: `Enum.AddOnRestrictionType` (`Combat`, `Encounter`, `ChallengeMod
 `ADDON_RESTRICTION_STATE_CHANGED` (`RestrictedActionsDocumentation.lua:99`) are the Midnight
 secret-value machinery. They affect what `Api/` reads, not whether the frame may be shown.
 
+## 7. Tabs, class colours and window state (2026-10-01, at `966519c`, unchanged at `9a789c0`)
+
+Added for the polish pass. Tier A from source, and unseen in game until **U6**.
+
+| Symbol | Tier | Where |
+|---|---|---|
+| `PanelTopTabButtonTemplate` (inherits `PanelTabButtonTemplate`) | A | `Blizzard_SharedXML/Mainline/SharedUIPanelTemplates.xml:1006`, `:932` |
+| `PanelTemplates_SelectTab`, `PanelTemplates_DeselectTab`, `PanelTemplates_TabResize` | A | `Blizzard_SharedXML/Mainline/SharedUIPanelTemplates.lua:616`, `:598`, `:475` |
+| `RAID_CLASS_COLORS` | A | `Blizzard_SharedXML/ClassColors.lua:1` (filled from `C_ClassColor`, `:24`) |
+| `C_ClassColor.GetClassColor(className)` | A | `Blizzard_APIDocumentationGenerated/ClassColorDocumentation.lua:11`, `MayReturnNothing` |
+| Colour escape `\|cffRRGGBB…\|r` | A | `ColorUtil.lua:90-92` (`RGBToColorCode`, `Blizzard_SharedXML/ColorUtil.lua`) |
+
+Why the top tab is believed to load on Forever: it is defined in the same file as
+`UIPanelButtonTemplate` (`SharedUIPanelTemplates.xml:315`), which our filter and tab buttons
+already draw in game, and that file loads through `Blizzard_SharedXML.toc:193`. The helpers sit
+in the matching `Mainline` Lua file, which `Camelot/SharedUIPanelTemplates.lua` does not
+override. Forever's own Friends frame uses the bottom-tab parent, `PanelTabButtonTemplate`
+(`Blizzard_FriendsFrame/Camelot/FriendsFrame.xml:384`), not the top tab. If either the template
+or the helpers are missing, `UI.lua` falls back to the panel button with a gold underline, and
+`/lgn uidump` reports which one it got as `tabTemplate`.
+
+Window state (tab, Next Up filter, top-left corner) is saved per character in
+`LegacyNextCharDB.ui` through `Store.GetUIState` / `Store.PutUIState`. The corner is clamped
+onto the screen on restore, so a smaller screen or a larger UI scale cannot strand the window.
+
 ## Recommended feature-detect
 
 **Superseded 2026-09-19.** The settled scroll decision is `UIPanelScrollFrameTemplate` via

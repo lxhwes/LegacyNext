@@ -516,6 +516,10 @@ describe("Roster model", function()
 			assert.equals("roster", view.tab)
 		end)
 
+		it("puts the next reward's icon on the header, as Next Up does", function()
+			assert.equals(135614, build({ shaman }).header.icon)
+		end)
+
 		it("lists the current character first, with tree spend and unspent points", function()
 			local view = build({ zug(), shaman })
 			local characters = rows(view, "character")
@@ -719,6 +723,58 @@ describe("Roster model", function()
 			assert.truthy(view.footnote:find("3 tradeskill challenges have no saved character with the profession",
 				1, true))
 			assert.is_nil(view.footnote:find("lookup gave no answer", 1, true))
+		end)
+
+		-- S1, 2026-10-01 (spec/fixtures/roster_geo_restart.lua): the class token the frame
+		-- colours a name by, and each tradeskill challenge's own icon.
+		it("carries the captured class tokens and each tradeskill challenge's icon", function()
+			local captured = fixture("roster_geo_restart")
+			local view = Model.BuildRosterView({
+				snapshots = captured.snapshots,
+				currentKey = "Geo-Classic Beta PvP",
+				now = captured.snapshots[1].takenAt,
+				candidates = Model.ProfessionCandidates(challenges, captured.snapshots, captured.parents),
+			})
+			local characters, tradeskills = rows(view, "character"), rows(view, "tradeskill")
+
+			assert.equals("DRUID", characters[1].classToken)
+			assert.equals("SHAMAN", characters[2].classToken)
+			assert.equals(3, #tradeskills)
+			for _, row in ipairs(tradeskills) do
+				assert.equals(136240, row.icon) -- Alchemy's, on all three tiers
+				assert.is_nil(row.classToken)
+			end
+			for _, row in ipairs(characters) do
+				assert.is_nil(row.icon)
+			end
+		end)
+
+		it("leaves the class token nil unless it is a non-empty string", function()
+			local captured = fixture("roster_geo")
+			captured.snapshots[1].classToken = "" -- derived: captured "DRUID", emptied
+			captured.snapshots[2].classToken = 7 -- derived: captured "SHAMAN", varied to a non-string
+			local byKey = {}
+			for _, row in ipairs(rows(build({ captured.snapshots[1], captured.snapshots[2], zug() }), "character")) do
+				byKey[row.key] = row
+			end
+
+			assert.is_nil(byKey["Geo-Classic Beta PvP"].classToken)
+			assert.is_nil(byKey["Bong-Classic Beta PvP"].classToken)
+			assert.is_nil(byKey["Zug-Classic Beta PvP"].classToken) -- Model's own shape, which has none
+		end)
+
+		it("leaves a tradeskill row's icon nil when the challenge's is missing or empty", function()
+			byName(challenges, "Journeyman Alchemist").icon = nil -- derived: captured 136240, removed
+			byName(challenges, "Expert Alchemist").icon = "" -- derived: captured 136240, emptied
+			local snapshots = { zug(140), shaman }
+			local tradeskills = rows(build(snapshots,
+				{ candidates = Model.ProfessionCandidates(challenges, snapshots, parents) }), "tradeskill")
+
+			assert.equals(62012, tradeskills[1].id) -- Journeyman, 10 to go
+			assert.is_nil(tradeskills[1].icon)
+			assert.equals(62013, tradeskills[2].id) -- Expert
+			assert.is_nil(tradeskills[2].icon)
+			assert.equals(136240, tradeskills[3].icon) -- Artisan, untouched
 		end)
 
 		it("has an empty state and an error state", function()
