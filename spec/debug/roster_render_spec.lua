@@ -176,6 +176,25 @@ describe("Debug.RenderRoster", function()
 		assert.truthy(text:find("B-R", 1, true))
 	end)
 
+	-- The paste is for reading and for /lgn roster forget, which takes Name-Realm. The GUID is
+	-- in the RAW block for anyone who needs it.
+	it("names a GUID-keyed character by Name-Realm", function()
+		local ns = loadStack()
+		local Model = ns.Model
+		local character = fixture("dump_character_geo").character
+		character.guid = "Player-4619-012F81BC" -- taken from the D10 probe on 70170, not this capture
+		local snapshot = Model.BuildSnapshot({ character = character, now = 1000 })
+		local parents = Model.MergeSkillLineParents({ [2937] = { parentId = 171 } }, nil)
+		local challenges = fixture("dump_challenges_page1_fresh").challenges
+
+		local text = ns.Debug.RenderRoster({ roster = Model.Roster({ snapshot }, snapshot.key),
+			candidates = Model.ProfessionCandidates(challenges, { snapshot }, parents), now = 1000 })
+
+		assert.truthy(text:find("* Geo-Classic Beta PvP  L6 Druid", 1, true))
+		assert.truthy(text:find("    Geo-Classic Beta PvP  skill 1, 149 to go", 1, true))
+		assert.is_nil(text:find("Player-", 1, true))
+	end)
+
 	it("dates a part carried over from an earlier snapshot", function()
 		local ns = loadStack()
 		local Model = ns.Model

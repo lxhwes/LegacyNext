@@ -120,14 +120,28 @@ function ns.TakeSnapshot(trigger, fromCommand)
 		if not fresh then
 			return "skipped: " .. tostring(reason), tostring(reason)
 		end
-		local merged = Model.MergeSnapshot(Store.GetSnapshot(fresh.key), fresh)
+		-- The Name-Realm row is read only when a move could happen: a GUID key with no row yet.
+		local stored = Store.GetSnapshot(fresh.key)
+		local legacyKey = Model.LegacyCharacterKey(fresh)
+		local legacy
+		if stored == nil and legacyKey and legacyKey ~= fresh.key then
+			legacy = Store.GetSnapshot(legacyKey)
+		end
+		local plan = Model.PlanSnapshot(fresh, stored, legacy)
+		local merged = plan.snapshot
 		local written, writeReason = Store.PutSnapshot(fresh.key, merged)
 		ns.currentKey = fresh.key
 		if not written then
 			return "not written: " .. tostring(writeReason), tostring(writeReason)
 		end
-		-- A part that failed to read was kept from before; say which, and why.
+		-- Forgotten only after the GUID row is written, so a failed write loses nothing.
 		local notes = {}
+		if plan.forget then
+			local forgot, forgetReason = Store.Forget(plan.forget)
+			notes[#notes + 1] = forgot and ("migrated from " .. plan.forget)
+				or ("copied from " .. plan.forget .. ", not forgotten: " .. tostring(forgetReason))
+		end
+		-- A part that failed to read was kept from before; say which, and why.
 		for _, part in ipairs({ "trees", "professions" }) do
 			local partReason = merged[part .. "Reason"]
 			if partReason then
@@ -308,7 +322,7 @@ local function usage()
 	print("  /lgn uidump [category]   what the Next Up tab would show, as copyable text")
 	print("  /lgn uidump roster       the same for the Roster tab")
 	print("  /lgn roster              every saved character and tradeskill candidates, as text")
-	print("  /lgn roster forget <Name-Realm>   drop a deleted alt from the roster")
+	print("  /lgn roster forget <Name-Realm>   drop a deleted alt from the roster (or name its saved key)")
 	print("  /lgn probe               one line per API: ok / partial / nil / missing / error / secret / skipped")
 	print("  /lgn dump                everything Api returns, as a Lua literal")
 	print("  /lgn dump <section>      one of: " .. table.concat(ns.Debug.sections, ", "))
@@ -330,7 +344,12 @@ SlashCmdList["LEGACYNEXT"] = function(input)
 	elseif command == "roster" then
 		local sub, key = string.match(rest, "^(%S*)%s*(.-)$")
 		if string.lower(sub) == "forget" then
-			local ok, reason = ns.Store.Forget(key)
+			-- Name-Realm or a stored key. Rows are GUID-keyed, but nobody types a GUID.
+			local stored, reason = ns.Model.ForgetKey(key, ns.Store.GetSnapshots())
+			local ok = false
+			if stored then
+				ok, reason = ns.Store.Forget(stored)
+			end
 			say(ok and ("forgot " .. key) or ("not forgotten: " .. tostring(reason)))
 		else
 			ns.Debug.Roster()

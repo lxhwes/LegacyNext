@@ -590,9 +590,10 @@ function Debug.RenderRoster(input)
 
 	local roster = input.roster or { rows = {} }
 	w("== CHARACTERS (" .. #roster.rows .. ") ==")
+	-- Name-Realm, never the key: rows are GUID-keyed, and forget takes Name-Realm. RAW has keys.
 	for _, row in ipairs(roster.rows) do
 		local age = minutesAgo(input.now, row.takenAt)
-		w(("%s%s  L%s %s%s"):format(row.key == roster.currentKey and "* " or "  ", row.key,
+		w(("%s%s  L%s %s%s"):format(row.key == roster.currentKey and "* " or "  ", ns.Model.CharacterLabel(row, true),
 			tostring(row.level), tostring(row.class), age and ("  " .. age) or ""))
 		w("    " .. treeText(row) .. keptNote(row, "trees", input.now))
 		w("    " .. professionText(row.professions) .. keptNote(row, "professions", input.now))
@@ -622,7 +623,7 @@ function Debug.RenderRoster(input)
 			w("    no stored character has this profession")
 		end
 		for _, candidate in ipairs(entry.candidates) do
-			w(("    %s  skill %s, %s to go%s"):format(tostring(candidate.key), tostring(candidate.skill),
+			w(("    %s  skill %s, %s to go%s"):format(ns.Model.CharacterLabel(candidate, true), tostring(candidate.skill),
 				tostring(candidate.remaining), candidate.reached and "  (already reached)" or ""))
 		end
 	end

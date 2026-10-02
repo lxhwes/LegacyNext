@@ -15,6 +15,9 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 - Blizzard's top tabs for Next Up and Roster, so the selected one stands out.
 - Achievement icons on Next Up and tradeskill rows, and the next reward's icon in the header.
 - Roster names in class colours, with the current character tinted.
+- The roster keys each character by its GUID, so a name change between builds no longer splits
+  one character into two rows. A character saved under `Name-Realm` moves to its GUID the next
+  time it logs in. `/lgn roster forget` still takes `Name-Realm`. **Not yet run in game.**
 
 - Tagged releases: a pushed `v*` tag is linted, tested and packaged into a GitHub release, and
   the tag becomes `## Version`. A copy straight from the repo reports its version as `dev`.

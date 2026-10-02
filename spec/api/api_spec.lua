@@ -462,6 +462,62 @@ describe("Api", function()
 		end)
 	end)
 
+	-- Trivial stubs: the guard on the roster key, not UnitGUID's shape.
+	describe("GetCharacterInfo guid", function()
+		local function character(guid)
+			inject("UnitClass", function() return "Druid", "DRUID", 11 end)
+			inject("UnitGUID", guid)
+			return loadApi().Api.GetCharacterInfo()
+		end
+
+		it("reads the player's GUID", function()
+			local asked
+			local info = character(function(unit)
+				asked = unit
+				return "Player-1-00000001"
+			end)
+
+			assert.equals("player", asked)
+			assert.equals("Player-1-00000001", info.guid)
+			assert.is_nil(info.guidReason)
+		end)
+
+		it("still returns the character, with a reason, when UnitGUID is missing", function()
+			local info = character(nil)
+
+			assert.equals("Druid", info.class)
+			assert.is_nil(info.guid)
+			assert.equals("UnitGUID missing", info.guidReason)
+		end)
+
+		it("drops a secret GUID", function()
+			local secret = "Player-1-00000001"
+			inject("issecretvalue", function(value) return value == secret end)
+
+			local info = character(function() return secret end)
+
+			assert.is_nil(info.guid)
+			assert.equals("UnitGUID secret", info.guidReason)
+		end)
+
+		it("drops a GUID that is not a non-empty string", function()
+			assert.equals("UnitGUID returned an empty string", character(function() return "" end).guidReason)
+			assert.equals("UnitGUID returned nil", character(function() return nil end).guidReason)
+			assert.is_nil(character(function() return 7 end).guid)
+		end)
+
+		-- D10, 70170: the second return is the surname, never the realm.
+		it("takes the realm from GetRealmName, not from UnitName's second return", function()
+			inject("UnitName", function() return "First", "Last" end)
+			inject("GetRealmName", function() return "Realm" end)
+
+			local info = character(function() return "Player-1-00000001" end)
+
+			assert.equals("First", info.name)
+			assert.equals("Realm", info.realm)
+		end)
+	end)
+
 	describe("GetServerTime", function()
 		it("returns nil and a reason when the function is missing", function()
 			local Api = loadApi().Api

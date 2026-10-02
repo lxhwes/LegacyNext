@@ -64,8 +64,9 @@ GetProfessionInfo
 GetProfessions
 ProfessionInfo
 parentProfessionID
-# The roster key is Name-Realm, and Forever names gained a surname: UnitName read
-# "Bong Wrip" on 69913 and "Bong" on 70124 for one character (D10 probes all four).
+# The roster key is UnitGUID, with Name-Realm as the fallback and for rows saved before it.
+# Forever names gained a surname: UnitName read "Bong Wrip" on 69913 and "Bong" on 70124 for
+# one character (D10 probes all four).
 UnitName
 UnitFullName
 UnitNameUnmodified
