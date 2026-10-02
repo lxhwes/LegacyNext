@@ -22,7 +22,8 @@ local _, ns = ...
 --
 -- Per character, no schema, every field optional:
 --   LegacyNextCharDB = {
---     ui = { tab = <tab id>, filter = <Next Up group id>, point = { left = x, top = y } },
+--     ui = { tab = <tab id>, filter = <Next Up group id>, point = { left = x, top = y },
+--            size = { width = w, height = h } },
 --   }
 --
 -- Store never interprets a snapshot. Merging, validating and rendering them is Model's job.

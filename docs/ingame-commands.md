@@ -20,6 +20,8 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
+| S2 | Install `main` (after `e513d27`), log in on **Geo** first, then `/lgn roster` and paste it. Then log in on **Bong** and `/lgn roster` again. Section S2 below | Whether a stored `Name-Realm` row moves to the GUID on that character's login, keeping its professions and tree spend, with one row per character after | 2 min |
+| U8 | With the same install, open `/lgn`, then `/lgn uidump` and paste it; drag the corner grip; `/reload`. Section U8 below | Whether the resize grip draws and works, the bounds hold, the layout follows the size, and the size comes back | 2 min |
 | C2 | **Partly answered 2026-10-01**: `CRITERIA_UPDATE` fires on an Alchemy skill-up, and none of the other four did. Still open: the four that need a completion or a spent point. `/etrace` during the C4 session for `ACHIEVEMENT_EARNED`, and the C1 session for `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED` and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED`. Section C2 below | Whether the frame's `ACHIEVEMENT_EARNED` refresh ever fires on Forever, and whether trait and faction events are worth adding | Free with C1 and C4 |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees**, then `/lgn dump trees` | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
@@ -63,6 +65,41 @@ over `_classic_beta_/Interface/AddOns/LegacyNext/`, then `/reload`. If the clien
 error, paste the first one. It stops reporting after 100.
 
 ---
+
+## S2 — the GUID move
+
+1. Log in on Geo. Run `/lgn roster` and paste the whole window.
+2. Log out to Bong. Run `/lgn roster` again and paste it.
+3. `/reload` on Bong and run `/lgn roster` once more. Only say whether a new "migrated" line
+   appeared.
+
+What I am reading it for:
+
+- On Geo's login, the session log reads `PLAYER_LOGIN -> written; migrated from Geo-Classic
+  Beta PvP`. The RAW block has one Geo row, keyed by Geo's GUID (D10 read
+  `Player-4619-012F81BC`), with `name = "Geo"` and the realm. Alchemy, Herbalism, Cooking and
+  the tree spend are still there.
+- The character lines and the Roster tab say `Geo`, never a `Player-` string.
+- After Bong's login, the same for Bong, and the roster shows exactly two characters.
+- No second "migrated" line after the `/reload`.
+- Any `Bong Wrip-…` key left in the RAW block. That is a 69913-era row, which does not move by
+  design. Say so and I will give you the forget command.
+
+## U8 — the resize grip
+
+1. `/lgn`, then `/lgn uidump`. Paste it.
+2. Look at the bottom-right corner. Is there a small grip, clear of the scroll bar's down arrow?
+   Does the cursor change over it?
+3. Drag it bigger, then as small as it goes. Does the top-left corner stay put? Does it stop at
+   a minimum? Does the filter bar re-wrap and the right-hand columns follow the edge? Any Lua
+   error?
+4. Leave it at an odd size and `/reload`. Did the size come back?
+
+What I am reading it for: the uidump's `== CLIENT ==` frame line reading `resize =
+"SetResizeBounds"`, `grip = "PanelResizeButtonTemplate"`, `resizable = true` and the live
+`width` and `height`. A missing grip with `resizable = false` means the client lacks the resize
+methods, and the window stays fixed, which is the designed fallback. In combat and after a
+relog are worth one try each if it is quick.
 
 ## C2 — events, via `/etrace`
 

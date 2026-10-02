@@ -1,10 +1,12 @@
 # Status
 
-Last updated 2026-10-01.
+Last updated 2026-10-01, late evening.
 
-**Released, 2026-10-01 late evening (2026-10-02 UTC): `v0.1.0-beta1` is on CurseForge** (project
-1721646, Beta) and on GitHub as a pre-release, built from `02ac5c9`. The GUID roster key and
-the resizable window are in progress on their own branches and are not in it.
+**Where we are, 2026-10-01, late evening: `v0.1.0-beta1` is on CurseForge, and the GUID roster
+key and the resizable window are merged but unseen in game.** The release (project 1721646,
+Beta, and a GitHub pre-release) was built from `02ac5c9`, before either merge. 314 tests, none
+pending. Open in game: **S2** (the GUID move on login) and **U8** (the resize grip), one
+session of a few minutes, then `v0.1.0-beta2`. C1, C4 and the rest of C2 need real play.
 
 **As of 2026-10-01, evening: D10 and C3 are closed, and the polish pass, the minimap
 entry and the key binding have been seen working in game.** On 70170 the probe found no
@@ -60,14 +62,32 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 Blocking: nothing. ~~**D10**'s name rows~~ and ~~**C3**~~ both closed 2026-10-01. Not
 blocking: **C2**. ~~**U2**~~, ~~**U5**~~, ~~**U6**~~ and ~~**U7**~~ closed 2026-10-01. The queue is `docs/ingame-commands.md`.
 
-## Roster key — open, 2026-10-01, evening
+## Roster key — ~~open~~ decided and built, 2026-10-01, evening
 
 D10 answered the question this was waiting on. The roster keys characters as `Name-Realm`,
 from `UnitName`'s first return and `GetRealmName`. That first return held the full name on
 69913 and the first name from 70124, so one character can already split into two rows across
 builds. `UnitGUID("player")` reads a `Player-` string with no secret on 70170. Keying by GUID
 would survive name changes, at the cost of a SavedVariables migration for rows already
-stored. Not decided. It touches `Api`, `Store` and `Model/Roster`, so it needs Alex's go-ahead.
+stored. ~~Not decided. It touches `Api`, `Store` and `Model/Roster`, so it needs Alex's go-ahead.~~
+Alex said go the same evening. Characters are now keyed by GUID, with `Name-Realm` as the
+fallback when the GUID cannot be read. A character's old `Name-Realm` row moves to its GUID at
+that character's own login, and is forgotten only after the new row is written. An alt that has
+not logged in keeps its old key. Only an exact `Name-Realm` match moves, so a row saved under a
+full name from 69913 (`Bong Wrip-…`) would need `/lgn roster forget`, which now takes a
+`Name-Realm` or a stored key. The roster never displays a GUID. 30 tests. **S2** checks the
+move in game.
+
+## Resizable window — 2026-10-01, late evening
+
+Alex's backlog item, built the same evening. A grip in the bottom-right corner, Blizzard's
+`PanelResizeButtonTemplate` with a plain-button fallback, sizes the frame through
+`SetResizeBounds`, feature-detected, between 400x360 and the screen. The filter bar, rows and
+footnote re-lay out within 0.1 s of a size change without re-reading data. The size is saved per
+character next to the position and restored clamped. The list's bottom inset grew 6 px so the
+scroll bar's down arrow clears the grip. The 400 px minimum rests on an estimated 7 px per
+character, not a measurement. 19 tests, citations in `docs/ui-templates.md` section 8. **U8**
+checks it in game.
 
 ## Polish pass — 2026-10-01, evening
 
@@ -782,7 +802,8 @@ that are currently known to be false or unverified.
 - [x] **U2** — whether long names get `...` or need the tooltip alone. They get it, 2026-10-01
 - [ ] **C2** — whether the achievement events fire; the frame registers them regardless
 - [ ] Competition recheck immediately before release
-- [ ] **Resizable main window** (Alex, 2026-10-01). Not started. The frame is a fixed 520x480
+- [x] **Resizable main window** (Alex, 2026-10-01). ~~Not started.~~ Built and merged the same
+      evening; U8 checks it in game. The frame is a fixed 520x480
       (`UI/UI.lua:15`), and the scroll child's width and the on-screen position clamp both derive
       from those constants, so both need to follow the live size. The size would be saved per
       character through `Store` into `LegacyNextCharDB`, next to the position
