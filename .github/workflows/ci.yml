@@ -8,6 +8,10 @@ on:
   # release.yml calls this file, so a tag passes the gate CI enforces, not a copy of it.
   workflow_call:
 
+# Fork PRs run this too; nothing here needs to write.
+permissions:
+  contents: read
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest

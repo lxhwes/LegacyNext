@@ -45,7 +45,7 @@ TOC's interface number, so the "build tools bump" concern is not a packager conc
 Commands, in a throwaway clone so the real checkout was untouched:
 
 ```sh
-git clone /Users/alex/code/legacynext $TMPDIR/lgn-pack
+git clone . $TMPDIR/lgn-pack
 cd $TMPDIR/lgn-pack && git tag v0.0.1-drytest
 /opt/homebrew/bin/bash $TMPDIR/release.sh -d -e -r $TMPDIR/lgn-release
 unzip -l $TMPDIR/lgn-release/LegacyNext-v0.0.1-drytest-forever.zip
@@ -183,7 +183,8 @@ Also seen in that run:
   comparing against the token, which would be rewritten too.
 - The zip's `CHANGELOG.md` is generated from git history (the whole log, as no earlier tag
   exists). The hand-written file is copied, then overwritten. A manual changelog is used only
-  when `.pkgmeta` sets `manual-changelog` (lines 1039, 2422). Not decided.
+  when `.pkgmeta` sets `manual-changelog` (lines 1039, 2422). ~~Not decided.~~ Set 2026-10-02
+  (Open, below).
 - `.claude/` is absent from the zip. Line 1829 prunes every dot-path before `ignore` is read.
 - The BSD `sed` warning from §2 appeared again.
 
@@ -209,8 +210,12 @@ repos/McTalian-WoW-Addons/wow-build-tools/commits`). The earlier note that it wo
   skipped it was not recorded. `.claude` is being added to the ignore list on 2026-09-19; the
   next dry run should confirm it is absent from the zip.~~ Confirmed absent 2026-09-30 (§4).
   The packager prunes dot-paths before reading `ignore`.
-- The zip ships a generated `CHANGELOG.md`, not the hand-written one, unless `.pkgmeta` sets
-  `manual-changelog` (§4).
+- ~~The zip ships a generated `CHANGELOG.md`, not the hand-written one, unless `.pkgmeta` sets
+  `manual-changelog` (§4).~~ Set 2026-10-02, Alex's call before the repo goes public:
+  `manual-changelog` with `filename: CHANGELOG.md` and `markup-type: markdown`. At `e50a250`,
+  the `@v2` the release runs, the packager reads both keys (`release.sh:1091-1101`), uses the
+  file when it exists (`:2422`), and sends it whole as the GitHub release body (`:3273`) and the
+  CurseForge changelog. The first tag after this is the check.
 - ~~The first real `v*` tag is the check for the GitHub release. The first upload with a project
   ID and `CF_API_KEY` is the check for CurseForge.~~ Both passed on `v0.1.0-beta1`, release run
   `36951662458` (`gh run view 36951662458 --log`). The log reads `Uploading

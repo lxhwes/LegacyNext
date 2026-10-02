@@ -4,10 +4,26 @@ All notable changes to LegacyNext are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) as described under Versioning below.
 
-LegacyNext targets the World of Warcraft: Forever beta. Every entry is verified against client
-build 1.60.1 (69913), interface 16001, unless it says otherwise.
+LegacyNext targets the World of Warcraft: Forever beta, interface 16001. Each release names the
+client build it was verified against.
 
 ## [Unreleased]
+
+### Added
+
+- The window can be resized from its bottom-right corner, and keeps its size for each
+  character. **Not yet seen in game.**
+
+### Changed
+
+- The roster keys each character by its GUID, so a name change between builds no longer splits
+  one character into two rows. A character saved under `Name-Realm` moves to its GUID the next
+  time it logs in. `/lgn roster forget` takes a `Name-Realm` or a stored key. **Not yet run in
+  game.**
+
+## [0.1.0-beta1] - 2026-10-02
+
+Verified against client build 1.60.1 (70170).
 
 ### Added
 
@@ -15,23 +31,17 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 - Blizzard's top tabs for Next Up and Roster, so the selected one stands out.
 - Achievement icons on Next Up and tradeskill rows, and the next reward's icon in the header.
 - Roster names in class colours, with the current character tinted.
-- The roster keys each character by its GUID, so a name change between builds no longer splits
-  one character into two rows. A character saved under `Name-Realm` moves to its GUID the next
-  time it logs in. `/lgn roster forget` still takes `Name-Realm`. **Not yet run in game.**
-
 - Tagged releases: a pushed `v*` tag is linted, tested and packaged into a GitHub release, and
   the tag becomes `## Version`. A copy straight from the repo reports its version as `dev`.
 - Roster tab (v1): the window has a second tab listing every saved character with Legacy points
   spent per tree and points unspent, then each tradeskill challenge a saved character has the
   profession for, closest character first. Next Up's tooltip on a tradeskill row names the saved
-  characters with that profession. `/lgn uidump roster` prints the tab as text. **Not yet seen
-  in game.**
+  characters with that profession. `/lgn uidump roster` prints the tab as text.
 - Roster groundwork (v1): each character's class, level, professions and Legacy tree spend is
-  saved at login, at logout, and after a level-up, skill or talent change. `/lgn roster` lists
-  every saved character and, for each tradeskill challenge, which of them is closest.
-  `/lgn roster forget <Name-Realm>` removes a deleted character. **Not yet run in game.**
-  Written against build 1.60.1 (70009), and it depends on SavedVariables loading back, which
-  Blizzard reports fixed and we have not confirmed.
+  saved at login and after a level-up, skill or talent change. The game does not return
+  professions or tree spend at logout, so a logout snapshot keeps the stored ones. `/lgn roster`
+  lists every saved character and, for each tradeskill challenge, which of them is closest.
+  `/lgn roster forget <Name-Realm>` removes a deleted character.
 - `/lgn` and `/legacynext` open the Next Up window: incomplete Legacy challenges ranked by
   closeness to completion. Each row shows the name, category, points awarded and criteria
   remaining. `/lgn help` lists the commands.
@@ -71,8 +81,10 @@ build 1.60.1 (69913), interface 16001, unless it says otherwise.
 SemVer `0.x.y` while Forever is in beta; `1.0.0` is the release that targets Forever's launch
 build on 2026-11-04. The client build is not encoded in the version string. One addon version
 is expected to outlive several beta builds, so each release entry names the build it was
-verified against instead. `LegacyNext.toc` should carry `## Version: @project-version@`, which
-the packager replaces with the git tag at build time, so the tag is the version. The TOC has
-carried the token since 2026-09-30. The first upload is tagged `v0.1.0`.
+verified against instead. `LegacyNext.toc` carries `## Version: @project-version@`, which
+the packager replaces with the git tag at build time, so the tag is the version. Beta builds
+are tagged `-betaN` and upload to CurseForge as beta releases. The first upload was
+`v0.1.0-beta1`.
 
-[Unreleased]: https://github.com/lxhwes/LegacyNext/commits/main
+[Unreleased]: https://github.com/lxhwes/LegacyNext/compare/v0.1.0-beta1...HEAD
+[0.1.0-beta1]: https://github.com/lxhwes/LegacyNext/releases/tag/v0.1.0-beta1

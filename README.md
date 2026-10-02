@@ -8,16 +8,17 @@
 
 <p align="center">
   <a href="https://github.com/lxhwes/LegacyNext/actions/workflows/ci.yml"><img src="https://github.com/lxhwes/LegacyNext/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/lxhwes/LegacyNext/releases"><img src="https://img.shields.io/github/v/release/lxhwes/LegacyNext?include_prereleases&label=release&style=flat-square&labelColor=1B2740&color=4A5878" alt="Latest release"></a>
+  <a href="https://www.curseforge.com/wow/addons/legacynext"><img src="https://img.shields.io/badge/CurseForge-LegacyNext-F2B33D?style=flat-square&labelColor=1B2740" alt="LegacyNext on CurseForge"></a>
   <img src="https://img.shields.io/badge/WoW%3A%20Forever-1.60.1%20beta-F2B33D?style=flat-square&labelColor=1B2740" alt="WoW: Forever 1.60.1 beta">
   <img src="https://img.shields.io/badge/Interface-16001-FFD98A?style=flat-square&labelColor=1B2740" alt="Interface 16001">
-  <img src="https://img.shields.io/badge/Lua-5.1-4A5878?style=flat-square&labelColor=1B2740" alt="Lua 5.1">
-  <img src="https://img.shields.io/badge/status-v0%20in%20development-4A5878?style=flat-square&labelColor=1B2740" alt="Status: v0 in development">
   <a href="https://github.com/lxhwes/LegacyNext/blob/main/LICENSE"><img src="https://img.shields.io/badge/licence-MIT-F2B33D?style=flat-square&labelColor=1B2740" alt="MIT licence"></a>
 </p>
 
 Shows which of your Legacy challenges in World of Warcraft: Forever are closest to done.
 Open it and the challenges you have started are listed closest-first, with your reward track
-at the top.
+at the top. A second tab lists your characters and which of them is closest to each
+tradeskill challenge.
 
 ## What it does
 
@@ -30,56 +31,63 @@ at the top.
 - Filters the list by the game's own Legacy categories.
 - Shows your reward track: current Legacy points, points to the next reward, and that reward's
   name.
+- Remembers every character you log in with: class, level, professions, and Legacy points
+  spent per tree and unspent. The Roster tab lists them, then each tradeskill challenge one of
+  them has the profession for, closest character first.
 
 ## The window
 
-Layout, with the numbers a fresh character sees:
+Layout of the Next Up tab, with the numbers a fresh Shaman sees:
 
 ```
-┌────────────────────────────────────────┐
-│ Legacy Track  ·  0 pts  ·  15 to next  │
-│ Next: Replica Ironforge Air Rifle      │
-├────────────────────────────────────────┤
-│ [All] Class Prof PvP Rep Dung Raid     │
-├────────────────────────────────────────┤
-│ ──────────── not started ───────────── │
-│ Journeyman Alchemist        0/150  1pt │
-│ Expert Alchemist            0/225  1pt │
-│ Novice Spelunker              0/6  1pt │
-│ Master of Alterac Valley  0/42000  1pt │
-│ ───────── no progress shown ────────── │
-│ Novice Shaman                      1pt │
-│ Rank 3                             1pt │
-│ 24 other-class challenges hidden       │
-└────────────────────────────────────────┘
+  Next Up  Roster
+┌──────────────────────────────────────────────────────────┐
+│ Legacy Track  ·  0 pts  ·  15 to next                    │
+│ Next: Replica Ironforge Air Rifle                        │
+├──────────────────────────────────────────────────────────┤
+│ [All (41)]  Classes (3)  Tradeskills (18)  Dungeons (3)  │
+│ Raids (3)  Player vs. Player (12)  Adventure (2)         │
+├──────────────────────────────────────────────────────────┤
+│ ───────────────────── not started ────────────────────── │
+│ Journeyman Alchemist                          0/150  1pt │
+│ Expert Alchemist                              0/225  1pt │
+│ Novice Spelunker                                0/6  1pt │
+│ Master of Alterac Valley                    0/42000  1pt │
+│ ────────────────── no progress shown ─────────────────── │
+│ Novice Shaman                                        1pt │
+│ Rank 3                                               1pt │
+│ 24 other-class challenges hidden                         │
+└──────────────────────────────────────────────────────────┘
 ```
 
-Rows are text, one line each, under a divider for each group. A fresh character starts with
-nothing in progress, so the list opens at "not started". Those rows stay in the game's own
-category order, because zero progress says nothing about which is closest. The "no progress
-shown" divider matters too: those challenges expose no progress at all through the game's
-API, so they sit below it rather than being drawn as 0%.
+Each row is one line of text with the challenge's icon, under a divider for its group. A fresh
+character starts with nothing in progress, so the list opens at "not started". Those rows stay
+in the game's own category order, because zero progress says nothing about which is closest.
+The "no progress shown" divider matters too. Those challenges expose no progress at all
+through the game's API, so they sit below it rather than being drawn as 0%.
+
+The window keeps its tab, filter and position for each character.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `/lgn` or `/legacynext` | Open or close the window. It has two tabs, Next Up and Roster. Escape closes it |
+| `/lgn` or `/legacynext` | Open or close the window. Escape closes it |
 | `/lgn show` / `/lgn hide` | The same, without the toggle |
 | `/lgn help` | List every command |
+| `/lgn roster` | The Roster tab's data as copyable text |
+| `/lgn roster forget <Name-Realm>` | Remove a deleted character from the roster |
 | `/lgn uidump [category]` | What the Next Up tab would show, as copyable text. `/lgn uidump roster` does the same for the Roster tab |
 | `/lgn probe` | One line per API call: ok, partial, nil, missing, error, secret, skipped |
 | `/lgn dump [section] [page]` | Everything the addon reads, as a Lua literal |
-| `/lgn roster` | Preview of v1: every character this addon has seen, their Legacy tree spend and professions, and which of them is closest to each tradeskill challenge. As text for now |
-| `/lgn roster forget <Name-Realm>` | Remove a deleted character from the roster |
 
 The window also opens from the minimap's addon dropdown, the small numbered button under the
-calendar. Click LegacyNext there to open or close it. The dropdown lists only addons enabled
-for all characters, so if LegacyNext is missing, check the character dropdown in the AddOns
-list.
+calendar, and from a key binding under Key Bindings > AddOns. The dropdown lists only addons
+enabled for all characters, so if LegacyNext is missing there, check the character dropdown in
+the AddOns list.
 
-`uidump`, `probe` and `dump` are for bug reports. Paste their output into an issue and it says exactly what
-the client handed back.
+`uidump`, `probe` and `dump` are for bug reports. Paste their output into an issue and it says
+exactly what the client handed back.
 
 ## What it does not do
 
@@ -89,9 +97,11 @@ the client handed back.
 - It never touches your Legacy trees. LegacyNext only reads. It never calls a purchase, reset or
   commit API, so it cannot spend, refund or move a point.
 
-## Installing on the Forever beta
+## Installing
 
-The beta client lives in `_classic_beta_`, so the addon folder is
+Install it from [CurseForge](https://www.curseforge.com/wow/addons/legacynext), or download the
+zip from [GitHub Releases](https://github.com/lxhwes/LegacyNext/releases) and unzip it into
+the AddOns folder. The beta client lives in `_classic_beta_`, so the folder is
 
     World of Warcraft/_classic_beta_/Interface/AddOns/LegacyNext/
 
@@ -103,11 +113,8 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
 
 - This is a beta client. Blizzard's challenge, category and criteria IDs change between builds.
   LegacyNext hardcodes none of them, but a new build can still change what the game reports.
-  Verified against build 1.60.1 (69913).
-- The roster depends on saved data. On the beta, saved data was written but never loaded back
-  (a Blizzard-side bug). Blizzard reports it fixed as of 2026-09-30, but LegacyNext has not
-  confirmed that yet. If `/lgn roster` only ever lists the character you're on, the bug is
-  still there. Next Up keeps no saved data and is unaffected.
+  Verified against build 1.60.1 (70170).
+- The roster knows a character only once it has logged in with LegacyNext enabled.
 - 34 challenges expose no progress through the game's API: class levelling, the PvP ranks and a
   few others. They sit under a "no progress shown" divider instead of being scored as 0%.
 - Other classes' challenges are recognised by matching your class name against the game's
@@ -120,8 +127,8 @@ in-game AddOns list, check that it went under `_classic_beta_` and not `_retail_
 
 | | Version | What |
 |---|---|---|
-| ▰▰▰▱ | **v0 "Next Up"** | The ranked list, category filter and reward track above |
-| ▰▱▱▱ | v1 "Roster" | A snapshot of each character on login and logout (class, level, professions, points spent per tree, unspent points), a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Class-levelling challenges get no match: the game doesn't give addons their level to read. Started: the window's Roster tab lists every saved character and the tradeskill challenges each is closest to. Not yet seen in game |
+| ▰▰▰▰ | **v0 "Next Up"** | The ranked list, category filter and reward track above. Released in 0.1.0-beta1 |
+| ▰▰▰▱ | **v1 "Roster"** | A snapshot of each character, a view of every alt, and a match from profession challenge to alt ("your Alchemist is 20 skill from this"). Released in 0.1.0-beta1. Next: keying characters by their GUID, so a name change between builds no longer splits one character into two rows. Class-levelling challenges get no match, because the game doesn't tell addons what level each one needs |
 
 Changes are listed in [CHANGELOG.md](https://github.com/lxhwes/LegacyNext/blob/main/CHANGELOG.md).
 
@@ -134,3 +141,6 @@ challenge name. Contributors: setup, tests and the in-game data workflow are in
 ## Licence
 
 MIT. See [LICENSE](https://github.com/lxhwes/LegacyNext/blob/main/LICENSE).
+
+World of Warcraft is a trademark of Blizzard Entertainment. LegacyNext is a fan-made addon,
+not affiliated with or endorsed by Blizzard.

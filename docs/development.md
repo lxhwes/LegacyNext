@@ -61,9 +61,8 @@ Expect zero warnings and a green suite. CI does the same thing on Lua 5.1 via
 
 ## Working on this
 
-The addon cannot be run outside the game, and SavedVariables were broken on the beta (reported
-fixed 2026-09-30, unverified until queue row S1). So anything needing live data comes back
-through a slash command — see `docs/ingame-commands.md`.
+The addon cannot be run outside the game, so anything needing live data comes back through a
+slash command. The queue of open questions for the live client is `docs/ingame-commands.md`.
 Captured output becomes a fixture in `spec/fixtures/`; we never invent a response shape.
 
 Four commands exist for that:
@@ -95,7 +94,7 @@ text verbatim and refuses to write without provenance:
 `/lgn dump` output is already a `return { ... }` literal. It goes into `spec/fixtures/` with a
 provenance header, following `spec/fixtures/README.md`.
 
-**An in-game script is parse-checked before Alex gets it.** This covers both the multi-line form
+**An in-game script is parse-checked before anyone runs it in the client.** This covers both the multi-line form
 and a copy with the newlines stripped:
 
 ```sh
@@ -136,3 +135,10 @@ hand.
 Copy or symlink `LegacyNext/` (the inner folder, the one holding `LegacyNext.toc`) into
 `_classic_beta_/Interface/AddOns/`. Type `/reload` after any change; `ReloadUI()` is protected
 on this client so it cannot be called from a script.
+
+## Pull requests
+
+CI runs the lint and the suite on every push and pull request, and both must pass. Commits use
+conventional-commit subjects (`fix(model): ...`), with a test before the code it covers. Read
+the hard constraints in `CLAUDE.md` before touching `Api/`: the addon only reads, and never
+hardcodes an achievement, category or criteria ID.
