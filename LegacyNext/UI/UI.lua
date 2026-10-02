@@ -2,8 +2,8 @@ local _, ns = ...
 
 -- The v0 frame. Reads from Model, never from Api: Core hands in a data source that returns
 -- the Model.BuildView input, and everything drawn here comes out of that view. v0 is a
--- standalone frame; we do not hook Blizzard frames. The tab, filter and position are saved
--- per character through Store.
+-- standalone frame; we do not hook Blizzard frames. The tab, filter, position and size are
+-- saved per character through Store.
 --
 -- Templates and font objects are cited in docs/ui-templates.md at pin 70ef1b2. Every one is
 -- feature-detected here anyway: a missing template falls back to a plain frame rather than an
@@ -12,7 +12,14 @@ ns.UI = ns.UI or {}
 local UI = ns.UI
 
 local FRAME_NAME = "LegacyNextFrame"
+-- The designed size, and the size a first open or an unusable save gets.
 local WIDTH, HEIGHT = 520, 480
+-- The smallest size the layout survives. At 400 wide a name keeps 228 px after the icon and the
+-- two value columns, which at an estimated 7 px a character fits the longest name in the
+-- uidump goldens (29 characters). The header lines clip with an ellipsis (U2), the two tabs
+-- need under 200 px and the filter bar wraps. At 360 tall, with three rows of filters, about
+-- nine list rows still show.
+local MIN_WIDTH, MIN_HEIGHT = 400, 360
 local ROW_HEIGHT = 16
 local PAD = 12
 local FIGURE_WIDTH = 64
@@ -22,6 +29,20 @@ local ICON_SIZE = 14
 local ICON_GAP = 4
 -- The row kinds whose view rows carry an icon.
 local ICON_KINDS = { challenge = true, tradeskill = true }
+-- Width of the scroll bar column right of the list.
+local SCROLLBAR_WIDTH = 22
+
+-- The resize grip: Blizzard's template (SharedUIPanelTemplates.xml:1642 at 9a789c0, 16 px),
+-- or a button drawn with the same chat size-grabber art (:1650-1652) when it is missing.
+local GRIP_TEMPLATE = "PanelResizeButtonTemplate"
+local GRIP_SIZE = 16
+local GRIP_ART = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
+-- The list's bottom inset with a grip. The scroll bar's down button hangs 16 px below the bar
+-- (SecureScrollTemplates.xml:18-21, :48-49), so at the usual PAD it would sit under the grip.
+local GRIP_LIST_BOTTOM = GRIP_SIZE + 2
+-- OnSizeChanged fires on every frame of a drag, so the relayout runs at most once in this many
+-- seconds, and at once on release.
+local RELAYOUT_DELAY = 0.1
 
 -- A rebuild is a ~900-call sweep, 21 ms on the U1 read. CRITERIA_UPDATE fires for every
 -- criterion in the game, not only Legacy ones, so it coalesces over 5 s rather than costing a
@@ -185,23 +206,54 @@ local function saveState(name, value)
 	end
 end
 
--- Anchors the frame at a saved top-left corner, clamped onto the screen so a smaller screen or
--- a larger UI scale since the save cannot strand it. Centred when the save or the screen size
--- cannot be read.
-local function placeFrame(frame, point)
-	frame:ClearAllPoints()
+-- UIParent's width and height, or nil when either cannot be read.
+local function screenSize()
 	local parent = G("UIParent")
-	local screenWidth = parent and parent:GetWidth()
-	local screenHeight = parent and parent:GetHeight()
+	local width = parent and parent:GetWidth()
+	local height = parent and parent:GetHeight()
+	if plainNumber(width) and plainNumber(height) and width > 0 and height > 0 then
+		return width, height
+	end
+	return nil
+end
+
+-- The frame's live width, or the designed one while it cannot be read.
+local function frameWidth(frame)
+	local width = frame:GetWidth()
+	if plainNumber(width) and width > 0 then
+		return width
+	end
+	return WIDTH
+end
+
+-- Anchors the frame at a saved top-left corner, clamped onto the screen at the frame's size so
+-- a smaller screen or a larger UI scale since the save cannot strand it. Centred when the save
+-- or the screen size cannot be read.
+local function placeFrame(frame, point, width, height)
+	frame:ClearAllPoints()
+	local screenWidth, screenHeight = screenSize()
 	if type(point) ~= "table" or not plainNumber(point.left) or not plainNumber(point.top)
-		or not plainNumber(screenWidth) or not plainNumber(screenHeight)
-		or screenWidth <= 0 or screenHeight <= 0 then
+		or not screenWidth then
 		frame:SetPoint("CENTER")
 		return
 	end
-	local left = math.max(0, math.min(point.left, screenWidth - WIDTH))
-	local top = math.min(screenHeight, math.max(point.top, HEIGHT))
-	frame:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", left, top)
+	local left = math.max(0, math.min(point.left, screenWidth - width))
+	local top = math.min(screenHeight, math.max(point.top, height))
+	frame:SetPoint("TOPLEFT", G("UIParent"), "BOTTOMLEFT", left, top)
+end
+
+-- A saved size, held between the minimum and the screen. The designed size when the save is
+-- unusable; the minimum alone when the screen cannot be read.
+local function restoredSize(size)
+	if type(size) ~= "table" or not plainNumber(size.width) or not plainNumber(size.height) then
+		return WIDTH, HEIGHT
+	end
+	local width, height = size.width, size.height
+	local screenWidth, screenHeight = screenSize()
+	if screenWidth then
+		width, height = math.min(width, screenWidth), math.min(height, screenHeight)
+	end
+	return math.max(MIN_WIDTH, width), math.max(MIN_HEIGHT, height)
 end
 
 local function restoreState(frame)
@@ -214,16 +266,135 @@ local function restoreState(frame)
 	if type(saved.filter) == "number" or type(saved.filter) == "string" then
 		UI.filter = saved.filter
 	end
-	placeFrame(frame, saved.point)
+	local width, height = restoredSize(saved.size)
+	frame:SetSize(width, height)
+	placeFrame(frame, saved.point, width, height)
 end
 
 -- GetLeft and GetTop measure from the screen's bottom-left, in UIParent's scale since the
 -- frame is its child at scale 1, which is the space placeFrame anchors in.
-local function onDragStop(frame)
-	frame:StopMovingOrSizing()
+local function savePosition(frame)
 	local left, top = frame:GetLeft(), frame:GetTop()
 	if plainNumber(left) and plainNumber(top) then
 		saveState("point", { left = left, top = top })
+	end
+end
+
+local function onDragStop(frame)
+	frame:StopMovingOrSizing()
+	savePosition(frame)
+end
+
+--------------------------------------------------------------------------------------------
+-- Resizing
+--------------------------------------------------------------------------------------------
+
+-- Lays the list out at the frame's live width; defined with the rendering below.
+local relayout
+
+-- Sets the resize bounds, minimum to screen, and returns the method that took them: the
+-- documented SetResizeBounds (SimpleFrameAPIDocumentation.lua:1445 at 9a789c0), else the
+-- older SetMinResize / SetMaxResize pair, which the pin does not document. Nil when neither
+-- exists or the call throws, and the window then keeps a fixed size.
+local function applyResizeBounds(frame)
+	local maxWidth, maxHeight = screenSize()
+	if maxWidth then
+		maxWidth, maxHeight = math.max(maxWidth, MIN_WIDTH), math.max(maxHeight, MIN_HEIGHT)
+	end
+	if type(frame.SetResizeBounds) == "function" then
+		if pcall(frame.SetResizeBounds, frame, MIN_WIDTH, MIN_HEIGHT, maxWidth, maxHeight) then
+			return "SetResizeBounds"
+		end
+		return nil
+	end
+	if type(frame.SetMinResize) == "function" then
+		if not pcall(frame.SetMinResize, frame, MIN_WIDTH, MIN_HEIGHT) then
+			return nil
+		end
+		if maxWidth and type(frame.SetMaxResize) == "function" then
+			pcall(frame.SetMaxResize, frame, maxWidth, maxHeight)
+		end
+		return "SetMinResize"
+	end
+	return nil
+end
+
+-- Makes the frame resizable when the client can bound it. Returns the bounds method, or nil.
+local function enableResize(frame)
+	if type(frame.SetResizable) ~= "function" or type(frame.StartSizing) ~= "function"
+		or type(frame.StopMovingOrSizing) ~= "function" then
+		return nil
+	end
+	local api = applyResizeBounds(frame)
+	if api and pcall(frame.SetResizable, frame, true) then
+		return api
+	end
+	return nil
+end
+
+local function saveSize(frame)
+	local width, height = frame:GetWidth(), frame:GetHeight()
+	if plainNumber(width) and plainNumber(height) then
+		saveState("size", { width = width, height = height })
+	end
+end
+
+-- From the bottom-right corner and from the cursor, as both of Blizzard's grips do
+-- (SharedUIPanelTemplates.lua:1694-1695, LootHistory.lua:433-434). StartSizing is flagged
+-- protected, as StartMoving is, and our frame is not (U2), so this works in combat.
+local function startSizing(frame, button)
+	if button ~= "LeftButton" or frame.sizing then
+		return
+	end
+	frame.sizing = pcall(frame.StartSizing, frame, "BOTTOMRIGHT", true) and true or false
+end
+
+-- The corner is saved with the size: a centred window has none saved, and without one the
+-- restore would centre it at its new size somewhere else.
+local function stopSizing(frame)
+	if not frame.sizing then
+		return
+	end
+	frame.sizing = false
+	frame:StopMovingOrSizing()
+	relayout(frame)
+	saveSize(frame)
+	savePosition(frame)
+end
+
+-- The template's own mouse scripts (:1676-1719) are replaced, as LootHistory replaces its
+-- grip's, so both grips size the same way; it keeps its art and its resize cursor.
+local function buildGrip(frame)
+	local grip, templated = createFrame("Button", nil, frame, GRIP_TEMPLATE)
+	if not templated then
+		grip:SetSize(GRIP_SIZE, GRIP_SIZE)
+		grip:SetNormalTexture(GRIP_ART .. "Up")
+		grip:SetHighlightTexture(GRIP_ART .. "Highlight")
+		grip:SetPushedTexture(GRIP_ART .. "Down")
+	end
+	grip:SetPoint("BOTTOMRIGHT", -2, 2)
+	grip:EnableMouse(true)
+	grip:SetScript("OnMouseDown", function(_, button) startSizing(frame, button) end)
+	grip:SetScript("OnMouseUp", function(_, button)
+		if button == "LeftButton" then
+			stopSizing(frame)
+		end
+	end)
+	frame.grip = grip
+	frame.gripStyle = templated and GRIP_TEMPLATE or "plain"
+end
+
+-- Coalesces a drag's size changes into one relayout per RELAYOUT_DELAY.
+local function requestRelayout(frame)
+	if frame.relayoutPending then
+		return
+	end
+	local timer = G("C_Timer")
+	if type(timer) == "table" and type(timer.After) == "function" then
+		frame.relayoutPending = true
+		timer.After(RELAYOUT_DELAY, function() relayout(frame) end)
+	else
+		relayout(frame)
 	end
 end
 
@@ -365,13 +536,13 @@ local function buildFilterBar(frame, top)
 	return top + 24 + 6
 end
 
-local function buildList(frame, top)
+local function buildList(frame, top, bottom)
 	local scroll, templated = createFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", PAD, -top)
-	scroll:SetPoint("BOTTOMRIGHT", -(PAD + 22), PAD)
+	scroll:SetPoint("BOTTOMRIGHT", -(PAD + SCROLLBAR_WIDTH), bottom)
 
 	local child = CreateFrame("Frame", nil, scroll)
-	child:SetSize(WIDTH - PAD * 2 - 22, ROW_HEIGHT)
+	child:SetSize(frameWidth(frame) - PAD * 2 - SCROLLBAR_WIDTH, ROW_HEIGHT)
 	scroll:SetScrollChild(child)
 
 	if not templated then
@@ -528,8 +699,15 @@ local function ensureFrame()
 	end
 
 	local frame, templated = createFrame("Frame", FRAME_NAME, UIParent, "BasicFrameTemplateWithInset")
-	frame:SetSize(WIDTH, HEIGHT)
-	-- First build: the tab, filter and position this character left the window with.
+	-- Every field read later is set here, false rather than nil, before any handler can run.
+	frame.sizing = false
+	frame.relayoutPending = false
+	frame.laidOutWidth = false
+	frame.rowsHeight = 0
+	frame.listNote = false
+	frame.grip = false
+	frame.gripStyle = "none"
+	-- First build: the tab, filter, size and position this character left the window with.
 	restoreState(frame)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetToplevel(true)
@@ -575,10 +753,15 @@ local function ensureFrame()
 	end
 	frame.templated = templated
 
+	frame.resizeApi = enableResize(frame) or false
+
 	top = buildHeader(frame, top)
 	top = buildTabs(frame, top)
 	top = buildFilterBar(frame, top)
-	buildList(frame, top)
+	buildList(frame, top, frame.resizeApi and GRIP_LIST_BOTTOM or PAD)
+	if frame.resizeApi then
+		buildGrip(frame)
+	end
 
 	-- Escape closes it. UISpecialFrames is iterated as _G[name]:Hide(), which is fine for a
 	-- plain frame in or out of combat.
@@ -596,6 +779,8 @@ local function ensureFrame()
 	frame:SetScript("OnShow", function() UI.OnShow() end)
 	frame:SetScript("OnHide", function() UI.OnHide() end)
 	frame:SetScript("OnEvent", function(_, event) UI.OnEvent(event) end)
+	-- The script Blizzard's grip hooks on its target (SharedUIPanelTemplates.lua:1627-1628).
+	frame:SetScript("OnSizeChanged", function() requestRelayout(frame) end)
 
 	return frame
 end
@@ -607,8 +792,8 @@ end
 local function layoutFilters(frame, filters)
 	local bar = frame.filterBar
 	local barWidth = bar:GetWidth()
-	if not barWidth or barWidth <= 0 then
-		barWidth = WIDTH - PAD * 2
+	if not plainNumber(barWidth) or barWidth <= 0 then
+		barWidth = frameWidth(frame) - PAD * 2
 	end
 
 	local x, y, rowHeight = 0, 0, 22
@@ -710,11 +895,12 @@ local function drawName(widget, item, iconSlot)
 	widget.name:SetPoint("RIGHT", widget.figure, "LEFT", -6, 0)
 end
 
--- The scroll frame's width, or the built size while its rect is still unresolved (0).
+-- The scroll frame's width, or what the frame's width leaves for it while its rect is still
+-- unresolved (0).
 local function listWidth(frame)
 	local width = frame.scroll:GetWidth()
-	if type(width) ~= "number" or width <= 0 then
-		return WIDTH - PAD * 2 - 22
+	if not plainNumber(width) or width <= 0 then
+		return frameWidth(frame) - PAD * 2 - SCROLLBAR_WIDTH
 	end
 	return width
 end
@@ -744,9 +930,21 @@ local function noteHeight(status, note)
 	return estimate
 end
 
-local function layoutRows(frame, view)
-	local child = frame.listChild
+-- Sizes the scroll child, and the note under the rows, to the list's live width. A set width on
+-- the note rather than a RIGHT anchor, so the wrap is known before it is measured.
+local function sizeList(frame)
 	local width = listWidth(frame)
+	local y = frame.rowsHeight
+	if frame.listNote then
+		frame.status:SetWidth(width)
+		y = y + 12 + noteHeight(frame.status, frame.listNote)
+	end
+	frame.listChild:SetHeight(math.max(y, ROW_HEIGHT))
+	frame.listChild:SetWidth(width)
+	frame.laidOutWidth = width
+end
+
+local function layoutRows(frame, view)
 	local y = 0
 	local rowIndex, dividerIndex = 0, 0
 
@@ -797,19 +995,17 @@ local function layoutRows(frame, view)
 	end
 	local status = frame.status
 	if note then
-		-- A set width rather than a RIGHT anchor, so the wrap is known before layout runs.
 		status:ClearAllPoints()
 		status:SetPoint("TOPLEFT", 0, -(y + 4))
-		status:SetWidth(width)
 		status:SetText(note)
 		status:Show()
-		y = y + 12 + noteHeight(status, note)
 	else
 		status:Hide()
 	end
 
-	child:SetHeight(math.max(y, ROW_HEIGHT))
-	child:SetWidth(width)
+	frame.rowsHeight = y
+	frame.listNote = note or false
+	sizeList(frame)
 end
 
 function UI.Render(view)
@@ -824,6 +1020,19 @@ function UI.Render(view)
 
 	layoutFilters(frame, view.filters or {})
 	layoutRows(frame, view)
+end
+
+-- After a resize: the filter bar's wrap and the list's width follow the live size. Rows are
+-- anchored to both sides of the scroll child, so they follow it; nothing is read or redrawn.
+-- A change of height alone needs nothing, since the scroll frame is anchored top and bottom.
+relayout = function(frame)
+	frame.relayoutPending = false
+	local view = UI.view
+	if not view or listWidth(frame) == frame.laidOutWidth then
+		return
+	end
+	layoutFilters(frame, view.filters or {})
+	sizeList(frame)
 end
 
 -- Reads through the data source and redraws. Never called from a draw path. The read is
@@ -1015,6 +1224,8 @@ function UI.OnHide()
 	UI.refreshPending = false
 	UI.deferredForCombat = false
 	hideTooltip()
+	-- Escape mid-drag: end the sizing and keep the size it reached.
+	stopSizing(UI.frame)
 end
 
 function UI.Show()
@@ -1042,8 +1253,23 @@ function UI.Describe()
 	if not frame then
 		return { created = false }
 	end
+	local width, height = frame:GetWidth(), frame:GetHeight()
+	local resizable
+	if type(frame.IsResizable) == "function" then
+		local ok, value = pcall(frame.IsResizable, frame)
+		if ok and type(value) == "boolean" then
+			resizable = value
+		end
+	end
 	return {
 		created = true,
+		-- The live size, and how resizing was set up: the bounds method or "none", the grip's
+		-- template or "plain", and what the client says IsResizable is.
+		width = plainNumber(width) and math.floor(width + 0.5) or nil,
+		height = plainNumber(height) and math.floor(height + 0.5) or nil,
+		resize = frame.resizeApi or "none",
+		grip = frame.gripStyle,
+		resizable = resizable,
 		frameTemplate = frame.templated and "BasicFrameTemplateWithInset" or "plain",
 		scrollTemplate = frame.scrollTemplated and "UIPanelScrollFrameTemplate" or "plain",
 		tabTemplate = frame.tabs[1] and frame.tabs[1].tabStyle or "none",

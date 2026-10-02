@@ -290,9 +290,63 @@ override. Forever's own Friends frame uses the bottom-tab parent, `PanelTabButto
 or the helpers are missing, `UI.lua` falls back to the panel button with a gold underline, and
 `/lgn uidump` reports which one it got as `tabTemplate`.
 
-Window state (tab, Next Up filter, top-left corner) is saved per character in
+Window state (tab, Next Up filter, top-left corner, and since section 8 the size) is saved per character in
 `LegacyNextCharDB.ui` through `Store.GetUIState` / `Store.PutUIState`. The corner is clamped
 onto the screen on restore, so a smaller screen or a larger UI scale cannot strand the window.
+
+## 8. Resizing (2026-10-01, at `9a789c0`, `1.60.1.70170`)
+
+Tier A from source unless marked, and unseen in game until the resize queue row runs.
+
+| Symbol | Tier | Where |
+|---|---|---|
+| `PanelResizeButtonTemplate` (mixin `PanelResizeButtonMixin`, 16 x 16) | A | `Blizzard_SharedXML/Mainline/SharedUIPanelTemplates.xml:1642-1653` |
+| Its art: `Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up`, `-Highlight`, `-Down` | A | `SharedUIPanelTemplates.xml:1650-1652` |
+| `PanelResizeButtonMixin` (`Init`, `OnMouseDown`, `OnMouseUp`) | A | `Blizzard_SharedXML/Mainline/SharedUIPanelTemplates.lua:1618`, `:1620`, `:1676`, `:1699` |
+| `frame:SetResizable(resizable)` | A | `Blizzard_APIDocumentationGenerated/SimpleFrameAPIDocumentation.lua:1435` |
+| `frame:SetResizeBounds(minWidth, minHeight [, maxWidth, maxHeight])` | A | `SimpleFrameAPIDocumentation.lua:1445`, maxima `Nilable` |
+| `frame:IsResizable()`, `frame:GetResizeBounds()` | A | `SimpleFrameAPIDocumentation.lua:887`, `:590` |
+| `frame:StartSizing([resizePoint], alwaysStartFromMouse)`, `IsProtectedFunction` | A | `SimpleFrameAPIDocumentation.lua:1557` |
+| `frame:StopMovingOrSizing()`, `IsProtectedFunction` | A | `SimpleFrameAPIDocumentation.lua:1569` |
+| `button:SetNormalTexture`, `SetHighlightTexture`, `SetPushedTexture` | A | `SimpleButtonAPIDocumentation.lua:433`, `:391`, `:465` |
+| `OnSizeChanged` script | B | set from Lua at `SharedUIPanelTemplates.lua:1627-1628`, `Blizzard_SharedXML/Spinner.lua:8` |
+| `frame:SetMinResize`, `frame:SetMaxResize` | C | in no documentation file and called nowhere in the checkout |
+
+The template ships in the same file as the top tab template, which drew in game (U6), so the
+file loads on Forever. No vendored Blizzard frame inherits it, though; the mixin is used only
+through its own `Init`. That `Init` wraps the target's `OnSizeChanged` and clamps width and
+height itself while its button is active (`:1620-1662`). We do not call it. `UI.lua` replaces the
+template's `OnMouseDown` / `OnMouseUp` with its own, the way `LootHistory` drives its own grip
+(`Blizzard_FrameXML/Mainline/LootHistory.lua:431-438`), and leaves the template its art and its
+`OnEnter` / `OnLeave` resize cursor (`:1664-1674`). Both of Blizzard's grips pass
+`alwaysStartFromMouse = true` to `StartSizing` (`:1694-1695`, `LootHistory.lua:433-434`), and so
+do we. `LootHistory.xml:193`, `:198-205` is the one vendored frame that is `resizable` with
+`<ResizeBounds>`, set in XML rather than through `SetResizeBounds`.
+
+`SetMinResize` / `SetMaxResize` are the pre-`SetResizeBounds` pair. The pin documents neither,
+and the generated docs cover every frame method, so on this client they almost certainly do
+not exist. `UI.lua` still feature-detects them after `SetResizeBounds`, `pcall`'d with a
+`(width, height)` shape taken from older clients, not from this pin. With neither method, the
+window keeps a fixed size and draws no grip. `/lgn uidump` reports which one it got as
+`resize`, the grip as `grip` (`PanelResizeButtonTemplate`, `plain` or `none`), the live size
+as `width` and `height`, and `IsResizable()` as `resizable`.
+
+`StartSizing` and `StopMovingOrSizing` carry `IsProtectedFunction`, as `StartMoving` does. Our
+frame reads `IsProtected() = false, false` (U2, section 6), so these are expected to work in
+combat. That is still client behaviour, Tier C until the queue row runs.
+
+`GetWidth` and `GetHeight` are `SecretWhenAnchoringSecret`
+(`SimpleScriptRegionAPIDocumentation.lua:323`, `:161`). Ours never anchor to a secret, but
+every read of them goes through the `plainNumber` guard, as the corner does.
+
+The scroll bar's down button hangs 16 px below the bar, which ends 16 px above the scroll
+frame's bottom (`Blizzard_SharedXML/SecureScrollTemplates.xml:18-21`, `:48-49`). At the old
+12 px bottom inset it would sit under a 16 px grip in the corner, so with a grip the list's
+bottom inset is 18 px.
+
+The size is saved per character as `LegacyNextCharDB.ui.size = { width, height }` on release,
+with the corner beside it. On restore it is held between the 400 x 360 minimum and the screen,
+and an unusable save opens at 520 x 480.
 
 ## Recommended feature-detect
 

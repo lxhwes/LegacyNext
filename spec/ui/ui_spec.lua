@@ -6,6 +6,24 @@ local helper = require("spec.spec_helper")
 -- the wrong field off a row, mis-wiring the data source, or erroring on a state.
 local created = {}
 
+-- Methods whose calls are kept, in order, as { name, ...args } in widget.calls.
+local RECORDED = {
+	SetResizable = true, SetResizeBounds = true, SetMinResize = true, SetMaxResize = true,
+	StartSizing = true, StopMovingOrSizing = true,
+	SetNormalTexture = true, SetHighlightTexture = true, SetPushedTexture = true,
+}
+
+-- The argument lists of every recorded call to `method` on `widget`.
+local function callsTo(widget, method)
+	local found = {}
+	for _, call in ipairs(rawget(widget, "calls") or {}) do
+		if call[1] == method then
+			found[#found + 1] = { unpack(call, 2) }
+		end
+	end
+	return found
+end
+
 local function newWidget(kind, name, template)
 	local widget = { kind = kind, name = name, template = template, texts = {}, shown = true }
 	setmetatable(widget, {
@@ -37,7 +55,20 @@ local function newWidget(kind, name, template)
 			elseif key == "GetFontString" then
 				return function() return nil end
 			elseif key == "GetWidth" then
-				return function() return 496 end
+				-- What SetWidth or SetSize set, else 496, the list's width at the designed size.
+				return function() return rawget(self, "width") or 496 end
+			elseif key == "GetHeight" then
+				return function() return rawget(self, "height") end
+			elseif key == "SetWidth" then
+				return function(_, width) self.width = width end
+			elseif key == "SetSize" then
+				return function(_, width, height) self.width, self.height = width, height end
+			elseif RECORDED[key] then
+				return function(_, ...)
+					local calls = rawget(self, "calls") or {}
+					calls[#calls + 1] = { key, ... }
+					self.calls = calls
+				end
 			elseif key == "GetVerticalScrollRange" or key == "GetVerticalScroll" then
 				return function() return 0 end
 			elseif key == "SetScript" then
@@ -683,6 +714,343 @@ describe("UI", function()
 			ns.UI.Show()
 
 			assert.same({ "CENTER" }, ns.UI.frame.anchors[1])
+		end)
+
+		describe("size", function()
+			-- Runs `patch` on the main frame as it is created, before UI.lua touches it, so a test
+			-- can take a method away the way an older client would lack it.
+			local function patchMainFrame(patch)
+				local create = _G.CreateFrame
+				_G.CreateFrame = function(kind, name, parent, template)
+					local widget = create(kind, name, parent, template)
+					if name == "LegacyNextFrame" then
+						patch(widget)
+					end
+					return widget
+				end
+			end
+
+			local function sizeOf(widget)
+				return { rawget(widget, "width"), rawget(widget, "height") }
+			end
+
+			it("restores the saved size and clamps the position with it", function()
+				local ns = loadWithStore({ ui = { size = { width = 700, height = 600 },
+					point = { left = 1500, top = 500 } } })
+
+				ns.UI.Show()
+
+				assert.same({ 700, 600 }, sizeOf(ns.UI.frame))
+				-- 1920 - 700 wide, and the top no lower than the frame's 600 height.
+				assert.same({ "TOPLEFT", _G.UIParent, "BOTTOMLEFT", 1220, 600 }, ns.UI.frame.anchors[1])
+				local described = ns.UI.Describe()
+				assert.equals(700, described.width)
+				assert.equals(600, described.height)
+			end)
+
+			it("clamps a saved size between the minimum and the screen", function()
+				for _, case in ipairs({
+					{ saved = { width = 100, height = 5000 }, want = { 400, 1080 } },
+					{ saved = { width = 5000, height = 100 }, want = { 1920, 360 } },
+					{ saved = { width = -20, height = 0 }, want = { 400, 360 } },
+				}) do
+					local ns = loadWithStore({ ui = { size = case.saved } })
+
+					ns.UI.Show()
+
+					assert.same(case.want, sizeOf(ns.UI.frame))
+					unloadUI()
+				end
+			end)
+
+			it("keeps a saved size above the minimum when the screen cannot be read", function()
+				local ns = loadWithStore({ ui = { size = { width = 3000, height = 100 } } })
+				rawset(_G.UIParent, "GetWidth", function() return nil end)
+
+				ns.UI.Show()
+
+				assert.same({ 3000, 360 }, sizeOf(ns.UI.frame))
+			end)
+
+			it("opens at 520x480 when the saved size is unusable", function()
+				for _, size in ipairs({ "junk", { width = "x", height = 500 }, { width = 0 / 0, height = 500 },
+					{ width = 600, height = math.huge }, { height = 500 } }) do
+					local ns = loadWithStore({ ui = { size = size } })
+
+					ns.UI.Show()
+
+					assert.same({ 520, 480 }, sizeOf(ns.UI.frame))
+					unloadUI()
+				end
+			end)
+
+			it("is resizable from 400x360 up to the screen, with Blizzard's grip", function()
+				local ns = loadWithStore(nil)
+
+				ns.UI.Show()
+				local frame = ns.UI.frame
+
+				assert.same({ { true } }, callsTo(frame, "SetResizable"))
+				assert.same({ { 400, 360, 1920, 1080 } }, callsTo(frame, "SetResizeBounds"))
+				assert.same({}, callsTo(frame, "SetMinResize"))
+				local grip = frame.grip
+				assert.equals("PanelResizeButtonTemplate", grip.template)
+				assert.same({ "BOTTOMRIGHT", -2, 2 }, grip.anchors[1])
+				-- The scroll bar's down button would sit under the grip at the old 12 px.
+				assert.same({ "BOTTOMRIGHT", -34, 18 }, frame.scroll.anchors[2])
+				local described = ns.UI.Describe()
+				assert.equals("SetResizeBounds", described.resize)
+				assert.equals("PanelResizeButtonTemplate", described.grip)
+				assert.equals(520, described.width)
+				assert.equals(480, described.height)
+			end)
+
+			it("falls back to SetMinResize and SetMaxResize without SetResizeBounds", function()
+				local ns = loadWithStore(nil)
+				patchMainFrame(function(frame) rawset(frame, "SetResizeBounds", false) end)
+
+				ns.UI.Show()
+				local frame = ns.UI.frame
+
+				assert.same({ { 400, 360 } }, callsTo(frame, "SetMinResize"))
+				assert.same({ { 1920, 1080 } }, callsTo(frame, "SetMaxResize"))
+				assert.same({ { true } }, callsTo(frame, "SetResizable"))
+				assert.equals("SetMinResize", ns.UI.Describe().resize)
+			end)
+
+			it("stays a fixed size, with no grip, when no bounds method exists", function()
+				local ns = loadWithStore(nil)
+				patchMainFrame(function(frame)
+					rawset(frame, "SetResizeBounds", false)
+					rawset(frame, "SetMinResize", false)
+				end)
+
+				ns.UI.Show()
+				local frame = ns.UI.frame
+
+				assert.same({}, callsTo(frame, "SetResizable"))
+				assert.is_false(frame.grip)
+				assert.same({ "BOTTOMRIGHT", -34, 12 }, frame.scroll.anchors[2])
+				assert.equals("none", ns.UI.Describe().resize)
+				assert.equals("none", ns.UI.Describe().grip)
+			end)
+
+			it("stays a fixed size when setting the bounds throws", function()
+				local ns = loadWithStore(nil)
+				patchMainFrame(function(frame)
+					rawset(frame, "SetResizeBounds", function() error("bad bounds") end)
+				end)
+
+				assert.has_no.errors(function() ns.UI.Show() end)
+
+				assert.is_false(ns.UI.frame.grip)
+				assert.equals("none", ns.UI.Describe().resize)
+			end)
+
+			it("draws the grip with the chat size-grabber art when the template is missing", function()
+				local ns = loadWithStore(nil)
+				local create = _G.CreateFrame
+				_G.CreateFrame = function(kind, name, parent, template)
+					if template == "PanelResizeButtonTemplate" then error("unknown template") end
+					return create(kind, name, parent, template)
+				end
+
+				ns.UI.Show()
+				local grip = ns.UI.frame.grip
+
+				assert.is_nil(rawget(grip, "template"))
+				assert.same({ 16, 16 }, sizeOf(grip))
+				assert.same({ { "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up" } }, callsTo(grip, "SetNormalTexture"))
+				assert.same({ { "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight" } },
+					callsTo(grip, "SetHighlightTexture"))
+				assert.same({ { "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down" } }, callsTo(grip, "SetPushedTexture"))
+				assert.equals("plain", ns.UI.Describe().grip)
+			end)
+
+			it("sizes from the bottom-right corner and saves size and position on release", function()
+				local ns = loadWithStore(nil)
+				ns.UI.Show()
+				local frame, grip = ns.UI.frame, ns.UI.frame.grip
+
+				grip.script_OnMouseDown(grip, "LeftButton")
+				assert.same({ { "BOTTOMRIGHT", true } }, callsTo(frame, "StartSizing"))
+				assert.is_nil(_G.LegacyNextCharDB and _G.LegacyNextCharDB.ui and _G.LegacyNextCharDB.ui.size)
+
+				frame:SetSize(640.5, 500)
+				rawset(frame, "GetLeft", function() return 40 end)
+				rawset(frame, "GetTop", function() return 900 end)
+				grip.script_OnMouseUp(grip, "LeftButton")
+
+				assert.equals(1, #callsTo(frame, "StopMovingOrSizing"))
+				assert.same({ width = 640.5, height = 500 }, _G.LegacyNextCharDB.ui.size)
+				-- A centred window has no saved corner; the restore needs one to keep the corner put.
+				assert.same({ left = 40, top = 900 }, _G.LegacyNextCharDB.ui.point)
+			end)
+
+			it("sizes only on the left button", function()
+				local ns = loadWithStore(nil)
+				ns.UI.Show()
+				local frame, grip = ns.UI.frame, ns.UI.frame.grip
+
+				grip.script_OnMouseDown(grip, "RightButton")
+				grip.script_OnMouseUp(grip, "RightButton")
+
+				assert.same({}, callsTo(frame, "StartSizing"))
+				assert.same({}, callsTo(frame, "StopMovingOrSizing"))
+				assert.is_nil(_G.LegacyNextCharDB and _G.LegacyNextCharDB.ui and _G.LegacyNextCharDB.ui.size)
+			end)
+
+			-- U2: the frame is not protected, so sizing it is allowed in combat.
+			it("sizes in combat", function()
+				local ns = loadWithStore(nil)
+				_G.InCombatLockdown = function() return true end
+				ns.UI.Show()
+				local frame, grip = ns.UI.frame, ns.UI.frame.grip
+
+				grip.script_OnMouseDown(grip, "LeftButton")
+				grip.script_OnMouseUp(grip, "LeftButton")
+
+				assert.equals(1, #callsTo(frame, "StartSizing"))
+				assert.equals(1, #callsTo(frame, "StopMovingOrSizing"))
+				assert.same({ width = 520, height = 480 }, _G.LegacyNextCharDB.ui.size)
+			end)
+
+			it("saves no size when the frame cannot say how big it is", function()
+				local ns = loadWithStore(nil)
+				ns.UI.Show()
+				local frame, grip = ns.UI.frame, ns.UI.frame.grip
+				rawset(frame, "GetWidth", function() return nil end)
+
+				grip.script_OnMouseDown(grip, "LeftButton")
+				grip.script_OnMouseUp(grip, "LeftButton")
+
+				assert.is_nil(_G.LegacyNextCharDB and _G.LegacyNextCharDB.ui and _G.LegacyNextCharDB.ui.size)
+			end)
+
+			it("stops sizing and saves when the window closes mid-drag", function()
+				local ns = loadWithStore(nil)
+				ns.UI.Show()
+				local frame, grip = ns.UI.frame, ns.UI.frame.grip
+
+				grip.script_OnMouseDown(grip, "LeftButton")
+				frame:SetSize(600, 400)
+				ns.UI.Hide()
+
+				assert.equals(1, #callsTo(frame, "StopMovingOrSizing"))
+				assert.same({ width = 600, height = 400 }, _G.LegacyNextCharDB.ui.size)
+				grip.script_OnMouseUp(grip, "LeftButton") -- the release after it does nothing more
+				assert.equals(1, #callsTo(frame, "StopMovingOrSizing"))
+			end)
+
+			describe("relayout", function()
+				local function opened()
+					local ns = loadWithStore(nil)
+					local pending = fakeTimer()
+					ns.UI.SetDataSource(function()
+						return {
+							challenges = fixture("dump_challenges_page1_fresh").challenges,
+							categories = categories,
+							character = fixture("dump_character_shaman").character,
+						}
+					end)
+					ns.UI.Show()
+					return ns, ns.UI.frame, pending
+				end
+
+				-- The double measures every filter button at 60 px, 64 with the gap.
+				local function filterTops(frame)
+					local tops = {}
+					for index, button in ipairs(frame.filterBar.buttons) do
+						tops[index] = button.anchors[1][3]
+					end
+					return tops
+				end
+
+				it("follows the live width once per burst of size changes, without a read", function()
+					local ns, frame, pending = opened()
+					local reads = 0
+					local source = ns.UI.source
+					ns.UI.SetDataSource(function()
+						reads = reads + 1
+						return source()
+					end)
+					assert.equals(496, frame.listChild.width)
+					assert.equals(496, frame.status.width)
+					-- All plus the two groups the shaman's page 1 reaches.
+					assert.equals(3, #frame.filterBar.buttons)
+					assert.same({ 0, 0, 0 }, filterTops(frame))
+
+					rawset(frame.scroll, "GetWidth", function() return 600 end)
+					rawset(frame.filterBar, "GetWidth", function() return 130 end)
+					for _ = 1, 3 do
+						frame.script_OnSizeChanged(frame, 646, 480)
+					end
+
+					assert.equals(1, #pending)
+					assert.equals(496, frame.listChild.width)
+					pending[1].fn()
+
+					assert.equals(600, frame.listChild.width)
+					assert.equals(600, frame.status.width)
+					-- Two buttons to a 130 px row, so the bar wraps onto a second.
+					assert.same({ 0, 0, -26 }, filterTops(frame))
+					assert.equals(0, reads)
+				end)
+
+				it("re-measures the footnote at the new width", function()
+					local _, frame, pending = opened()
+					local rowsHeight = frame.listChild.height - 12 - 28
+					rawset(frame.status, "GetStringHeight", function(self)
+						return self.width < 300 and 60 or 20
+					end)
+
+					rawset(frame.scroll, "GetWidth", function() return 250 end)
+					frame.script_OnSizeChanged(frame, 296, 480)
+					pending[1].fn()
+
+					assert.equals(rowsHeight + 12 + 60, frame.listChild.height)
+				end)
+
+				it("leaves the layout alone when only the height changed", function()
+					local _, frame, pending = opened()
+					local cleared = 0
+					local button = frame.filterBar.buttons[1]
+					rawset(button, "ClearAllPoints", function(self)
+						cleared = cleared + 1
+						self.anchors = {}
+					end)
+
+					frame.script_OnSizeChanged(frame, 520, 700)
+					pending[1].fn()
+
+					assert.equals(0, cleared)
+				end)
+
+				it("lays out at once on release, not after the timer", function()
+					local _, frame = opened()
+					local grip = frame.grip
+
+					grip.script_OnMouseDown(grip, "LeftButton")
+					rawset(frame.scroll, "GetWidth", function() return 700 end)
+					grip.script_OnMouseUp(grip, "LeftButton")
+
+					assert.equals(700, frame.listChild.width)
+				end)
+
+				it("does nothing before the first view is drawn", function()
+					local ns = loadWithStore(nil)
+					local pending = fakeTimer()
+					ns.UI.SetDataSource(nil)
+					ns.UI.Show()
+					local frame = ns.UI.frame
+
+					rawset(frame.scroll, "GetWidth", function() return 600 end)
+					assert.has_no.errors(function()
+						frame.script_OnSizeChanged(frame, 646, 480)
+						for _, entry in ipairs(pending) do entry.fn() end
+					end)
+				end)
+			end)
 		end)
 	end)
 
