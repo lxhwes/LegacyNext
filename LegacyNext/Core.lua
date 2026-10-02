@@ -104,6 +104,20 @@ end
 
 ns.UI.SetActions({ challengeClick = challengeClick })
 
+-- The minimap tooltip reads what the window reads, so the two rank alike.
+ns.MinimapButton.SetSummarySource(function()
+	return ns.Model.BuildSummary(ns.ReadViewInput())
+end)
+
+-- Minimap exists by PLAYER_LOGIN, and both read Store, which attaches at ADDON_LOADED. A
+-- failure is kept for /lgn uidump rather than said: neither stops the window working.
+local function initMinimapAndOptions()
+	local _, minimapReason = ns.MinimapButton.Init()
+	ns.minimapReason = minimapReason
+	local _, optionsReason = ns.Options.Register()
+	ns.optionsReason = optionsReason
+end
+
 --------------------------------------------------------------------------------------------
 -- v1 roster: this character's snapshot, written through Store
 --------------------------------------------------------------------------------------------
@@ -302,6 +316,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 		ns.version = getVersion()
 		-- No "v" prefix: the packager writes the tag name into ## Version, and tags carry it.
 		say(ns.version .. " loaded. /lgn to open, /lgn help for commands.")
+		initMinimapAndOptions()
 		-- Delayed like the others: skill and trait data may not be ready at PLAYER_LOGIN.
 		scheduleSnapshot(event)
 	elseif event == "PLAYER_LOGOUT" then
@@ -339,6 +354,8 @@ local function usage()
 	say("commands:")
 	print("  /lgn                     open or close the window (Next Up and Roster tabs)")
 	print("  /lgn show | hide")
+	print("  /lgn minimap             show or hide the minimap button")
+	print("  /lgn config              open LegacyNext's settings")
 	print("  /lgn uidump [category]   what the Next Up tab would show, as copyable text")
 	print("  /lgn uidump roster       the same for the Roster tab")
 	print("  /lgn roster              every saved character and tradeskill candidates, as text")
@@ -359,6 +376,12 @@ SlashCmdList["LEGACYNEXT"] = function(input)
 		ns.UI.Show()
 	elseif command == "hide" then
 		ns.UI.Hide()
+	elseif command == "minimap" then
+		local hidden = not ns.MinimapButton.IsHidden()
+		ns.MinimapButton.SetHidden(hidden)
+		say(hidden and "minimap button hidden. /lgn minimap brings it back." or "minimap button shown.")
+	elseif command == "config" or command == "options" then
+		ns.Options.Open()
 	elseif command == "uidump" then
 		ns.Debug.UIDump(rest ~= "" and rest or nil)
 	elseif command == "roster" then

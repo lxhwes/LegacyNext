@@ -107,3 +107,9 @@ AchievementFrame_SelectAchievement
 GetAchievementLink
 ChatFrameUtil.InsertLink
 IsModifiedClick
+# The Settings category and the minimap button (UI/)
+RegisterVerticalLayoutCategory
+RegisterProxySetting
+RegisterAddOnCategory
+OpenToCategory
+CreateCheckbox

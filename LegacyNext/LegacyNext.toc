@@ -14,5 +14,7 @@ Api\Api.lua
 Model\Model.lua
 Model\Roster.lua
 UI\UI.lua
+UI\MinimapButton.lua
+UI\Options.lua
 Debug\Debug.lua
 Core.lua

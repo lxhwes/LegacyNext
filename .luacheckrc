@@ -87,6 +87,12 @@ read_globals = {
 	"IsModifiedClick",
 	"IsShiftKeyDown",
 
+	-- The minimap button and the Settings category (UI/)
+	"Minimap",
+	"GetCursorPosition",
+	"GetTime",
+	"Settings",
+
 	-- UI and Debug (reached through rawget; listed so the manifest stays honest)
 	"GameTooltip",
 	"PanelTemplates_SelectTab",
