@@ -726,9 +726,32 @@ local function readProfessions()
 	return professions
 end
 
+--- The roster key. Names moved under us: UnitName's first return was the full name on 69913
+-- and the first name from 70124 (D10), so the GUID is what stays put.
+-- UnitGUID(unit) -> result (WOWGUID, Nilable)  doc: UnitDocumentation.lua:1241
+--   SecretWhenUnitIdentityRestricted, SecretArguments = "AllowedWhenUntainted"
+-- used: Blizzard_SharedXML/UnitUtil.lua:2, Blizzard_SharedXMLBase/AddOnUtil.lua:65
+-- pin:  9a789c0 (1.60.1.70170)
+-- [verified in game 2026-10-01, 70170, D10]: reads a "Player-" string on the player, no secret.
+local function readGuid()
+	local result, reason = call("UnitGUID", "player")
+	if not result then
+		return nil, "UnitGUID " .. tostring(reason)
+	end
+	local guid = result[1]
+	if guid == "" then
+		return nil, "UnitGUID returned an empty string"
+	end
+	if type(guid) ~= "string" then
+		return nil, "UnitGUID returned " .. type(guid)
+	end
+	return guid
+end
+
 function Api.GetCharacterInfo()
 	local classResult = call("UnitClass", "player")
 	local levelResult = call("UnitLevel", "player")
+	-- Only the first return. On Forever the second is the surname, never the realm (D10).
 	local nameResult = call("UnitName", "player")
 	local realmResult = call("GetRealmName")
 
@@ -737,8 +760,11 @@ function Api.GetCharacterInfo()
 	end
 
 	local professions, professionsReason = readProfessions()
+	local guid, guidReason = readGuid()
 
 	return {
+		guid = guid,
+		guidReason = guidReason,
 		name = nameResult and nameResult[1],
 		realm = realmResult and realmResult[1],
 		class = classResult and classResult[1],

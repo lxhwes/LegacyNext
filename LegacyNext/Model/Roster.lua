@@ -18,8 +18,10 @@ Model.CRITERIA_TYPE_SKILL = 7
 -- Snapshots
 --------------------------------------------------------------------------------------------
 
--- "Name-Realm". The captured Shaman has both fields (spec/fixtures/dump_character_shaman.lua).
-function Model.CharacterKey(character)
+-- "Name-Realm", the key before GUIDs. Still the key when the GUID was not read, and how a row
+-- stored before GUIDs is found again. The captured Shaman has both fields
+-- (spec/fixtures/dump_character_shaman.lua).
+function Model.LegacyCharacterKey(character)
 	if type(character) ~= "table" then
 		return nil, "no character"
 	end
@@ -31,6 +33,32 @@ function Model.CharacterKey(character)
 		return nil, "no realm"
 	end
 	return name .. "-" .. realm
+end
+
+--- The roster key: the GUID, or Name-Realm when it was not read. A name is not stable on
+-- Forever (CLAUDE.md, surnames), so Name-Realm can split one character into two rows.
+function Model.CharacterKey(character)
+	if type(character) == "table" and type(character.guid) == "string" and character.guid ~= "" then
+		return character.guid
+	end
+	return Model.LegacyCharacterKey(character)
+end
+
+--- The name to show for a snapshot or candidate, with "-Realm" when asked. Built from the
+-- name and realm fields, never from the key, which may be a GUID. A row with no name shows
+-- its key only when that is a Name-Realm key, and "?" otherwise.
+function Model.CharacterLabel(snapshot, withRealm)
+	local name = snapshot.name
+	if type(name) ~= "string" or name == "" then
+		if type(snapshot.key) == "string" and snapshot.key ~= snapshot.guid then
+			return snapshot.key
+		end
+		name = "?"
+	end
+	if withRealm and type(snapshot.realm) == "string" and snapshot.realm ~= "" then
+		return name .. "-" .. snapshot.realm
+	end
+	return name
 end
 
 local function snapshotProfessions(list)
@@ -87,6 +115,7 @@ function Model.BuildSnapshot(input)
 
 	local snapshot = {
 		key = key,
+		guid = key == character.guid and key or nil,
 		name = character.name,
 		realm = character.realm,
 		class = character.class,
@@ -165,6 +194,61 @@ function Model.MergeSnapshot(previous, fresh)
 	end
 
 	return merged
+end
+
+--- What to write for this character, given Store's row under the fresh key (`stored`) and its
+-- row under Model.LegacyCharacterKey(fresh) (`legacy`). Returns { snapshot, forget }.
+-- A GUID-keyed snapshot with nothing stored under its GUID takes over the character's row from
+-- before GUID keys, and `forget` names that row's key for the caller to drop after the write.
+-- Only an exact Name-Realm match moves, and never a row that carries another GUID. Alts keep
+-- their Name-Realm rows until they log in themselves. Once a GUID row exists, a Name-Realm row
+-- beside it is left for /lgn roster forget: which of the two is newer is not ours to guess.
+function Model.PlanSnapshot(fresh, stored, legacy)
+	if type(stored) == "table" then
+		return { snapshot = Model.MergeSnapshot(stored, fresh) }
+	end
+	local legacyKey = Model.LegacyCharacterKey(fresh)
+	if fresh.guid == nil or fresh.key ~= fresh.guid or legacyKey == nil or legacyKey == fresh.key
+		or type(legacy) ~= "table" or legacy.key ~= legacyKey
+		or (legacy.guid ~= nil and legacy.guid ~= fresh.guid) then
+		return { snapshot = fresh }
+	end
+
+	-- MergeSnapshot refuses a row under another key, so the move rekeys a copy first.
+	local moved = {}
+	for field, value in pairs(legacy) do
+		moved[field] = value
+	end
+	moved.key, moved.guid = fresh.key, fresh.guid
+	return { snapshot = Model.MergeSnapshot(moved, fresh), forget = legacyKey }
+end
+
+--- The stored key `/lgn roster forget` means: the argument itself when a snapshot has that key,
+-- otherwise the one snapshot whose name and realm make that Name-Realm. Nil and a reason when
+-- none does, or when two do, as two characters sharing a first name on a realm would.
+function Model.ForgetKey(argument, snapshots)
+	if type(argument) ~= "string" or argument == "" then
+		return nil, "name a character as Name-Realm"
+	end
+	local matches = {}
+	for _, snapshot in ipairs(snapshots or {}) do
+		if type(snapshot) == "table" and type(snapshot.key) == "string" then
+			if snapshot.key == argument then
+				return argument
+			end
+			if Model.LegacyCharacterKey(snapshot) == argument then
+				matches[#matches + 1] = snapshot.key
+			end
+		end
+	end
+	if matches[2] then
+		table.sort(matches)
+		return nil, #matches .. " characters are " .. argument .. ": " .. table.concat(matches, ", ")
+	end
+	if matches[1] then
+		return matches[1]
+	end
+	return nil, "no character " .. argument
 end
 
 --- When MergeSnapshot kept `part` ("trees" or "professions") from an earlier snapshot, the
@@ -334,10 +418,10 @@ end
 --- For each incomplete tradeskill challenge, every stored character with that profession,
 -- closest first. `parents` is Api.GetSkillLineParents output and may be nil.
 -- Returns a list in the challenges' order:
---   { challenge, skillLineId, need, parentKnown, candidates = { { key, name, label, class,
---     level, skill, remaining, reached } } }
--- `label` is the name to show: the key instead when the snapshots span realms, as the
--- roster's own rows do.
+--   { challenge, skillLineId, need, parentKnown, candidates = { { key, guid, name, realm,
+--     label, class, level, skill, remaining, reached } } }
+-- `label` is the name to show, Model.CharacterLabel's: Name-Realm when the snapshots span
+-- realms, as the roster's own rows do.
 -- `parentKnown` is false when the skill-line lookup gave no id other than the line's own, so
 -- only a direct match can join and an empty list is not proof that nobody has the profession.
 -- `reached` means the snapshot's skill already meets the threshold while the challenge still
@@ -359,8 +443,10 @@ function Model.ProfessionCandidates(challenges, snapshots, parents)
 						local remaining = criterion.need - profession.skill
 						candidates[#candidates + 1] = {
 							key = snapshot.key,
+							guid = snapshot.guid,
 							name = snapshot.name,
-							label = (withRealm or type(snapshot.name) ~= "string") and snapshot.key or snapshot.name,
+							realm = snapshot.realm,
+							label = Model.CharacterLabel(snapshot, withRealm),
 							class = snapshot.class,
 							level = snapshot.level,
 							skill = profession.skill,
@@ -481,8 +567,8 @@ local function spendText(row, columns)
 end
 
 local function characterName(row, withRealm)
-	local name = (withRealm or type(row.name) ~= "string") and row.key or row.name
-	local text = name .. "  L" .. (type(row.level) == "number" and tostring(row.level) or "?")
+	local text = Model.CharacterLabel(row, withRealm)
+		.. "  L" .. (type(row.level) == "number" and tostring(row.level) or "?")
 	if type(row.class) == "string" and row.class ~= "" then
 		text = text .. " " .. row.class
 	end

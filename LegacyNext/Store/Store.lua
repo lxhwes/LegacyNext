@@ -9,7 +9,10 @@ local _, ns = ...
 --   LegacyNextDB = {
 --     schema = 1,
 --     sessions = <number of times the addon loaded with this table>,
---     characters = { ["Name-Realm"] = <Model.BuildSnapshot output>, ... },
+--     characters = { [<key>] = <Model.BuildSnapshot output>, ... },
+--       -- <key> is Model.CharacterKey: the character's GUID. A row saved before GUID keys, or
+--       -- on a session whose UnitGUID read failed, is keyed "Name-Realm" until that character
+--       -- logs in again and Core moves it (Model.PlanSnapshot). Store never parses a key.
 --     snapshotLog = { { session, at, text }, ... },   -- last LOG_LIMIT snapshot results
 --     skillLineParents = { [skillLineId] = <Model.MergeSkillLineParents entry>, ... },
 --   }
