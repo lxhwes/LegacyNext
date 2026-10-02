@@ -214,7 +214,8 @@ Reward track is a renown faction:
 `GetRenownRewardsForLevel`, `IsMajorFactionHiddenFromExpansionPage`.
 
 Character state, for the dump and for v1's roster:
-`UnitClass`, `UnitLevel`, `UnitName`, `GetRealmName`, `GetProfessions`, `GetProfessionInfo`.
+`UnitClass`, `UnitLevel`, `UnitName`, `UnitGUID`, `GetRealmName`, `GetProfessions`,
+`GetProfessionInfo`.
 **`GetProfessions` returns seven values on Forever, not six** — verified on the forever branch at
 `Blizzard_Professions/Camelot/Blizzard_ProfessionsFrame.lua:16`, which destructures
 `prim1, prim2, sec1..sec5`. Mainline's six (`prof1, prof2, arch, fish, cook, firstAid`) mean
@@ -234,15 +235,16 @@ never by name: the direct match costs nothing, and five of the six crafting prof
 not been seen on a character in game. `GetServerTime` stamps roster snapshots.
 **Forever characters have a first name and a surname**, a Legacy feature (Alex, 2026-10-01).
 `UnitName("player")` read `"Bong Wrip"` on 69913 and `"Bong"` on 70124 for the same
-character, and `"Geo"` for Geo Prizm on 70124, so **a name is not a stable character key**, and the roster's `Name-Realm` key can
-split one character into two rows across builds. `C_PlayerInfo.ShouldDisplaySurname` exists
+character, and `"Geo"` for Geo Prizm on 70124, so **a name is not a stable character key**. The
+roster keys by `UnitGUID`, and `Name-Realm` only when the GUID read fails or for a row saved
+before GUID keys, which moves when that character next logs in. `C_PlayerInfo.ShouldDisplaySurname` exists
 at every pin (`PlayerInfoDocumentation.lua:358`).
 `C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator` arrived in 70009
 (`NameUtilDocumentation.lua:11`), and its doc says full names carry a "surname separator".
 **The surname is the second return** [verified in game 2026-10-01, 70170, D10]. `UnitName`,
 `UnitFullName` and `UnitNameUnmodified` all read `Geo, Prizm`, the slot the docs name
 `server`. Never read a name call's second return as a realm. `UnitGUID("player")` reads
-`ok`, a `Player-` string and not a secret, so it is available as a roster key.
+`ok`, a `Player-` string and not a secret.
 The client data backs the parent reading [DB2, 2026-09-30]. All six tradeskill lines are
 tier-4 children of the Classic lines: 2937 → 171, 2938 → 164, 2940 → 333, 2941 → 202,
 2945 → 165, 2948 → 197. **The live lookup returns exactly that map** [verified in game
