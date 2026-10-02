@@ -38,8 +38,9 @@ Verified against client build 1.60.1 (70170).
   profession for, closest character first. Next Up's tooltip on a tradeskill row names the saved
   characters with that profession. `/lgn uidump roster` prints the tab as text.
 - Roster groundwork (v1): each character's class, level, professions and Legacy tree spend is
-  saved at login, at logout, and after a level-up, skill or talent change. `/lgn roster` lists
-  every saved character and, for each tradeskill challenge, which of them is closest.
+  saved at login and after a level-up, skill or talent change. The game does not return
+  professions or tree spend at logout, so a logout snapshot keeps the stored ones. `/lgn roster`
+  lists every saved character and, for each tradeskill challenge, which of them is closest.
   `/lgn roster forget <Name-Realm>` removes a deleted character.
 - `/lgn` and `/legacynext` open the Next Up window: incomplete Legacy challenges ranked by
   closeness to completion. Each row shows the name, category, points awarded and criteria
