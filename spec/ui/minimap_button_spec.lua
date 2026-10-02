@@ -276,6 +276,22 @@ describe("MinimapButton", function()
 			assert.equals(ns.MinimapButton.COMBAT_LINE, lines[2])
 		end)
 
+		it("draws the same summary on another owner, with that surface's hint", function()
+			stubTooltip()
+			local owner
+			_G.GameTooltip.SetOwner = function(_, frame) owner = frame end
+			local ns = load()
+			ns.MinimapButton.SetSummarySource(summary)
+			local entry = newWidget("Button", "CompartmentEntry")
+
+			ns.MinimapButton.ShowTooltip(entry, "Click to open or close.")
+
+			assert.equals(entry, owner)
+			assert.equals("LegacyNext", lines[1])
+			assert.equals("Journeyman Alchemist | 0/150", lines[3])
+			assert.equals("Click to open or close.", lines[#lines])
+		end)
+
 		it("keeps the hints when the read throws", function()
 			stubTooltip()
 			local ns = load()

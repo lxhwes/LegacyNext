@@ -75,7 +75,8 @@ describe("addon lifecycle", function()
 		end
 		for _, name in ipairs({ "CreateFrame", "UIParent", "UISpecialFrames", "LegacyNextDB",
 			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer", "C_AddOns",
-			"LegacyNext_OnAddonCompartmentClick", "UnitGUID" }) do
+			"LegacyNext_OnAddonCompartmentClick", "LegacyNext_OnAddonCompartmentEnter",
+			"LegacyNext_OnAddonCompartmentLeave", "UnitGUID" }) do
 			_G[name] = nil
 		end
 	end)
@@ -367,6 +368,29 @@ describe("addon lifecycle", function()
 
 			assert.is_string(name)
 			assert.is_function(_G[name])
+		end)
+
+		-- The hover globals get (addonName, button) (AddonCompartment.lua:106-117).
+		it("names hover globals in the TOC that show and hide the summary tooltip", function()
+			local names = {}
+			for line in io.lines("LegacyNext/LegacyNext.toc") do
+				local key, name = line:match("^## (AddonCompartmentFuncOn%a+):%s*(%S+)")
+				if key then
+					names[key] = name
+				end
+			end
+			local shown, hidden = {}, 0
+			ns.MinimapButton.ShowTooltip = function(owner, hint) shown[#shown + 1] = { owner, hint } end
+			ns.MinimapButton.HideTooltip = function() hidden = hidden + 1 end
+			local entry = {}
+
+			_G[names.AddonCompartmentFuncOnEnter]("LegacyNext", entry)
+			_G[names.AddonCompartmentFuncOnLeave]("LegacyNext", entry)
+
+			assert.equals(1, #shown)
+			assert.equals(entry, shown[1][1])
+			assert.equals(ns.MinimapButton.COMPARTMENT_HINT, shown[1][2])
+			assert.equals(1, hidden)
 		end)
 
 		it("toggles the window on any click", function()
