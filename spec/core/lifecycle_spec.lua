@@ -159,6 +159,21 @@ describe("addon lifecycle", function()
 			assert.equals(10, stored().level)
 		end)
 
+		-- S1 logged 51 skill-ups in 45 minutes. The session log stays as short as Store's,
+		-- keeping the login result first and counting the middle it drops.
+		it("keeps the first snapshot this session and the latest, up to Store's limit", function()
+			_G.C_Timer = nil
+			for _ = 1, ns.Store.LOG_LIMIT + 5 do
+				handler(nil, "SKILL_LINES_CHANGED")
+			end
+
+			local input = ns.ReadRosterInput()
+
+			assert.equals(ns.Store.LOG_LIMIT, #input.snapshotLog)
+			assert.equals(5, input.snapshotLogSkipped)
+			assert.equals(ns.Store.LOG_LIMIT, #_G.LegacyNextDB.snapshotLog)
+		end)
+
 		it("shows the last session's logout result, and keeps /lgn roster out of the log", function()
 			handler(nil, "PLAYER_LOGOUT")
 			assert.equals(1, #_G.LegacyNextDB.snapshotLog)

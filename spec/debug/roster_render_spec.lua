@@ -13,7 +13,71 @@ local function fixture(name)
 	return dofile("spec/fixtures/" .. name .. ".lua")
 end
 
+-- The text /lgn roster printed in game, kept verbatim at the bottom of the fixture.
+local function capturedText(name)
+	local handle = assert(io.open("spec/fixtures/" .. name .. ".lua", "r"))
+	local source = handle:read("*a")
+	handle:close()
+	return assert(source:match("%-%-%[==%[ Rendered text, verbatim:\n(.-)\n%]==%]"))
+end
+
+-- Lines from `from` up to, not including, the first line starting with `to`.
+local function section(text, from, to)
+	local out, inside = {}, false
+	for line in (text .. "\n"):gmatch("(.-)\n") do
+		if line:find(from, 1, true) == 1 then
+			inside = true
+		elseif inside and line:find(to, 1, true) == 1 then
+			break
+		end
+		if inside then
+			out[#out + 1] = line
+		end
+	end
+	return out
+end
+
 describe("Debug.RenderRoster", function()
+	-- S1 step 4, the first read after a full restart. `now` sits 10 s after Geo's snapshot, as
+	-- in the first paste's test below.
+	it("reproduces the restart paste's store, saved-log and character lines", function()
+		local ns = loadStack()
+		local captured = fixture("roster_geo_restart")
+		local printed = capturedText("roster_geo_restart")
+
+		local text = ns.Debug.RenderRoster({
+			roster = ns.Model.Roster(captured.snapshots, "Geo-Classic Beta PvP"),
+			diagnostics = captured.diagnostics,
+			now = captured.snapshots[1].takenAt + 10,
+		})
+
+		assert.same(section(printed, "attached=", "this snapshot"), section(text, "attached=", "snapshots"))
+		assert.same(section(printed, "snapshots saved by earlier sessions:", "== CHARACTERS"),
+			section(text, "snapshots saved by earlier sessions:", "== CHARACTERS"))
+		assert.same(section(printed, "== CHARACTERS", "== TRADESKILL"), section(text, "== CHARACTERS", "== TRADESKILL"))
+	end)
+
+	-- S1, 2026-10-01. The renderer, fed the paste's own RAW block, gives back the lines the
+	-- client printed. `now` is not in the capture; 10 s after Geo's snapshot reproduces every age.
+	it("reproduces the captured store and character lines from the captured raw block", function()
+		local ns = loadStack()
+		local captured = fixture("roster_geo")
+		local printed = capturedText("roster_geo")
+
+		local text = ns.Debug.RenderRoster({
+			label = "1.60.1 (70124)",
+			roster = ns.Model.Roster(captured.snapshots, "Geo-Classic Beta PvP"),
+			diagnostics = captured.diagnostics,
+			now = captured.snapshots[1].takenAt + 10,
+		})
+
+		assert.same(section(printed, "attached=", "this snapshot"), section(text, "attached=", "snapshots"))
+		assert.same(section(printed, "snapshots saved by earlier sessions:", "== CHARACTERS"),
+			section(text, "snapshots saved by earlier sessions:", "== CHARACTERS"))
+		assert.same(section(printed, "== CHARACTERS", "== TRADESKILL"), section(text, "== CHARACTERS", "== TRADESKILL"))
+		assert.equals(7, #section(printed, "== CHARACTERS", "== TRADESKILL")) -- a heading, then three lines each
+	end)
+
 	it("renders the captured character, its trees and the tradeskill challenges", function()
 		local ns = loadStack()
 		local Model = ns.Model
@@ -48,6 +112,39 @@ describe("Debug.RenderRoster", function()
 		assert.is_nil(text:find("no stored character has this profession", 1, true))
 		assert.truthy(text:find("no stored character matched, and the profession lookup gave no answer, so one"
 			.. " may be missing", 1, true))
+	end)
+
+	-- S1's first paste carried 51 lines of this, one per Herbalism skill-up (roster_geo.lua).
+	-- Core trims the session log and counts what it dropped; the renderer says how many.
+	it("counts the snapshots Core dropped after the first one this session", function()
+		local ns = loadStack()
+		local log = { { at = 1000, text = "entry 1" } }
+		for index = 7, 15 do
+			log[#log + 1] = { at = 1000, text = "entry " .. index }
+		end
+
+		local text = ns.Debug.RenderRoster({ roster = ns.Model.Roster({}, nil), snapshotLog = log,
+			snapshotLogSkipped = 5, now = 1000 })
+
+		assert.truthy(text:find("snapshots this session:\n  0m ago  entry 1\n  ... 5 more\n  0m ago  entry 7\n", 1, true))
+		assert.truthy(text:find("  0m ago  entry 15\n", 1, true))
+	end)
+
+	-- Store already trimmed it, and its first entry is just the oldest kept, so all of it shows.
+	it("shows every saved snapshot from earlier sessions", function()
+		local ns = loadStack()
+		local log = {}
+		for index = 1, 11 do
+			log[index] = { session = 1, at = 1000, text = "entry " .. index }
+		end
+
+		local text = ns.Debug.RenderRoster({ roster = ns.Model.Roster({}, nil),
+			diagnostics = { loadedLog = log }, now = 1000 })
+
+		assert.is_nil(text:find("more", 1, true))
+		for index = 1, 11 do
+			assert.truthy(text:find("session 1  0m ago  entry " .. index .. "\n", 1, true))
+		end
 	end)
 
 	it("says when a part of a snapshot was never read", function()

@@ -6,6 +6,9 @@
 -- pin:       70ef1b2 (1.60.1.69913)
 -- character: fresh level 1 Shaman, no professions
 --
+-- `name` is first name plus surname, a Forever Legacy feature (Alex, 2026-10-01). UnitName
+-- returned the full name on 69913 and only "Bong" on 70124 (spec/fixtures/roster_geo.lua).
+--
 -- `professions` is an EMPTY TABLE, not nil -- the read succeeded and the character knows none.
 -- That is the absence-versus-failure distinction the Api guard exists to preserve, and it is
 -- what a Model test should assert against.

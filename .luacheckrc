@@ -64,6 +64,10 @@ read_globals = {
 	"UnitClass",
 	"UnitLevel",
 	"UnitName",
+	"UnitFullName",
+	"UnitNameUnmodified",
+	"UnitGUID",
+	"C_PlayerInfo",
 	"GetRealmName",
 	"GetProfessions",
 	"GetProfessionInfo",
@@ -101,4 +105,6 @@ files["spec/"] = {
 files["spec/fixtures/"] = {
 	std = "lua51",
 	max_line_length = false,
+	-- A verbatim paste keeps the padding our renderer printed, trailing spaces included.
+	ignore = { "614" },
 }
