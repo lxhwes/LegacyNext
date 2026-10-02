@@ -210,6 +210,69 @@ describe("Store", function()
 		end)
 	end)
 
+	describe("settings", function()
+		it("reads nothing and refuses writes before attach", function()
+			local Store = loadStore()
+
+			assert.same({}, Store.GetSettings())
+			local ok, reason = Store.PutSetting("minimapHidden", true)
+			assert.is_false(ok)
+			assert.equals("store not attached", reason)
+		end)
+
+		it("keeps them account-wide, in LegacyNextDB, as a copy", function()
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.is_true(Store.PutSetting("minimapHidden", true))
+			assert.is_true(Store.PutSetting("minimapAngle", 200))
+
+			assert.same({ minimapHidden = true, minimapAngle = 200 }, _G.LegacyNextDB.settings)
+			local read = Store.GetSettings()
+			read.minimapAngle = 1
+			assert.equals(200, Store.GetSettings().minimapAngle)
+			assert.is_nil(_G.LegacyNextCharDB)
+		end)
+
+		it("reads what an earlier session saved, and clears a setting set to nil", function()
+			_G.LegacyNextDB = { schema = 1, sessions = 1, characters = {},
+				settings = { minimapLocked = true, minimapAngle = 90 } }
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.same({ minimapLocked = true, minimapAngle = 90 }, Store.GetSettings())
+			assert.is_true(Store.PutSetting("minimapLocked", nil))
+			assert.same({ minimapAngle = 90 }, Store.GetSettings())
+		end)
+
+		it("replaces a saved settings field that is junk", function()
+			_G.LegacyNextDB = { schema = 1, sessions = 1, characters = {}, settings = "oops" }
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.same({}, Store.GetSettings())
+			assert.is_true(Store.PutSetting("minimapHidden", false))
+			assert.is_false(_G.LegacyNextDB.settings.minimapHidden)
+		end)
+
+		it("refuses writes into a newer schema, which may lay them out differently", function()
+			_G.LegacyNextDB = { schema = 99, settings = { minimapHidden = true } }
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.same({ minimapHidden = true }, Store.GetSettings())
+			assert.is_false((Store.PutSetting("minimapHidden", false)))
+			assert.is_true(_G.LegacyNextDB.settings.minimapHidden)
+		end)
+
+		it("refuses a setting name that is not a string", function()
+			local Store = loadStore()
+			Store.Attach()
+
+			assert.is_false((Store.PutSetting(1, true)))
+		end)
+	end)
+
 	-- Hypothetical until S1: the client assigning the loaded table after ADDON_LOADED.
 	describe("a table assigned after attach", function()
 		it("is adopted, with this session's writes replayed onto it", function()

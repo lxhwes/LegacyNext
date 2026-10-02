@@ -672,4 +672,92 @@ describe("Model", function()
 			assert.equals(0, #done.rows)
 		end)
 	end)
+
+	describe("BuildSummary", function()
+		local Model = loadModel()
+
+		local function input(extra)
+			local base = {
+				challenges = combinedChallenges(),
+				rewardTrack = fixture("dump_rewards_fresh").rewardTrack,
+				categories = fixture("categories_full").categories,
+			}
+			for key, value in pairs(extra or {}) do
+				base[key] = value
+			end
+			return base
+		end
+
+		local function ofKind(summary, kind)
+			local out = {}
+			for _, line in ipairs(summary.lines) do
+				if line.kind == kind then
+					out[#out + 1] = line
+				end
+			end
+			return out
+		end
+
+		it("leads with the header and lists Next Up's first three rows", function()
+			local view = Model.BuildView(input())
+			local summary = Model.BuildSummary(input())
+
+			local headers = ofKind(summary, "header")
+			assert.equals(view.header.lines[1], headers[1].text)
+			assert.equals(view.header.lines[2], headers[2].text)
+
+			local expected = {}
+			for _, row in ipairs(view.rows) do
+				if row.kind == "challenge" and #expected < 3 then
+					expected[#expected + 1] = { kind = "challenge", left = row.name, right = row.progressText }
+				end
+			end
+			assert.same(expected, ofKind(summary, "challenge"))
+		end)
+
+		it("counts the rows it left out", function()
+			local view = Model.BuildView(input())
+			local total = 0
+			for _, row in ipairs(view.rows) do
+				if row.kind == "challenge" then total = total + 1 end
+			end
+
+			local more = ofKind(Model.BuildSummary(input()), "more")
+
+			assert.equals(1, #more)
+			assert.equals("and " .. (total - 3) .. " more", more[1].text)
+		end)
+
+		it("ignores a saved filter, so the tooltip always ranks everything", function()
+			local filtered = input({ filter = "no such group" })
+
+			assert.same(Model.BuildSummary(input()), Model.BuildSummary(filtered))
+			assert.equals("no such group", filtered.filter)
+		end)
+
+		it("names this character's unspent points when its snapshot has them", function()
+			local summary = Model.BuildSummary(input({
+				currentKey = "Player-1",
+				snapshots = { { key = "Player-2", unspent = 9 }, { key = "Player-1", unspent = 3 } },
+			}))
+
+			assert.same({ { kind = "unspent", text = "Unspent on this character: 3" } }, ofKind(summary, "unspent"))
+		end)
+
+		it("leaves the unspent line out when it was not read", function()
+			local summary = Model.BuildSummary(input({
+				currentKey = "Player-1",
+				snapshots = { { key = "Player-1" } },
+			}))
+
+			assert.same({}, ofKind(summary, "unspent"))
+		end)
+
+		it("carries the view's message when the challenges could not be read", function()
+			local summary = Model.BuildSummary(input({ challenges = false, challengesReason = "missing" }))
+
+			assert.same({}, ofKind(summary, "challenge"))
+			assert.equals("Could not read your challenges: missing", ofKind(summary, "message")[1].text)
+		end)
+	end)
 end)

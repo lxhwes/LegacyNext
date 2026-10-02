@@ -84,6 +84,40 @@ end
 
 ns.UI.SetDataSource(ns.ReadViewInput)
 
+-- A challenge row's click: the chat-link click (Shift unless rebound) links it, as Blizzard's
+-- own rows do, and any other click opens Blizzard's Legacy panel on it. A refusal is said in
+-- chat, since the click otherwise does nothing visible.
+local function challengeClick(id)
+	local Api = ns.Api
+	if Api.IsLinkClick() then
+		local ok, reason = Api.LinkChallenge(id)
+		if not ok then
+			say("could not link it: " .. tostring(reason))
+		end
+		return
+	end
+	local ok, reason = Api.OpenLegacyChallenge(id)
+	if not ok then
+		say("could not open the Legacy panel: " .. tostring(reason))
+	end
+end
+
+ns.UI.SetActions({ challengeClick = challengeClick })
+
+-- The minimap tooltip reads what the window reads, so the two rank alike.
+ns.MinimapButton.SetSummarySource(function()
+	return ns.Model.BuildSummary(ns.ReadViewInput())
+end)
+
+-- Minimap exists by PLAYER_LOGIN, and both read Store, which attaches at ADDON_LOADED. A
+-- failure is kept for /lgn uidump rather than said: neither stops the window working.
+local function initMinimapAndOptions()
+	local _, minimapReason = ns.MinimapButton.Init()
+	ns.minimapReason = minimapReason
+	local _, optionsReason = ns.Options.Register()
+	ns.optionsReason = optionsReason
+end
+
 --------------------------------------------------------------------------------------------
 -- v1 roster: this character's snapshot, written through Store
 --------------------------------------------------------------------------------------------
@@ -282,6 +316,7 @@ frame:SetScript("OnEvent", function(_, event, arg1)
 		ns.version = getVersion()
 		-- No "v" prefix: the packager writes the tag name into ## Version, and tags carry it.
 		say(ns.version .. " loaded. /lgn to open, /lgn help for commands.")
+		initMinimapAndOptions()
 		-- Delayed like the others: skill and trait data may not be ready at PLAYER_LOGIN.
 		scheduleSnapshot(event)
 	elseif event == "PLAYER_LOGOUT" then
@@ -295,6 +330,17 @@ end)
 -- (addonName, buttonName) (AddonCompartment.lua:99, :103); every button toggles, like /lgn.
 function LegacyNext_OnAddonCompartmentClick()
 	ns.UI.Toggle()
+end
+
+-- Hovering the dropdown entry shows the minimap button's summary tooltip. Named by
+-- ## AddonCompartmentFuncOnEnter / OnLeave and called with (addonName, button)
+-- (AddonCompartment.lua:106-117 at 9a789c0).
+function LegacyNext_OnAddonCompartmentEnter(_, button)
+	ns.MinimapButton.ShowTooltip(button, ns.MinimapButton.COMPARTMENT_HINT)
+end
+
+function LegacyNext_OnAddonCompartmentLeave()
+	ns.MinimapButton.HideTooltip()
 end
 
 -- Key Bindings > AddOns. Bindings.xml loads by file name: none of the eight Blizzard addons that
@@ -319,6 +365,8 @@ local function usage()
 	say("commands:")
 	print("  /lgn                     open or close the window (Next Up and Roster tabs)")
 	print("  /lgn show | hide")
+	print("  /lgn minimap             show or hide the minimap button")
+	print("  /lgn config              open LegacyNext's settings")
 	print("  /lgn uidump [category]   what the Next Up tab would show, as copyable text")
 	print("  /lgn uidump roster       the same for the Roster tab")
 	print("  /lgn roster              every saved character and tradeskill candidates, as text")
@@ -339,6 +387,16 @@ SlashCmdList["LEGACYNEXT"] = function(input)
 		ns.UI.Show()
 	elseif command == "hide" then
 		ns.UI.Hide()
+	elseif command == "minimap" then
+		local hidden = not ns.MinimapButton.IsHidden()
+		local ok, reason = ns.MinimapButton.SetHidden(hidden)
+		if ok then
+			say(hidden and "minimap button hidden. /lgn minimap brings it back." or "minimap button shown.")
+		else
+			say("could not change minimap button: " .. tostring(reason))
+		end
+	elseif command == "config" or command == "options" then
+		ns.Options.Open()
 	elseif command == "uidump" then
 		ns.Debug.UIDump(rest ~= "" and rest or nil)
 	elseif command == "roster" then

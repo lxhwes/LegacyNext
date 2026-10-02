@@ -1346,4 +1346,81 @@ describe("UI", function()
 			end)
 		end)
 	end)
+
+	describe("row clicks", function()
+		local function nextUpSource()
+			return function()
+				return { challenges = fixture("dump_challenges_page1_fresh").challenges }
+			end
+		end
+
+		-- A GameTooltip double that keeps its lines.
+		local function stubTooltip()
+			local lines = {}
+			_G.GameTooltip = {
+				SetOwner = function() end,
+				AddLine = function(_, text) lines[#lines + 1] = text end,
+				Show = function() end,
+				Hide = function() end,
+			}
+			return lines
+		end
+
+		after_each(function()
+			_G.GameTooltip = nil
+		end)
+
+		it("hands a challenge row's id to the click action", function()
+			local ns = loadUI()
+			local clicked = {}
+			ns.UI.SetDataSource(nextUpSource())
+			ns.UI.SetActions({ challengeClick = function(id) clicked[#clicked + 1] = id end })
+			ns.UI.Show()
+			local row = ns.UI.frame.rows[1]
+
+			row.script_OnClick(row, "LeftButton")
+
+			assert.same({ row.data.id }, clicked)
+			assert.is_number(row.data.id)
+		end)
+
+		it("ignores a click on a row that is not a challenge", function()
+			local ns = loadUI()
+			local clicked = 0
+			ns.UI.SetDataSource(nextUpSource())
+			ns.UI.SetActions({ challengeClick = function() clicked = clicked + 1 end })
+			ns.UI.Show()
+			local row = ns.UI.frame.rows[1]
+			row.data = { kind = "character", id = 1 }
+
+			row.script_OnClick(row, "LeftButton")
+
+			assert.equals(0, clicked)
+		end)
+
+		it("does nothing on a click with no action set", function()
+			local ns = loadUI()
+			ns.UI.SetDataSource(nextUpSource())
+			ns.UI.Show()
+			local row = ns.UI.frame.rows[1]
+
+			assert.has_no.errors(function() row.script_OnClick(row, "LeftButton") end)
+		end)
+
+		it("says what a click does in a clickable row's tooltip, and only there", function()
+			local lines = stubTooltip()
+			local ns = loadUI()
+			ns.UI.SetDataSource(nextUpSource())
+			ns.UI.Show()
+			local row = ns.UI.frame.rows[1]
+
+			row.script_OnEnter(row)
+			assert.is_nil(lines[#lines]:find("Click", 1, true))
+
+			ns.UI.SetActions({ challengeClick = function() end })
+			for index = #lines, 1, -1 do lines[index] = nil end
+			row.script_OnEnter(row)
+			assert.equals(ns.UI.CLICK_HINT, lines[#lines])
+		end)
+	end)
 end)

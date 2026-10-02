@@ -13,6 +13,15 @@ client build it was verified against.
 
 - The window can be resized from its bottom-right corner, and keeps its size for each
   character. **Not yet seen in game.**
+- Click a challenge row to open Blizzard's Legacy panel on that challenge, or shift-click it to
+  link the challenge in chat. **Not yet seen in game.**
+- A minimap button. Left-click opens the window, right-click opens the settings, and dragging
+  moves it round the minimap's edge. Its tooltip shows the reward track, this character's
+  unspent points and the three challenges closest to done. `/lgn minimap` shows or hides it.
+  Hovering LegacyNext in the minimap's addon dropdown shows the same tooltip.
+  **Not yet seen in game.**
+- A settings page under Options > AddOns > LegacyNext, with toggles to show and to lock the
+  minimap button. `/lgn config` opens it. **Not yet seen in game.**
 
 ### Changed
 

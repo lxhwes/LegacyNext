@@ -75,7 +75,8 @@ describe("addon lifecycle", function()
 		end
 		for _, name in ipairs({ "CreateFrame", "UIParent", "UISpecialFrames", "LegacyNextDB",
 			"SLASH_LEGACYNEXT1", "SLASH_LEGACYNEXT2", "C_EventUtils", "C_Timer", "C_AddOns",
-			"LegacyNext_OnAddonCompartmentClick", "UnitGUID" }) do
+			"LegacyNext_OnAddonCompartmentClick", "LegacyNext_OnAddonCompartmentEnter",
+			"LegacyNext_OnAddonCompartmentLeave", "UnitGUID" }) do
 			_G[name] = nil
 		end
 	end)
@@ -369,6 +370,29 @@ describe("addon lifecycle", function()
 			assert.is_function(_G[name])
 		end)
 
+		-- The hover globals get (addonName, button) (AddonCompartment.lua:106-117).
+		it("names hover globals in the TOC that show and hide the summary tooltip", function()
+			local names = {}
+			for line in io.lines("LegacyNext/LegacyNext.toc") do
+				local key, name = line:match("^## (AddonCompartmentFuncOn%a+):%s*(%S+)")
+				if key then
+					names[key] = name
+				end
+			end
+			local shown, hidden = {}, 0
+			ns.MinimapButton.ShowTooltip = function(owner, hint) shown[#shown + 1] = { owner, hint } end
+			ns.MinimapButton.HideTooltip = function() hidden = hidden + 1 end
+			local entry = {}
+
+			_G[names.AddonCompartmentFuncOnEnter]("LegacyNext", entry)
+			_G[names.AddonCompartmentFuncOnLeave]("LegacyNext", entry)
+
+			assert.equals(1, #shown)
+			assert.equals(entry, shown[1][1])
+			assert.equals(ns.MinimapButton.COMPARTMENT_HINT, shown[1][2])
+			assert.equals(1, hidden)
+		end)
+
 		it("toggles the window on any click", function()
 			local toggles = 0
 			ns.UI.Toggle = function() toggles = toggles + 1 end
@@ -555,5 +579,148 @@ describe("addon lifecycle", function()
 		assert.equals(2, _G.LegacyNextDB.sessions)
 		assert.is_table(_G.LegacyNextDB.characters["Alt-Realm"])
 		assert.is_table(_G.LegacyNextDB.characters["Tester-Realm"])
+	end)
+
+	describe("challenge clicks", function()
+		local said
+
+		before_each(function()
+			said = {}
+			_G.print = function(text) said[#said + 1] = text end
+		end)
+
+		local function stubActions(linkClick)
+			local done = {}
+			ns.Api.IsLinkClick = function() return linkClick end
+			ns.Api.LinkChallenge = function(id) done[#done + 1] = "link " .. id return true end
+			ns.Api.OpenLegacyChallenge = function(id) done[#done + 1] = "open " .. id return true end
+			return done
+		end
+
+		it("opens Blizzard's panel on a plain click", function()
+			local done = stubActions(false)
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.same({ "open 61499" }, done)
+			assert.same({}, said)
+		end)
+
+		it("links the challenge on a chat-link click", function()
+			local done = stubActions(true)
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.same({ "link 61499" }, done)
+		end)
+
+		it("says why the panel did not open", function()
+			stubActions(false)
+			ns.Api.OpenLegacyChallenge = function() return nil, "in combat" end
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.equals(1, #said)
+			assert.truthy(said[1]:find("could not open the Legacy panel: in combat", 1, true))
+		end)
+
+		it("says why the link did not land", function()
+			stubActions(true)
+			ns.Api.LinkChallenge = function() return nil, "open a chat box first" end
+
+			ns.UI.actions.challengeClick(61499)
+
+			assert.truthy(said[1]:find("could not link it: open a chat box first", 1, true))
+		end)
+	end)
+
+	describe("minimap button and settings", function()
+		after_each(function()
+			_G.Minimap = nil
+			_G.Settings = nil
+		end)
+
+		local function stubSettings()
+			local log = {}
+			_G.Settings = {
+				RegisterVerticalLayoutCategory = function() return { GetID = function() return 9 end } end,
+				RegisterProxySetting = function(_, variable) return { variable = variable } end,
+				CreateCheckbox = function() end,
+				RegisterAddOnCategory = function() log.registered = true end,
+				OpenToCategory = function(id) log.opened = id end,
+			}
+			return log
+		end
+
+		it("builds the button and registers the settings at login", function()
+			_G.Minimap = _G.CreateFrame()
+			local log = stubSettings()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			assert.is_true(ns.MinimapButton.Describe().created)
+			assert.is_true(log.registered)
+			assert.is_nil(ns.minimapReason)
+			assert.is_nil(ns.optionsReason)
+		end)
+
+		it("keeps the reasons when neither can come up, and still logs in", function()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			assert.has_no.errors(function() handler(nil, "PLAYER_LOGIN") end)
+
+			assert.equals("no Minimap frame", ns.minimapReason)
+			assert.equals("Settings.RegisterVerticalLayoutCategory missing", ns.optionsReason)
+			assert.is_table(_G.LegacyNextDB.characters["Tester-Realm"])
+		end)
+
+		it("toggles the button from /lgn minimap and saves it account-wide", function()
+			_G.Minimap = _G.CreateFrame()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.is_true(_G.LegacyNextDB.settings.minimapHidden)
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.is_false(_G.LegacyNextDB.settings.minimapHidden)
+		end)
+
+		it("notifies an already displayed settings checkbox after /lgn minimap", function()
+			local log = stubSettings()
+			_G.Settings.NotifyUpdate = function(variable)
+				log.variable = variable
+				log.checked = not ns.MinimapButton.IsHidden()
+			end
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.equals("LEGACYNEXT_MINIMAP_SHOW", log.variable)
+			assert.is_false(log.checked)
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+			assert.is_true(log.checked)
+		end)
+
+		it("reports a refused slash-command setting write instead of success", function()
+			_G.LegacyNextDB = { schema = 2, settings = { minimapHidden = false } }
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			local said = {}
+			_G.print = function(text) said[#said + 1] = text end
+
+			_G.SlashCmdList.LEGACYNEXT("minimap")
+
+			assert.is_false(_G.LegacyNextDB.settings.minimapHidden)
+			assert.equals(1, #said)
+			assert.truthy(said[1]:find("could not change minimap button: saved schema 2", 1, true))
+		end)
+
+		it("opens the settings from /lgn config", function()
+			local log = stubSettings()
+			handler(nil, "ADDON_LOADED", "LegacyNext")
+			handler(nil, "PLAYER_LOGIN")
+
+			_G.SlashCmdList.LEGACYNEXT("config")
+
+			assert.equals(9, log.opened)
+		end)
 	end)
 end)

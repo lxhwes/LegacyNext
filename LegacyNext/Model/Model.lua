@@ -681,3 +681,58 @@ function Model.BuildView(input)
 
 	return view
 end
+
+--------------------------------------------------------------------------------------------
+-- The minimap button's tooltip
+--------------------------------------------------------------------------------------------
+
+Model.SUMMARY_ROWS = 3
+
+-- The minimap tooltip's lines, from the same input as the window: the header, this character's
+-- unspent points, and Next Up's first rows over every group. Each line is { kind, text } or,
+-- for a challenge, { kind, left, right }; UI only draws them.
+function Model.BuildSummary(input)
+	input = input or {}
+	-- Every group, whatever the window was left filtered to. A copy, so the caller's input keeps
+	-- its filter.
+	local unfiltered = {}
+	for key, value in pairs(input) do
+		unfiltered[key] = value
+	end
+	unfiltered.filter = nil
+	local view = Model.BuildView(unfiltered)
+
+	local lines = {}
+	for _, text in ipairs(view.header.lines or {}) do
+		if type(text) == "string" and text ~= "" then
+			lines[#lines + 1] = { kind = "header", text = text }
+		end
+	end
+
+	for _, snapshot in ipairs(type(input.snapshots) == "table" and input.snapshots or {}) do
+		if type(snapshot) == "table" and input.currentKey ~= nil and snapshot.key == input.currentKey
+			and type(snapshot.unspent) == "number" then
+			lines[#lines + 1] = { kind = "unspent", text = "Unspent on this character: " .. tostring(snapshot.unspent) }
+		end
+	end
+
+	if view.state ~= "ok" then
+		lines[#lines + 1] = { kind = "message", text = tostring(view.message or view.state) }
+		return { lines = lines }
+	end
+
+	local shown, total = 0, 0
+	for _, row in ipairs(view.rows) do
+		if row.kind == "challenge" then
+			total = total + 1
+			if shown < Model.SUMMARY_ROWS then
+				shown = shown + 1
+				lines[#lines + 1] = { kind = "challenge", left = row.name, right = row.progressText }
+			end
+		end
+	end
+	if total > shown then
+		lines[#lines + 1] = { kind = "more", text = "and " .. tostring(total - shown) .. " more" }
+	end
+	return { lines = lines }
+end
