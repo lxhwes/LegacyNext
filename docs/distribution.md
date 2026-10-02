@@ -145,7 +145,8 @@ Secrets, by name: `CF_API_KEY: ${{ secrets.CF_API_KEY }}` (read at line 494) and
 is left out: the packager README says only that Wago uploads require it.
 
 CurseForge stays off until both `## X-Curse-Project-ID` in the TOC and the `CF_API_KEY` secret
-exist. Line 1329 reads the ID from the TOC, and line 1481 sets `project_site` only when it is
+exist. The TOC has had `## X-Curse-Project-ID: 1721646` since 2026-10-01, when Alex created
+the project. Whether the secret is set is checked by `gh secret list`, by name only. Line 1329 reads the ID from the TOC, and line 1481 sets `project_site` only when it is
 numeric. Then `upload_curseforge` returns before any request (line 2818):
 
 ```sh

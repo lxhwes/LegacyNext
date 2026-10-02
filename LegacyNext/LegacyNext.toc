@@ -7,6 +7,7 @@
 ## IconTexture: Interface\AddOns\LegacyNext\Media\icon
 ## AddonCompartmentFunc: LegacyNext_OnAddonCompartmentClick
 ## Category: Achievements
+## X-Curse-Project-ID: 1721646
 
 Store\Store.lua
 Api\Api.lua
