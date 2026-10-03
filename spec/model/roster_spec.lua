@@ -1068,4 +1068,59 @@ describe("Roster model", function()
 			assert.is_nil(detail:find("to go", 1, true))
 		end)
 	end)
+
+	-- S2, 2026-10-02 (spec/fixtures/roster_bong_migrated.lua): the store after Geo and Bong moved
+	-- to their GUIDs in game, with Plymouth still under its Name-Realm key.
+	describe("the migrated store, as captured", function()
+		local BONG_GUID = "Player-4619-00BADC1B"
+
+		local function captured()
+			return fixture("roster_bong_migrated").snapshots
+		end
+
+		local function keyed(list, key)
+			for _, snapshot in ipairs(list) do
+				if snapshot.key == key then
+					return snapshot
+				end
+			end
+			error("no snapshot keyed " .. key)
+		end
+
+		it("merges the next login over the GUID row and moves nothing again", function()
+			local stored = keyed(captured(), BONG_GUID)
+			local fresh = keyed(captured(), BONG_GUID)
+			fresh.takenAt = 1790990590 -- the /reload's own read, from the second paste
+
+			local plan = Model.PlanSnapshot(fresh, stored, nil)
+
+			assert.is_nil(plan.forget)
+			assert.equals(BONG_GUID, plan.snapshot.key)
+			assert.equals("Bong", plan.snapshot.name)
+		end)
+
+		it("draws every character by name, never by GUID, with the current one marked", function()
+			local view = Model.BuildRosterView({ snapshots = captured(), currentKey = BONG_GUID })
+
+			local names, current = {}, nil
+			for _, row in ipairs(view.rows) do
+				if row.kind == "character" then
+					names[#names + 1] = row.name
+					assert.is_nil(row.name:find("Player-", 1, true))
+					if row.current then
+						current = row.name
+					end
+				end
+			end
+			table.sort(names)
+			assert.same({ "Bong  L1 Shaman", "Geo  L7 Druid", "Plymouth  L1 Paladin" }, names)
+			assert.equals("Bong  L1 Shaman", current)
+		end)
+
+		it("forgets a moved character and an unmoved one by the Name-Realm a player types", function()
+			assert.equals(BONG_GUID, Model.ForgetKey("Bong-Classic Beta PvP", captured()))
+			assert.equals(GEO_GUID, Model.ForgetKey("Geo-Classic Beta PvP", captured()))
+			assert.equals("Plymouth-Classic Beta PvP", Model.ForgetKey("Plymouth-Classic Beta PvP", captured()))
+		end)
+	end)
 end)

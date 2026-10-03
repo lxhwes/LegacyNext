@@ -2,9 +2,19 @@
 
 Last updated 2026-10-02.
 
-**Where we are, 2026-10-02, late night: `v0.1.0-beta2` is cut, and PR #12 adds a contributing
-guide, issue forms and a PR template.** The issue labels and branch protection are already live.
-404 tests, none pending. The next in-game session closes S2, U8, U9, U10 and U11.
+**Where we are, 2026-10-02, late night: `v0.1.0-beta2` is on CurseForge and GitHub, the
+session after it closed S2, U8 and U11, and the repo has a contributing guide, issue forms and a
+PR template.** The GUID move worked on Geo and Bong. The resize grip
+and the settings page work. The minimap button works, bar one unreported hover. The account has 0
+Legacy points, so a row click could only refuse, and the open-and-select half of U9 waits for the
+first point. A `/reload`'s logout reads what a real logout cannot. The issue labels and branch
+protection are live. 407 tests, none pending.
+Details in `docs/legacy-internals.md`, "The beta2 session".
+
+**As of 2026-10-02, late night, before the session: `v0.1.0-beta2` is cut, and PR #12 adds a
+contributing guide, issue forms and a PR template.** The issue labels and branch protection are
+already live. 404 tests, none pending. ~~The next in-game session closes S2, U8, U9, U10 and
+U11.~~ It closed S2, U8 and U11; U9 and U10 stay open (above).
 
 **As of 2026-10-02, night: `v0.1.0-beta2` is cut, ahead of the in-game session.**
 PR #11 merged as `48fc9dd`, with 404 tests, none pending. Alex chose to release before S2, U8,
