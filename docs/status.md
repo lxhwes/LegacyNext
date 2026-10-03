@@ -2,13 +2,28 @@
 
 Last updated 2026-10-02.
 
-**Where we are, 2026-10-02: the repo is public, and has a contributing guide, issue forms and
-issue labels.** Nothing in the addon changed. 314 tests, none pending. S2 and U8 are still
-open, then `v0.1.0-beta2`.
+**Where we are, 2026-10-02, late night: `v0.1.0-beta2` is cut, and PR #12 adds a contributing
+guide, issue forms and a PR template.** The issue labels and branch protection are already live.
+404 tests, none pending. The next in-game session closes S2, U8, U9, U10 and U11.
 
-~~**Where we are, 2026-10-02: the repo is being readied to go public.**~~ Alex made it public
-the same day. The README, CHANGELOG and contributor doc now match what shipped, and the next
-release's notes come from `CHANGELOG.md` instead of the git log.
+**As of 2026-10-02, night: `v0.1.0-beta2` is cut, ahead of the in-game session.**
+PR #11 merged as `48fc9dd`, with 404 tests, none pending. Alex chose to release before S2, U8,
+U9, U10 and U11 were played, so the CHANGELOG marks every beta2 entry as not yet seen in game.
+The tag goes on the merge of this cut, and the release workflow publishes it to CurseForge and
+GitHub. The session still closes those five rows.
+
+**As of 2026-10-02, later: beta2's features are built on `feat/beta2`, unseen in
+game.** A row click opens Blizzard's Legacy panel on that challenge, and shift-click links it in
+chat. There is a draggable minimap button with a summary tooltip, and a settings page under
+Options > AddOns. The dropdown entry shows the same tooltip. PR #11's two review findings and
+five Copilot comments are fixed, with 404 tests, none pending. One in-game session checks S2, U8, U9, U10 and U11,
+then `v0.1.0-beta2`. PR #11. Section "Beta2 features" below.
+
+**As of 2026-10-02: the repo is being readied to go public.** Alex made it public the same
+day. The README, CHANGELOG
+and contributor doc now match what shipped, and the next release's notes come from
+`CHANGELOG.md` instead of the git log. Nothing in the addon changed. 314 tests, none pending.
+The flip itself is Alex's to make. S2 and U8 are still open, then `v0.1.0-beta2`.
 
 **As of 2026-10-01, late evening: `v0.1.0-beta1` is on CurseForge, and the GUID roster
 key and the resizable window are merged but unseen in game.** The release (project 1721646,
@@ -87,6 +102,83 @@ Repo settings, Alex's calls: labels for triage (`needs info`, `needs in-game`, `
 `out of scope`, three `area:` labels), with `invalid` dropped. `main` requires the CI check,
 with no review requirement. Branches delete on merge, and private vulnerability reporting is on.
 No code of conduct, no SECURITY.md, no CODEOWNERS.
+
+## Beta2 features — 2026-10-02
+
+Alex asked for three things for beta2: opening Blizzard's panels from the tracker, a proper
+minimap icon that can be hidden, and a config menu. Alex chose a hand-rolled minimap button over
+LibDBIcon or the compartment alone, a Blizzard Settings page over slash commands only, and three
+extras: shift-click to link, the tooltip summary, and Escape to close. Escape already worked
+(`UI/UI.lua`, `UISpecialFrames`, since Phase 3), so that one needed nothing.
+
+Built source-only at `9a789c0`, test-first. The vendor checkout widened to `Blizzard_Settings`,
+`Blizzard_Settings_Shared` and `Blizzard_Minimap` (`vendor/PINS.md`). The research is in
+`docs/legacy-internals.md`, "Beta2 UI research".
+
+- **Row click opens Blizzard's Legacy panel.** `Api.OpenLegacyChallenge` refuses in combat and at
+  zero points. Otherwise it toggles the panel only when it is closed, switches to the challenges
+  page, then selects. Blizzard's select call does not switch pages itself, and the page builds
+  its list when it shows. Whether that happens inside the same call is **U9**'s question.
+  `Api` gained its first calls that are not reads. They open and fill Blizzard frames on a
+  click, and none touches traits, purchases or commits.
+- **Shift-click links the challenge**, through the same `IsModifiedClick("CHATLINK")`,
+  `GetAchievementLink` and `ChatFrameUtil.InsertLink` path Blizzard's own challenge rows use.
+  None of the three is in the generated docs, so all are feature-detected. Also U9.
+- **Minimap button**, `UI/MinimapButton.lua`. Its angle and its hide and lock flags are
+  account-wide, in `LegacyNextDB.settings`, which is additive, so the schema stays 1. Writes are
+  refused under a newer schema, like the alt list. The tooltip is `Model.BuildSummary` over the
+  same read as the window: the header, this character's unspent points and the top three, cached
+  30 s, never read in combat. **U10**.
+- **Settings page**, `UI/Options.lua`. Proxy settings rather than `RegisterAddOnSetting`, so
+  Blizzard never holds the SavedVariables table, and `Store/` stays the only file that names it.
+  `/lgn config` refuses in combat, where `ShowUIPanel` would block it. **U11**.
+
+Added the same day, after the PR opened: hovering LegacyNext in the minimap's addon dropdown
+shows the button's summary tooltip, through `## AddonCompartmentFuncOnEnter` / `OnLeave`
+(`AddonCompartment.lua:106-117`). U10 covers it.
+
+**Competition recheck, 2026-10-02.** CurseForge's Forever listing (game version 1.60.1)
+searched for "legacy", plus web searches across CurseForge, GitHub and Wago. Four addons:
+
+- **Legacy Forever** (cjber, GPL-3.0, 782 downloads, updated 2026-10-02). Map pins and an
+  objective-tracker section for the current character. Known since 2026-09-30, and still
+  complementary: where a challenge is, against which is next and which alt should do it.
+- **Forever Companion** (ShadowlessStudios, All Rights Reserved, 163 downloads, updated
+  2026-09-30). New. An all-in-one addon whose page lists "Objectives close to completion"
+  and account-wide progress among many modules. That overlaps Next Up. Its page names no
+  tree spend and no mapping of challenges to alts, which is the roster's ground. Not
+  installed or read beyond its listing.
+- **Talent Nexus** (Exordiumz, 4 downloads). New. Class talents and Legacy trees in one
+  window. A tree viewer, which is a non-goal here, so no overlap.
+- **LegacyNext**, ours, 5 downloads.
+
+Nothing found changes beta2. Forever Companion is the one to watch.
+
+`UI/` reaches Blizzard's `Settings` and `Minimap` by name, as it already does for templates and
+`GameTooltip`. `Api/` stays the only place game data is read. The two new modules are in the TOC
+before `Core.lua`, and the lifecycle spec loads the TOC, so a missing line fails a test.
+
+## PR #11 review fixes — 2026-10-02
+
+Alex asked for both review passes to be addressed, favoring our review if they disagreed.
+All five Copilot comments were valid and compatible with the two findings from our review.
+
+- A challenge click now confirms Blizzard's selected id against its displayed chain tier.
+  An excluded row produces a search/completion-filter hint instead of reporting success.
+  The shared achievement search stays untouched. U9 includes both excluded-row cases.
+- Existing frames with unreadable visibility stop the toggle; a missing load-on-demand
+  frame still allows the normal opening path.
+- The minimap's number guard checks secrecy under `pcall` before NaN/infinity comparisons.
+- Visibility and lock writes propagate Store's failures. The slash command and Settings
+  setters explain them; a rejected drag restores its saved angle. Settings is notified on
+  external writes, and a rejected checkbox write queues a refresh after Blizzard's own
+  requested-value event. U11 includes the displayed-checkbox/slash-command case.
+- The build-bump watchlist includes the missing fallback globals and both new selection
+  reads. README combat restrictions now match the separate opening and linking paths.
+
+19 regression tests added. The research and citations are in `docs/legacy-internals.md`,
+"PR #11 review research". Full busted: 404 passing, no pending. Luacheck: no warnings or errors.
+Live verification remains with S2 and U8–U11.
 
 ## Public flip prep — 2026-10-02
 
@@ -169,11 +261,13 @@ Alex asked for a minimap button and chose Blizzard's Addon Compartment over a dr
 The TOC names `LegacyNext_OnAddonCompartmentClick`, a global in `Core.lua`, and any click
 toggles the window as `/lgn` does. The entry reuses `## IconTexture`.
 
-Why not a draggable icon. Its position has to be saved, and SavedVariables are S1's open
+~~Why not a draggable icon. Its position has to be saved, and SavedVariables are S1's open
 question. It would also parent a frame to Blizzard's Minimap, which v0's scope rules out.
 LibDBIcon would add the project's first external libs. Revisit after S1 if the dropdown is not
-enough. (S1 closed later the same day: saved data loads, so a saved icon position is now
-possible.)
+enough.~~ (S1 closed later the same day: saved data loads, so a saved icon position is now
+possible.) **Superseded 2026-10-02:** Alex asked for a proper minimap icon for beta2 and chose a
+hand-rolled one. Parenting a button to `Minimap` hooks nothing, and the scope line in `CLAUDE.md`
+now says so. The compartment entry stays. See "Beta2 features".
 
 Evidence is source only, at `966519c`. `Blizzard_Minimap.toc` loads `AddonCompartment.lua` for
 `mainline`. The same TOC excludes `camelot` from another `mainline` line, which is why Forever
@@ -207,7 +301,7 @@ Two of the call-site changes bear on open questions:
   keeps `true`, so a snapshot records committed spend and never a player's unsaved tree edits.
   Open for Alex if the window should match Blizzard's panel instead.
 - `ToggleLegacySystemUI` does nothing at zero points now. The "open Blizzard's panel on one
-  challenge" idea, under the Legacy Forever entry below, would need to hide or disable itself at
+  challenge" idea (built 2026-10-02, "Beta2 features": it refuses with a chat line at zero points), under the Legacy Forever entry below, would need to hide or disable itself at
   zero points.
 
 ## S1 closed, and the frame seen — 2026-10-01, late morning
@@ -469,7 +563,8 @@ Open for Alex, neither blocking S1:
 
 - A "Works alongside" line in `README.md` that points to Legacy Forever for map pins. It
   covers where a challenge is. We cover which challenge is next and which alt should do it.
-- Whether a Next Up row should open Blizzard's Legacy panel on that challenge. It takes three
+- ~~Whether a Next Up row should open Blizzard's Legacy panel on that challenge.~~ Alex said yes,
+  2026-10-02, and it is built ("Beta2 features"). It takes three
   calls, all present at the pin and cited in `docs/legacy-internals.md`. An idea only, not
   planned.
 - Whether class-level matching reopens. See the note under the decision below.
@@ -856,7 +951,8 @@ that are currently known to be false or unverified.
       2026-09-19
 - [x] **U2** — whether long names get `...` or need the tooltip alone. They get it, 2026-10-01
 - [ ] **C2** — whether the achievement events fire; the frame registers them regardless
-- [ ] Competition recheck immediately before release
+- [x] Competition recheck immediately before release. Done 2026-10-02, ahead of beta2; see
+      "Competition recheck" under Beta2 features. Re-run it if the tag slips past a few days
 - [x] **Resizable main window** (Alex, 2026-10-01). ~~Not started.~~ Built and merged the same
       evening; U8 checks it in game. The frame is a fixed 520x480
       (`UI/UI.lua:15`), and the scroll child's width and the on-screen position clamp both derive

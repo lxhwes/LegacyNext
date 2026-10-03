@@ -9,10 +9,24 @@ client build it was verified against.
 
 ## [Unreleased]
 
+## [0.1.0-beta2] - 2026-10-02
+
+Built against client build 1.60.1 (70170). Nothing new in this release has been seen in game
+yet, and each entry says so.
+
 ### Added
 
 - The window can be resized from its bottom-right corner, and keeps its size for each
   character. **Not yet seen in game.**
+- Click a challenge row to open Blizzard's Legacy panel on that challenge, or shift-click it to
+  link the challenge in chat. **Not yet seen in game.**
+- A minimap button. Left-click opens the window, right-click opens the settings, and dragging
+  moves it round the minimap's edge. Its tooltip shows the reward track, this character's
+  unspent points and the three challenges closest to done. `/lgn minimap` shows or hides it.
+  Hovering LegacyNext in the minimap's addon dropdown shows the same tooltip.
+  **Not yet seen in game.**
+- A settings page under Options > AddOns > LegacyNext, with toggles to show and to lock the
+  minimap button. `/lgn config` opens it. **Not yet seen in game.**
 
 ### Changed
 
@@ -86,5 +100,6 @@ the packager replaces with the git tag at build time, so the tag is the version.
 are tagged `-betaN` and upload to CurseForge as beta releases. The first upload was
 `v0.1.0-beta1`.
 
-[Unreleased]: https://github.com/lxhwes/LegacyNext/compare/v0.1.0-beta1...HEAD
+[Unreleased]: https://github.com/lxhwes/LegacyNext/compare/v0.1.0-beta2...HEAD
+[0.1.0-beta2]: https://github.com/lxhwes/LegacyNext/releases/tag/v0.1.0-beta2
 [0.1.0-beta1]: https://github.com/lxhwes/LegacyNext/releases/tag/v0.1.0-beta1

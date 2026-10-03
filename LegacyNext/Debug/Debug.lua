@@ -468,6 +468,15 @@ function Debug.BuildUIDump(filterName)
 	if ns.UI and ns.UI.Describe then
 		footer[#footer + 1] = "frame " .. Debug.Serialize(ns.UI.Describe()):gsub("%s+", " ")
 	end
+	-- U10 and U11: whether the button and the Settings category came up, and if not, why.
+	if ns.MinimapButton and ns.MinimapButton.Describe then
+		local minimap = ns.MinimapButton.Describe()
+		minimap.reason = ns.minimapReason
+		footer[#footer + 1] = "minimap " .. Debug.Serialize(minimap):gsub("%s+", " ")
+	end
+	if ns.Options and ns.Options.Describe then
+		footer[#footer + 1] = "options " .. Debug.Serialize(ns.Options.Describe()):gsub("%s+", " ")
+	end
 	if #footer > 0 then
 		text = text .. "== CLIENT ==\n" .. table.concat(footer, "\n") .. "\n"
 	end

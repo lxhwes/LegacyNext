@@ -15,6 +15,8 @@ globals = {
 	"SLASH_LEGACYNEXT2",
 	"SlashCmdList",
 	"LegacyNext_OnAddonCompartmentClick",
+	"LegacyNext_OnAddonCompartmentEnter",
+	"LegacyNext_OnAddonCompartmentLeave",
 	"LegacyNext_Toggle",
 	"BINDING_NAME_LEGACYNEXT_TOGGLE",
 }
@@ -75,6 +77,25 @@ read_globals = {
 	"GetProfessionInfo",
 	"C_TradeSkillUI",
 	"GetServerTime",
+
+	-- Actions on Blizzard's UI: the Legacy panel and the chat link, on a click
+	"ToggleLegacySystemUI",
+	"LegacySystemFrame",
+	"EventRegistry",
+	"AchievementFrame_SelectAchievement",
+	"AchievementFrame_FindDisplayedAchievement",
+	"AchievementFrameAchievements_GetSelectedAchievementId",
+	"GetAchievementLink",
+	"ChatFrameUtil",
+	"ChatEdit_InsertLink",
+	"IsModifiedClick",
+	"IsShiftKeyDown",
+
+	-- The minimap button and the Settings category (UI/)
+	"Minimap",
+	"GetCursorPosition",
+	"GetTime",
+	"Settings",
 
 	-- UI and Debug (reached through rawget; listed so the manifest stays honest)
 	"GameTooltip",

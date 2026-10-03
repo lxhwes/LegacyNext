@@ -28,7 +28,10 @@ earned there grant in every ruleset; PvP challenges cannot be done there.)
 - Reward track readout: current level, points to next reward, next reward name
 - Slash-command-opened standalone frame. No hooking Blizzard frames in v0. Also opened from
   the minimap's Addon Compartment, which is TOC metadata (`## AddonCompartmentFunc`) rather
-  than a hook.
+  than a hook. Also from our own minimap button, a child of `Minimap` (beta2). A child frame
+  and a Settings category are not hooks. Neither is a row click calling Blizzard's own
+  `ToggleLegacySystemUI` and challenge select. We never replace or wrap a Blizzard function
+  or script.
 
 **v1 "Roster"** — needs SavedVariables:
 - Per-character snapshot on login/logout/relevant events: class, level, professions + skill,
@@ -278,9 +281,9 @@ cannot, and some that would otherwise need a round trip in game.
 
 | Dir | Rule |
 |---|---|
-| `Api/` | The **only** place WoW globals are called. Every call: feature-detect (does the function exist?), `pcall`, `issecretvalue` guard (if `issecretvalue` exists). Returns plain Lua tables, or `nil` + reason. No UI code. |
+| `Api/` | The **only** place WoW globals are called. Every call: feature-detect (does the function exist?), `pcall`, `issecretvalue` guard (if `issecretvalue` exists). Returns plain Lua tables, or `nil` + reason. No UI code. Three click actions are its only non-reads: `OpenLegacyChallenge`, `LinkChallenge`, `IsLinkClick`. They open Blizzard's Legacy panel or fill the chat box, and `Core.lua` hands them to `UI` through `UI.SetActions`. |
 | `Model/` | Pure Lua: ranking, reward-track math, roster mapping. **No WoW globals at all.** This is where the tests live. |
-| `UI/` | Frames. Talks to `Model`, never to `Api` directly: `Core.lua` injects `ns.ReadViewInput` as its data source, and `/lgn uidump` reads through the same function. One frame, two tabs: Next Up draws `Model.BuildView`, Roster draws `Model.BuildRosterView`, from the same read. Frame templates and font objects are looked up by name with `pcall`/`rawget` and a plain-frame fallback; the citations are in `docs/ui-templates.md`. |
+| `UI/` | Frames. Talks to `Model`, never to `Api` directly: `Core.lua` injects `ns.ReadViewInput` as its data source, and `/lgn uidump` reads through the same function. One frame, two tabs: Next Up draws `Model.BuildView`, Roster draws `Model.BuildRosterView`, from the same read. `MinimapButton.lua` draws `Model.BuildSummary` from that read too, and `Options.lua` is the Settings category; both reach Blizzard's `Minimap` and `Settings` by name. Frame templates and font objects are looked up by name with `pcall`/`rawget` and a plain-frame fallback; the citations are in `docs/ui-templates.md`. |
 | `Store/` | SavedVariables behind an interface, so the SV-bug workaround (or its removal) is a one-file change. |
 | `Debug/` | `/lgn dump`: serializes `Api` output into a copyable multiline EditBox so I can paste real client data back as test fixtures. Built because SavedVariables were broken, and still the capture path. `/lgn roster`: v1's stored characters and tradeskill candidates as text. `/lgn uidump [roster]`: a tab's content as text via the pure `Debug.RenderView`, golden-tested in `spec/golden/`. |
 

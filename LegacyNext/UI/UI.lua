@@ -163,6 +163,11 @@ UI.filter = nil -- selected Next Up group id, nil for All; kept across a trip to
 UI.source = nil -- function() -> Model.BuildView / BuildRosterView input, set by Core
 UI.view = nil -- last view built, for uidump parity checks
 UI.nextUpFilters = nil -- the last Next Up view's filters, drawn while a read waits for combat
+UI.actions = {} -- set by Core: challengeClick(id) opens or links a challenge, and reports a failure
+
+-- The row kinds that are a challenge, and so clickable.
+local CLICK_KINDS = { challenge = true, tradeskill = true }
+UI.CLICK_HINT = "Click to open in the Legacy panel. Shift-click to link it."
 
 local TABS = {
 	{ id = "nextup", label = "Next Up" },
@@ -177,6 +182,17 @@ local TAB_TEMPLATE_HEIGHT = 32
 
 function UI.SetDataSource(fn)
 	UI.source = fn
+end
+
+-- What a click does. Core passes Api functions in, so UI never calls Api itself.
+function UI.SetActions(actions)
+	UI.actions = type(actions) == "table" and actions or {}
+end
+
+local function clickable(row)
+	local data = row.data
+	return type(data) == "table" and CLICK_KINDS[data.kind] and data.id ~= nil
+		and type(UI.actions.challengeClick) == "function" or false
 end
 
 local function knownTab(tab)
@@ -590,7 +606,16 @@ local function showTooltip(row)
 	for _, line in ipairs(row.data.detail or {}) do
 		tooltip:AddLine(line, nil, nil, nil, true)
 	end
+	if clickable(row) then
+		tooltip:AddLine(UI.CLICK_HINT, 0.5, 0.5, 0.5, true)
+	end
 	tooltip:Show()
+end
+
+local function onRowClick(row)
+	if clickable(row) then
+		UI.actions.challengeClick(row.data.id)
+	end
 end
 
 local function hideTooltip()
@@ -654,6 +679,7 @@ local function acquireRow(frame, index)
 	row.icon, row.tint = icon, tint
 	row:SetScript("OnEnter", showTooltip)
 	row:SetScript("OnLeave", hideTooltip)
+	row:SetScript("OnClick", onRowClick)
 
 	frame.rows[index] = row
 	return row

@@ -52,6 +52,17 @@ step below; the citations in `docs/ui-templates.md`, `docs/icon-design.md` and
 `bd2470a`, checked directory by directory on 2026-09-26, again at `966519c` on 2026-09-30, and at `9a789c0`
 on 2026-10-01.
 
+Widened again on 2026-10-02, at `9a789c0`, for the beta2 minimap button and settings page:
+
+```
+Interface/AddOns/Blizzard_Settings
+Interface/AddOns/Blizzard_Settings_Shared
+Interface/AddOns/Blizzard_Minimap
+```
+
+Before that widening, `Blizzard_Minimap` was read with `git show` and listed below as outside
+the set. It is inside now.
+
 Six directories cited across the docs are still outside this set: `Blizzard_MicroMenu` and
 `Blizzard_SharedTalentUI` (`docs/legacy-internals.md`), `Blizzard_MajorFactions`
 (`docs/legacy-internals.md`, toast events), `Blizzard_Professions` (`CLAUDE.md`,
