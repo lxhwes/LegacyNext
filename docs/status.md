@@ -2,7 +2,14 @@
 
 Last updated 2026-10-02.
 
-**Where we are, 2026-10-02, night: `v0.1.0-beta2` is cut, ahead of the in-game session.**
+**Where we are, 2026-10-02, late night: `v0.1.0-beta2` is on CurseForge and GitHub, and the
+session after it closed S2, U8 and U11.** The GUID move worked on Geo and Bong. The resize grip
+and the settings page work. The minimap button works, bar one unreported hover. The account has 0
+Legacy points, so a row click could only refuse, and the open-and-select half of U9 waits for the
+first point. A `/reload`'s logout reads what a real logout cannot. 407 tests, none pending.
+Details in `docs/legacy-internals.md`, "The beta2 session".
+
+**As of 2026-10-02, night: `v0.1.0-beta2` is cut, ahead of the in-game session.**
 PR #11 merged as `48fc9dd`, with 404 tests, none pending. Alex chose to release before S2, U8,
 U9, U10 and U11 were played, so the CHANGELOG marks every beta2 entry as not yet seen in game.
 The tag goes on the merge of this cut, and the release workflow publishes it to CurseForge and

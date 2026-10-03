@@ -20,11 +20,8 @@ Open, roughly in the order worth doing:
 
 | ID | Needs | Unblocks | Cost |
 |---|---|---|---|
-| S2 | Install `main` (after `e513d27`), log in on **Geo** first, then `/lgn roster` and paste it. Then log in on **Bong** and `/lgn roster` again. Section S2 below | Whether a stored `Name-Realm` row moves to the GUID on that character's login, keeping its professions and tree spend, with one row per character after | 2 min |
-| U8 | With the same install, open `/lgn`, then `/lgn uidump` and paste it; drag the corner grip; `/reload`. Section U8 below | Whether the resize grip draws and works, the bounds hold, the layout follows the size, and the size comes back | 2 min |
-| U9 | Install `feat/beta2`. Click a Next Up row, repeat with Blizzard's search and incomplete filter excluding it; shift-click another with the chat box open. Section U9 below | Whether row clicks select the displayed challenge tier or explain an excluded selection, and whether shift-click links it, including in combat. Source-only at `9a789c0` | 3 min |
-| U10 | Same install. Find the LegacyNext button on the minimap edge, drag it, hover it, `/reload`; hover the dropdown entry. Section U10 below | Whether the hand-rolled minimap button draws, drags round the edge, keeps its spot, and shows the summary tooltip, and whether the dropdown entry shows it too | 2 min |
-| U11 | Same install. Esc > Options > AddOns > LegacyNext: untick and retick the minimap button, then `/lgn minimap` with the category still displayed. Section U11 below | Whether the Settings category registers, its toggles take effect, and its checkbox follows the slash command | 2 min |
+| U9 | **Partly answered 2026-10-02**: the hint, the shift-click link (in combat too) and every refusal work, but the account had 0 Legacy points, so the panel was never opened. Still open: on any character once the account has **one Legacy point**, steps 2, 3, 6, 7 and 8 of section U9 below | Whether row clicks select the displayed challenge tier or explain an excluded selection, and whether opening Blizzard's panel from our click taints it in combat | 2 min, after the first point |
+| U10 | **Partly answered 2026-10-02**: the button draws round and masked, drags round the rim, keeps its angle across a `/reload`, its tooltip and clicks work, and `/lgn minimap` hides and shows it. Still open: open the minimap's addon dropdown and hover LegacyNext | Whether the dropdown entry shows the same summary tooltip | 10 s |
 | C2 | **Partly answered 2026-10-01**: `CRITERIA_UPDATE` fires on an Alchemy skill-up, and none of the other four did. Still open: the four that need a completion or a spent point. `/etrace` during the C4 session for `ACHIEVEMENT_EARNED`, and the C1 session for `TRAIT_CONFIG_UPDATED`, `TRAIT_TREE_CHANGED` and `MAJOR_FACTION_RENOWN_LEVEL_CHANGED`. Section C2 below | Whether the frame's `ACHIEVEMENT_EARNED` refresh ever fires on Forever, and whether trait and faction events are worth adding | Free with C1 and C4 |
 | D8 | `/lgn dump challenges 2` … `6` **only if a Model test needs a specific Explore zone** | The 46 zero-point Explore achievements' ~600 subzone criteria. Deliberately not fixtured: Next Up excludes zero-point challenges, so this is dead weight until something needs it | 5 min, low value |
 | C1 | Points spent in **two different trees**, then `/lgn dump trees` | Confirms the single shared pool, and what `maxQuantity` becomes once non-zero | needs play |
@@ -54,6 +51,9 @@ Closed — kept so a citation still resolves:
 | U7 | 2026-10-01 | The key binding lists, toggles the window, and works in combat. `## Category: Achievements` groups LegacyNext under Achievements in the AddOns list | `docs/legacy-internals.md`, `docs/status.md` |
 | U6 | 2026-10-01 | The polish pass as built: Blizzard's top tabs, row and reward icons, class-coloured roster names with the current one tinted. Tab, filter and position come back after a `/reload` and after a relog | `docs/legacy-internals.md`, `docs/status.md` |
 | U2 | 2026-10-01 | `IsProtected` `false,false`, all three templates present, `IsTruncated` true with `GetStringWidth` reading the unbounded width, and on 70170 the clipped test string drawn as "Reach exalted re...", so the client adds the ellipsis | `docs/ui-templates.md` |
+| S2 | 2026-10-02 | Geo and Bong each moved from `Name-Realm` to their GUID on their first login on `v0.1.0-beta2`, keeping professions and tree spend, and nothing moved twice across a `/reload`. Plymouth, not logged in, kept its `Name-Realm` row as designed. Also found: a `/reload`'s `PLAYER_LOGOUT` reads trees and professions, and a real logout reads neither | `spec/fixtures/roster_bong_migrated.lua`, `spec/model/roster_spec.lua`, `CLAUDE.md`, `docs/legacy-internals.md` |
+| U8 | 2026-10-02 | The resize grip draws (`PanelResizeButtonTemplate`, `SetResizeBounds`, `resizable = true`), drags with the top-left fixed, stops at the minimum, relays out, and the size (961x684) comes back after a `/reload` | `spec/fixtures/roster_bong_migrated.lua` (uidump at the bottom), `docs/status.md` |
+| U11 | 2026-10-02 | The Settings category registers (`registered = true`), both checkboxes take effect, the "Show" box follows `/lgn minimap` while displayed, and `/lgn config` opens on it | `spec/fixtures/roster_bong_migrated.lua` (uidump at the bottom), `docs/status.md` |
 
 See `docs/status.md` for what each finding changed.
 
@@ -69,42 +69,11 @@ error, paste the first one. It stops reporting after 100.
 
 ---
 
-## S2 — the GUID move
-
-1. Log in on Geo. Run `/lgn roster` and paste the whole window.
-2. Log out to Bong. Run `/lgn roster` again and paste it.
-3. `/reload` on Bong and run `/lgn roster` once more. Only say whether a new "migrated" line
-   appeared.
-
-What I am reading it for:
-
-- On Geo's login, the session log reads `PLAYER_LOGIN -> written; migrated from Geo-Classic
-  Beta PvP`. The RAW block has one Geo row, keyed by Geo's GUID (D10 read
-  `Player-4619-012F81BC`), with `name = "Geo"` and the realm. Alchemy, Herbalism, Cooking and
-  the tree spend are still there.
-- The character lines and the Roster tab say `Geo`, never a `Player-` string.
-- After Bong's login, the same for Bong, and the roster shows exactly two characters.
-- No second "migrated" line after the `/reload`.
-- Any `Bong Wrip-…` key left in the RAW block. That is a 69913-era row, which does not move by
-  design. Say so and I will give you the forget command.
-
-## U8 — the resize grip
-
-1. `/lgn`, then `/lgn uidump`. Paste it.
-2. Look at the bottom-right corner. Is there a small grip, clear of the scroll bar's down arrow?
-   Does the cursor change over it?
-3. Drag it bigger, then as small as it goes. Does the top-left corner stay put? Does it stop at
-   a minimum? Does the filter bar re-wrap and the right-hand columns follow the edge? Any Lua
-   error?
-4. Leave it at an odd size and `/reload`. Did the size come back?
-
-What I am reading it for: the uidump's `== CLIENT ==` frame line reading `resize =
-"SetResizeBounds"`, `grip = "PanelResizeButtonTemplate"`, `resizable = true` and the live
-`width` and `height`. A missing grip with `resizable = false` means the client lacks the resize
-methods, and the window stays fixed, which is the designed fallback. In combat and after a
-relog are worth one try each if it is quick.
-
 ## U9 — row clicks: Blizzard's Legacy panel and the chat link
+
+**2026-10-02, at 0 points:** steps 1, 4 and 5 passed, the click refused with "no Legacy points
+yet", and in combat the click refused while shift-click still linked. Steps 2, 3, 6, 7 and the
+panel half of 8 wait for the account's first point.
 
 Needs a character with at least one Legacy point. At zero points Blizzard's panel does not open
 for anyone, and the addon says so instead.
@@ -137,6 +106,8 @@ Blizzard's panel from our click taints its panel manager.
 
 ## U10 — the minimap button
 
+**2026-10-02:** every step passed except 6, the dropdown hover, which was not reported.
+
 1. Find the LegacyNext button on the minimap's edge, lower left. Is the gold ring icon round,
    inside the usual minimap-button border?
 2. Hover it. Paste or describe the tooltip: the reward track line, your unspent points, three
@@ -152,20 +123,6 @@ Blizzard's panel from our click taints its panel manager.
 What I am reading it for: the uidump's `== CLIENT ==` `minimap` line, with `created = true`,
 `masked = true`, the `angle` you left it at and no `reason`. A button sitting off the rim or
 inside the map means the edge offset is wrong. Say roughly how far.
-
-## U11 — the settings page
-
-1. Esc > Options > AddOns. Is there a LegacyNext entry, with "Show minimap button" ticked and
-   "Lock minimap button" unticked?
-2. Untick "Show minimap button". Does the button go? Tick it again.
-3. Tick "Lock minimap button" and try to drag the button. Does it stay put? Untick it.
-4. `/lgn config` out of combat: does it open on LegacyNext?
-5. With the category still displayed, run `/lgn minimap` twice. Does "Show minimap button"
-   untick and retick with the button's visibility? Click the checkbox once afterwards; does
-   that click change the button immediately?
-
-What I am reading it for: the uidump's `options` line from U10 reading `registered = true`. A
-`reason` there names the missing piece of Blizzard's Settings API.
 
 ## C2 — events, via `/etrace`
 
