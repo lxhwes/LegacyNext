@@ -1,0 +1,17 @@
+name: Feature request
+description: Suggest something LegacyNext could show.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        LegacyNext tracks Legacy progress and is kept small on purpose, so not every idea will
+        fit. Saying what you'd use it for helps most.
+
+  - type: textarea
+    id: request
+    attributes:
+      label: What you'd like
+      description: What it should show or do, and what you'd use it for.
+    validations:
+      required: true

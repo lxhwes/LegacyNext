@@ -104,11 +104,8 @@ exactly what the client handed back.
 
 ## What it does not do
 
-- No build planner. Wowhead and wowforeverbuilds.com already have calculators for the trees.
-- Nothing combat-related.
-- No Hardcore. Hardcore's Legacy challenges and perks are separate and launch later.
-- It never touches your Legacy trees. LegacyNext only reads. It never calls a purchase, reset or
-  commit API, so it cannot spend, refund or move a point.
+LegacyNext tracks Legacy progress and is kept small on purpose. It never changes your Legacy
+trees, so it cannot spend, refund or move a point.
 
 ## Installing
 
@@ -147,9 +144,10 @@ Changes are listed in [CHANGELOG.md](https://github.com/lxhwes/LegacyNext/blob/m
 
 ## Bugs and requests
 
-Open an issue at https://github.com/lxhwes/LegacyNext/issues with your client build and the
-challenge name. Contributors: setup, tests and the in-game data workflow are in
-[docs/development.md](https://github.com/lxhwes/LegacyNext/blob/main/docs/development.md).
+Open an issue at https://github.com/lxhwes/LegacyNext/issues/new/choose. The bug form asks
+for your client build and the output of `/lgn dump summary`, which together make most reports
+reproducible. Contributors: start with
+[CONTRIBUTING](https://github.com/lxhwes/LegacyNext/blob/main/.github/CONTRIBUTING.md).
 
 ## Licence
 

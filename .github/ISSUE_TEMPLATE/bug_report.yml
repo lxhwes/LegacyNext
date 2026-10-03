@@ -1,0 +1,56 @@
+name: Bug report
+description: Something LegacyNext shows or does is wrong.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The beta changes between builds, so the build number and the
+        `/lgn dump summary` output are what make a bug reproducible.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: Expert Alchemist shows 0/225 but my Alchemy is 230.
+    validations:
+      required: true
+
+  - type: input
+    id: challenge
+    attributes:
+      label: Challenge or tab
+      description: The challenge name, or the tab, if the bug is about one.
+      placeholder: Expert Alchemist, Roster tab
+    validations:
+      required: false
+
+  - type: input
+    id: build
+    attributes:
+      label: Client build
+      description: Shown at the bottom left of the login screen.
+      placeholder: 1.60.1 (70170)
+    validations:
+      required: true
+
+  - type: textarea
+    id: dump
+    attributes:
+      label: "/lgn dump summary output"
+      description: |
+        Type `/lgn dump summary` in game, then copy everything from the box that opens.
+        If the addon won't open at all, say so here instead.
+      render: lua
+    validations:
+      required: false
+
+  - type: textarea
+    id: uidump
+    attributes:
+      label: "/lgn uidump output"
+      description: Only needed if the list itself looks wrong. Use `/lgn uidump roster` for the Roster tab.
+      render: text
+    validations:
+      required: false

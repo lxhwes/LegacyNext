@@ -2,12 +2,19 @@
 
 Last updated 2026-10-02.
 
-**Where we are, 2026-10-02, late night: `v0.1.0-beta2` is on CurseForge and GitHub, and the
-session after it closed S2, U8 and U11.** The GUID move worked on Geo and Bong. The resize grip
+**Where we are, 2026-10-02, late night: `v0.1.0-beta2` is on CurseForge and GitHub, the
+session after it closed S2, U8 and U11, and the repo has a contributing guide, issue forms and a
+PR template.** The GUID move worked on Geo and Bong. The resize grip
 and the settings page work. The minimap button works, bar one unreported hover. The account has 0
 Legacy points, so a row click could only refuse, and the open-and-select half of U9 waits for the
-first point. A `/reload`'s logout reads what a real logout cannot. 407 tests, none pending.
+first point. A `/reload`'s logout reads what a real logout cannot. The issue labels and branch
+protection are live. 407 tests, none pending.
 Details in `docs/legacy-internals.md`, "The beta2 session".
+
+**As of 2026-10-02, late night, before the session: `v0.1.0-beta2` is cut, and PR #12 adds a
+contributing guide, issue forms and a PR template.** The issue labels and branch protection are
+already live. 404 tests, none pending. ~~The next in-game session closes S2, U8, U9, U10 and
+U11.~~ It closed S2, U8 and U11; U9 and U10 stay open (above).
 
 **As of 2026-10-02, night: `v0.1.0-beta2` is cut, ahead of the in-game session.**
 PR #11 merged as `48fc9dd`, with 404 tests, none pending. Alex chose to release before S2, U8,
@@ -22,7 +29,8 @@ Options > AddOns. The dropdown entry shows the same tooltip. PR #11's two review
 five Copilot comments are fixed, with 404 tests, none pending. One in-game session checks S2, U8, U9, U10 and U11,
 then `v0.1.0-beta2`. PR #11. Section "Beta2 features" below.
 
-**As of 2026-10-02: the repo is being readied to go public.** The README, CHANGELOG
+**As of 2026-10-02: the repo is being readied to go public.** Alex made it public the same
+day. The README, CHANGELOG
 and contributor doc now match what shipped, and the next release's notes come from
 `CHANGELOG.md` instead of the git log. Nothing in the addon changed. 314 tests, none pending.
 The flip itself is Alex's to make. S2 and U8 are still open, then `v0.1.0-beta2`.
@@ -86,6 +94,31 @@ that errors on any non-stdlib global). `UI/` renders through a widget double (10
 
 Blocking: nothing. ~~**D10**'s name rows~~ and ~~**C3**~~ both closed 2026-10-01. Not
 blocking: **C2**. ~~**U2**~~, ~~**U5**~~, ~~**U6**~~ and ~~**U7**~~ closed 2026-10-01. The queue is `docs/ingame-commands.md`.
+
+## Community files — 2026-10-02
+
+With the repo public, Alex asked for the things that help strangers file a useful issue. The
+GitHub community profile read 42% before this (`gh api repos/lxhwes/LegacyNext/community/profile`).
+
+Added, all under `.github/` so `.pkgmeta`'s existing ignore keeps them out of the release zip:
+
+- `CONTRIBUTING.md`: how to report, what is out of scope, and the rules a first pull request
+  most often breaks. Setup stays in `docs/development.md`, which it links.
+- Issue forms for bugs and features, with blank issues off. The bug form asks for the client
+  build and `/lgn dump summary`, whose `meta` block carries the build and addon version.
+- A pull request template, and Dependabot for the workflow actions, monthly.
+
+Repo settings, Alex's calls: labels for triage (`needs info`, `needs in-game`, `beta build`,
+`out of scope`, three `area:` labels), with `invalid` dropped. `main` requires the CI check,
+with no review requirement. Branches delete on merge, and private vulnerability reporting is on.
+No code of conduct, no SECURITY.md, no CODEOWNERS.
+
+Later the same day, Alex asked for the public non-goal wording to be vaguer. The README's
+"What it does not do", CONTRIBUTING and the feature form no longer list what won't be built.
+They say the addon is a small progress tracker that never changes your trees. The feature
+form's required scope checkbox is gone. The `out of scope` label lost its list too. The
+specific non-goals still live in `CLAUDE.md`. The old README line "LegacyNext only reads" went
+with them, since beta2's row click opens Blizzard's panel and shift-click fills the chat box.
 
 ## Beta2 features — 2026-10-02
 
@@ -922,9 +955,10 @@ that are currently known to be false or unverified.
       Alex's
 - [x] Tag-triggered packaging, `.github/workflows/release.yml` — 2026-09-30, dry-run only.
       CurseForge upload needs a project ID in the TOC and the `CF_API_KEY` secret
-- [ ] **Repo public.** The README header now carries the CI badge and the icon as absolute
+- [x] **Repo public.** The README header now carries the CI badge and the icon as absolute
       `github.com` / `raw.githubusercontent.com` URLs. Both 404 while `lxhwes/LegacyNext` is
-      private, on GitHub and in the CurseForge listing alike. Alex's
+      private, on GitHub and in the CurseForge listing alike. Alex's call. Public 2026-10-02
+      (`gh repo view --json visibility` reads `PUBLIC`).
 - [x] Icon: `LegacyNext/Media/icon.tga` and the `## IconTexture` line — 2026-09-19, concept A
       from `docs/icon-design.md`; ~~seen in the AddOns list is **U3**~~ seen in the AddOns list 2026-10-01
 
