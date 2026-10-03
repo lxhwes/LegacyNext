@@ -240,7 +240,9 @@ not been seen on a character in game. `GetServerTime` stamps roster snapshots.
 `UnitName("player")` read `"Bong Wrip"` on 69913 and `"Bong"` on 70124 for the same
 character, and `"Geo"` for Geo Prizm on 70124, so **a name is not a stable character key**. The
 roster keys by `UnitGUID`, and `Name-Realm` only when the GUID read fails or for a row saved
-before GUID keys, which moves when that character next logs in. `C_PlayerInfo.ShouldDisplaySurname` exists
+before GUID keys, which moves when that character next logs in [verified in game 2026-10-02, S2:
+Geo and Bong moved, kept their professions and spend, and did not move again on `/reload`].
+`C_PlayerInfo.ShouldDisplaySurname` exists
 at every pin (`PlayerInfoDocumentation.lua:358`).
 `C_NameUtil.ReplaceSurnameSeparatorWithLinkSeparator` arrived in 70009
 (`NameUtilDocumentation.lua:11`), and its doc says full names carry a "surname separator".
@@ -257,7 +259,9 @@ with all eleven documented fields (`TradeSkillUITypesDocumentation.lua:361-376`)
 **Neither tree spend nor professions can be read at `PLAYER_LOGOUT`** [verified in game
 2026-10-01]. Logout snapshots came back "unspent points not read" and "professions: empty
 read, kept stored", and the login reads were kept. Both reach the roster at login and on
-events, never at logout.
+events, never at logout. **A `/reload` is the exception** [verified in game 2026-10-02, S2]:
+both `/reload`s in that session wrote a full logout snapshot, and every logout to character
+select read neither. Never rely on the logout write; a `/reload` merely happens to fill it.
 `PLAYER_LEVEL_UP` and `SKILL_LINES_CHANGED` fire, and the second fires on every skill-up
 [verified in game 2026-10-01]. `TRAIT_CONFIG_UPDATED` registers without error. **`CRITERIA_UPDATE` fires on a skill-up**
 [verified in game 2026-10-01, C2], so the frame's 5 s refresh has a live trigger. On that

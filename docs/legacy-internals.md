@@ -1397,6 +1397,34 @@ Source-only at `9a789c0` (`1.60.1.70170`). U9 and U11 include the live regressio
   `Blizzard_SharedXMLGame/DressUpModelFrameMixin.lua:188`). Inline recorders test that order;
   these observations do not claim a live-client verification.
 
+## The beta2 session — 2026-10-02, night
+
+Alex, on `v0.1.0-beta2` from CurseForge, build 70170: Geo (level 7 Druid) first, then Bong
+(level 1 Shaman). The account was at 0 Legacy points. Captures are in
+`spec/fixtures/roster_bong_migrated.lua`, with the rendered pastes and the uidump at its bottom.
+
+- **S2 closed.** Geo's first login logged `migrated from Geo-Classic Beta PvP`, and Bong's logged
+  `migrated from Bong-Classic Beta PvP`. Each row is keyed by its GUID (`Player-4619-012F81BC`,
+  `Player-4619-00BADC1B`), with `name` the first name and the professions and spend kept. Neither
+  moved again across a `/reload`. Plymouth did not log in, so its row keeps `Plymouth-Classic Beta
+  PvP`, as designed. The roster shows names only, never a `Player-` string.
+- **Logout reads depend on how the session ends.** Sessions 21 (Geo) and 23 (Bong) ended in
+  the runbook's `/reload` and logged a bare `PLAYER_LOGOUT -> written`: trees and professions both
+  read. Session 22 (Geo again, after that `/reload`) ended in a logout to character select and
+  logged `trees: unspent points not read; professions: empty read, kept stored`, as every logout
+  on 2026-10-01 did. The rule in `CLAUDE.md` stands, with `/reload` as the exception.
+- **U8 closed.** `resize = "SetResizeBounds"`, `grip = "PanelResizeButtonTemplate"`,
+  `resizable = true`, and 961x684 restored after `/reload`.
+- **U11 closed.** `options { registered = true }`. Blizzard's Settings API, proxy settings
+  included, works for an addon on Forever.
+- **U10, all but one step.** `minimap { angle = 228, created = true, masked = true }`, so
+  `SetMask` with `TempPortraitAlphaMask` works. The `EDGE` offset of 5 put it on the rim, and the
+  angle held across `/reload`. The dropdown hover was not reported.
+- **U9, at 0 points only.** The hint, both chat refusals ("no Legacy points yet", "open a chat
+  box first"), the combat refusal and the shift-click link in and out of combat all work. Nothing
+  touched Blizzard's panel, so the select and the taint question wait for a point.
+- The Next Up read took **24 ms** on 41 ranked rows, against 21 ms on U1.
+
 ## In-game commands (retired 2026-09-26)
 
 This section used to hold the Phase 1 command list, C1 to C9. **Those IDs are retired and are
