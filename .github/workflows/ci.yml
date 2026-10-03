@@ -23,7 +23,7 @@ jobs:
         with:
           luaVersion: "5.1"
 
-      - uses: leafo/gh-actions-luarocks@v5
+      - uses: leafo/gh-actions-luarocks@v6
 
       - name: Install tools
         run: |
