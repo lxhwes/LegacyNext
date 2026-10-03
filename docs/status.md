@@ -103,6 +103,13 @@ Repo settings, Alex's calls: labels for triage (`needs info`, `needs in-game`, `
 with no review requirement. Branches delete on merge, and private vulnerability reporting is on.
 No code of conduct, no SECURITY.md, no CODEOWNERS.
 
+Later the same day, Alex asked for the public non-goal wording to be vaguer. The README's
+"What it does not do", CONTRIBUTING and the feature form no longer list what won't be built.
+They say the addon is a small progress tracker that never changes your trees. The feature
+form's required scope checkbox is gone. The `out of scope` label lost its list too. The
+specific non-goals still live in `CLAUDE.md`. The old README line "LegacyNext only reads" went
+with them, since beta2's row click opens Blizzard's panel and shift-click fills the chat box.
+
 ## Beta2 features — 2026-10-02
 
 Alex asked for three things for beta2: opening Blizzard's panels from the tracker, a proper

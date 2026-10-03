@@ -14,9 +14,8 @@ reproduced.
 
 ## Asking for a feature
 
-Read [What it does not do](../README.md#what-it-does-not-do) first. LegacyNext will not get a
-tree planner, anything combat-related, Hardcore support, or anything that spends, resets or
-moves Legacy points. It only reads.
+LegacyNext tracks Legacy progress and is kept small on purpose, so not every idea will fit.
+Open a feature request and say what you'd use it for. That helps more than anything else.
 
 ## Changing code
 

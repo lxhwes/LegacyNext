@@ -104,11 +104,8 @@ exactly what the client handed back.
 
 ## What it does not do
 
-- No build planner. Wowhead and wowforeverbuilds.com already have calculators for the trees.
-- Nothing combat-related.
-- No Hardcore. Hardcore's Legacy challenges and perks are separate and launch later.
-- It never touches your Legacy trees. LegacyNext only reads. It never calls a purchase, reset or
-  commit API, so it cannot spend, refund or move a point.
+LegacyNext tracks Legacy progress and is kept small on purpose. It never changes your Legacy
+trees, so it cannot spend, refund or move a point.
 
 ## Installing
 

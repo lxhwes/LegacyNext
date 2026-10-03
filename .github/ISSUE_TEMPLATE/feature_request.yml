@@ -2,6 +2,12 @@ name: Feature request
 description: Suggest something LegacyNext could show.
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        LegacyNext tracks Legacy progress and is kept small on purpose, so not every idea will
+        fit. Saying what you'd use it for helps most.
+
   - type: textarea
     id: request
     attributes:
@@ -9,12 +15,3 @@ body:
       description: What it should show or do, and what you'd use it for.
     validations:
       required: true
-
-  - type: checkboxes
-    id: scope
-    attributes:
-      label: Scope
-      description: LegacyNext only reads. It will not plan builds, touch combat, support Hardcore, or spend, reset or move Legacy points.
-      options:
-        - label: This request is none of those.
-          required: true
