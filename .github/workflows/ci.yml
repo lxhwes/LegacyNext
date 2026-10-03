@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # WoW runs Lua 5.1, so the tests do too.
-      - uses: leafo/gh-actions-lua@v11
+      - uses: leafo/gh-actions-lua@v13
         with:
           luaVersion: "5.1"
 
