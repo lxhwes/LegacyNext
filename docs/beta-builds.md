@@ -11,6 +11,20 @@ gap in this file should mean "nobody checked", not "nothing happened".
 
 Beta opened 2026-09-17. Launch is 2026-11-04.
 
+## 1.60.1.70205 — 2026-10-04
+
+Pin: `9a789c0` → `e3ecc27` (mirror commit dated 2026-10-03). Applied from GuildCrafts; this entry
+is LegacyNext's reconcile. `## Interface:` stays 16001, consistent with the formula.
+
+**Does not touch us**
+
+- Two files, three one-line edits. `ChatFrameEditBox.lua:85` widens the whisper-target pattern
+  from `%w+` to `%S+`, likely for surnames. `Blizzard_TalentDisplay.lua:33,301` swaps
+  `GenerateClosure` for `GenerateFlatClosure`. No watched symbol, no doc file, no constant.
+- The citation check flagged `docs/ui-templates.md`'s `UnitDocumentation.lua:3884` as broken.
+  It is a false positive: the line is `Name = "PlayerRegenDisabled"`, whose `LiteralName` is the
+  `PLAYER_REGEN_DISABLED` our doc names, and the file did not change in this build.
+
 ## 1.60.1.70170 — 2026-10-01
 
 Pin: `966519c` → `9a789c0` (mirror commit dated 2026-10-01). `## Interface:` stays 16001, which
