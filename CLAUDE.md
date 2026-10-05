@@ -268,10 +268,14 @@ select read neither. Never rely on the logout write; a `/reload` merely happens 
 skill-up `ACHIEVEMENT_EARNED` and the trait and faction events did not fire, and whether they
 fire on a completion or a spent point is still C2.
 
-Reference source, read-only, on the forever branch: the directories `vendor/PINS.md` lists
-(the Legacy addons, the generated API docs, `Blizzard_AchievementUI`, and the UI template,
-font and panel directories added 2026-09-19). PINS.md is the list; `ls
-vendor/wow-ui-source/Interface/AddOns` is the check.
+Reference source, read-only, on the forever branch: the shared checkout at
+`$WOW_FOREVER_SRC` (default `~/code/wow-ui-source-forever`), which GuildCrafts reads too. Its
+`PINS.md` lists the sparse set (the Legacy addons, the generated API docs,
+`Blizzard_AchievementUI`, the UI template, font and panel directories added 2026-09-19, and
+the professions, chat, talent and faction directories added 2026-10-04). `forever-env` prints
+the pin and checks the set against the checkout. The skills that read it — `forever-api-lookup`,
+`ingame-script` and `beta-build-bump` — come from the `forever-tools` plugin, enabled in
+`.claude/settings.json`; this repo's settings for them are in `.claude/forever-tools/`.
 
 Client data, read-only, for any build: the DB2 tables at
 `https://wago.tools/db2/<Table>/csv?build=<build>`. `https://wago.tools/api/builds` lists builds;
@@ -316,7 +320,10 @@ Rebuild: `python3 -m venv tools/venv && tools/venv/bin/pip install hererocks &&
 tools/venv/bin/hererocks tools/lua51 --lua 5.1 --luarocks latest`, then
 `./tools/lua51/bin/luarocks install --no-doc busted luacheck`.
 
-Vendored Blizzard source is pinned in `vendor/PINS.md` — read-only reference, never imported.
+Blizzard source is pinned in the shared checkout's `PINS.md` (`$WOW_FOREVER_SRC`, default
+`~/code/wow-ui-source-forever`) — read-only reference, never imported. A re-pin from either
+addon moves it for both; `.claude/forever-tools/pin` records the pin this repo last reconciled
+against, and a session start says so when they differ.
 
 ## Project docs
 

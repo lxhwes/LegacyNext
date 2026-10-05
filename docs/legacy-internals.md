@@ -6,7 +6,8 @@ still resolves unchanged at `bd2470aed543f72697a044e989285b6c83e63f73` (`1.60.1.
 checked 2026-09-26, and at the current pin, `966519cf0ad2c10301ea011a88c14b25697c9687`
 (`1.60.1.70124`), checked 2026-09-30. See `vendor/PINS.md`.
 
-Citations are `path:line`, rooted at `vendor/wow-ui-source/Interface/AddOns/`.
+Citations are `path:line`, rooted at `Interface/AddOns/` in the shared checkout
+(`vendor/wow-ui-source` until 2026-10-04, `$WOW_FOREVER_SRC/wow-ui-source` since).
 
 Three directories cited here sit outside the sparse set recorded in `vendor/PINS.md`:
 `Blizzard_MicroMenu`, `Blizzard_SharedTalentUI` and `Blizzard_MajorFactions`. PINS.md keeps

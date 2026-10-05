@@ -46,7 +46,7 @@ A warning is not a rubber stamp. Read each one and either fix it or say why it i
 
 The gate catches patterns. These need a reader:
 
-- **Does a citation carry a pin stamp**, and does it match `vendor/PINS.md`? Line numbers are
+- **Does a citation carry a pin stamp**, and does it match the pin `forever-env` reports? Line numbers are
   pin-relative, and a stale one still reads as verified.
 - **Is anything marked `[verified]` that only an inference supports?** The tag is evidence, not
   confidence. If the client did not say it, it is `[unverified]`.
