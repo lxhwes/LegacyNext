@@ -26,7 +26,7 @@ protects against the client changing, not against a signature you guessed.
 ```lua
 --- Spendable Legacy points for this character.
 -- C_Traits.GetMaxAvailableTraitCurrency(traitCurrencyID, excludeStagedChanges) -> number
--- doc:  <file>:<line>        <- fill both from api_lookup.sh output, never from memory
+-- doc:  <file>:<line>        <- fill both from forever-api-lookup output, never from memory
 -- used: <file>:<line>
 -- pin:  <sha> (<version.txt>)
 function Api.GetSpendablePoints()
@@ -168,7 +168,7 @@ each has a specific failure it prevents:
 3. **A watchlist line, if the symbol is a bare global or a constant name.** `beta-build-bump`
    auto-discovers `C_Namespace.Function` references under `LegacyNext/`, so namespaced calls
    need nothing. `GetAchievementInfo` and `ACHIEVEMENT_FLAGS_ACCOUNT` cannot be discovered and
-   go in `.claude/skills/beta-build-bump/references/watchlist.txt` by hand. Miss the line and
+   go in `.claude/forever-tools/watchlist.txt` by hand. Miss the line and
    the symbol still appears in `full.diff` — it just stops being surfaced, which is how a
    silent break gets through a bump.
 4. **A fixture in `spec/fixtures/` with a `Model/` test, an inline stub in the `Api` spec, or an
@@ -202,7 +202,7 @@ Read for the failure modes in order of how badly they bite:
 3. A write API, or a write-shaped name.
 4. A hardcoded achievement, category or criteria ID; a constant read from a literal instead of
    `Constants.LegacyConsts`.
-5. A citation with no pin stamp, or a pin stamp that disagrees with `vendor/PINS.md`.
+5. A citation with no pin stamp, or a pin stamp that disagrees with the pin `forever-env` reports.
 6. `nil` used for both failure and emptiness.
 7. WoW globals reached from `Model/` or `UI/` — that is the architecture violation that costs
    the test suite.

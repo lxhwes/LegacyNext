@@ -1,6 +1,6 @@
 # Status
 
-Last updated 2026-10-02.
+Last updated 2026-10-04.
 
 **Where we are, 2026-10-02, late night: `v0.1.0-beta2` is on CurseForge and GitHub, the
 session after it closed S2, U8 and U11, and the repo has a contributing guide, issue forms and a
@@ -10,6 +10,16 @@ Legacy points, so a row click could only refuse, and the open-and-select half of
 first point. A `/reload`'s logout reads what a real logout cannot. The issue labels and branch
 protection are live. 407 tests, none pending.
 Details in `docs/legacy-internals.md`, "The beta2 session".
+
+**As of 2026-10-04, tooling only: the Blizzard checkout and three skills moved out of this repo,
+on `chore/forever-tools`.** The checkout and `PINS.md` now live in `~/code/wow-ui-source-forever`
+(`$WOW_FOREVER_SRC`), shared with GuildCrafts, with the sparse set widened at the same pin to the
+professions, chat, talent and faction directories both addons cite. `forever-api-lookup`,
+`ingame-script` and `beta-build-bump` come from the `forever-tools` plugin; `api-guard`,
+`fixture-intake` and `safe-commit` stay here. Settings are in `.claude/forever-tools/`, and
+`.claude/forever-tools/pin` records that this repo is reconciled at `9a789c0`. Nothing in the
+addon changed. The three directories `docs/legacy-internals.md` lists as outside the set are
+inside it now; that doc's paragraph is left as written on its date.
 
 **As of 2026-10-02, late night, before the session: `v0.1.0-beta2` is cut, and PR #12 adds a
 contributing guide, issue forms and a PR template.** The issue labels and branch protection are

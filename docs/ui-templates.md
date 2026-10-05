@@ -7,7 +7,7 @@ below now point. Five of them moved in that bump; see `docs/beta-builds.md` for 
 again 2026-09-30 at `966519cf0ad2c10301ea011a88c14b25697c9687` (`1.60.1.70124`), where none
 moved.
 Paths are relative to `Interface/AddOns/`. Line numbers are pin-relative; re-run
-`.claude/skills/forever-api-lookup/scripts/verify_citations.py` after a
+`forever-verify-citations` (forever-tools plugin) after a
 bump. That script only resolves `.lua` citations, so the `.xml` lines here were checked by hand.
 
 Tiers: **A** defined in vendored source at the cited line. **B** referenced in vendored source

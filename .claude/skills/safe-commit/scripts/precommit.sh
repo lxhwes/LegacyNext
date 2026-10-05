@@ -165,8 +165,7 @@ for file in "${CHANGED[@]:-}"; do
 		tools/*|.release/*|__pycache__/*|*.luacheckcache)
 			fail "$file should not be committed (gitignored build output)" ;;
 		vendor/*)
-			[ "$file" = "vendor/PINS.md" ] || \
-				fail "$file: the vendored checkout is reference material, only PINS.md is tracked" ;;
+			fail "$file: the Blizzard checkout and its PINS.md live in \$WOW_FOREVER_SRC now, not in this repo" ;;
 		.claude/skill-evals/*)
 			fail "$file: eval run artifacts are gitignored; only evals/ specs are committed" ;;
 	esac
@@ -189,12 +188,14 @@ done
 for file in "${CHANGED[@]:-}"; do
 	case "$file" in
 		docs/ingame-commands.md)
-			gate=".claude/skills/ingame-script/scripts/check_script.sh"
-			if [ -x "$gate" ]; then
+			# forever-check-script comes from the forever-tools plugin and is on PATH in a
+			# session where the plugin is enabled.
+			gate="$(command -v forever-check-script || true)"
+			if [ -n "$gate" ]; then
 				echo "running the in-game script parse gate"
 				"$gate" "$file" || warn "in-game script gate reported problems (see above)"
 			else
-				warn "docs/ingame-commands.md changed but $gate is missing"
+				warn "docs/ingame-commands.md changed but forever-check-script is not on PATH (forever-tools plugin not enabled?)"
 			fi
 			;;
 	esac

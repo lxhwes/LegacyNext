@@ -9,10 +9,14 @@ constraints and the Legacy API surface are in `CLAUDE.md`. Current position is i
 Two directories the repo needs are **gitignored on purpose** — the vendored Blizzard source
 and the Lua toolchain. Neither is in the clone. Recreate both:
 
-**1. Vendored reference source.** Read-only, never imported. Run the "Recreate" block in
-`vendor/PINS.md` from the repo root. It is kept only there so the SHA and the directory list
-cannot drift between two copies, and it checks out the pinned commit rather than the branch
-head. It ends with `git rev-parse HEAD`, which must match the SHA in the PINS.md table.
+**1. Blizzard reference source.** Read-only, never imported, and shared with GuildCrafts, so
+it lives outside this repo: a directory holding `PINS.md`, `consumers.txt` and a sparse
+`wow-ui-source/` clone, found through `$WOW_FOREVER_SRC` (default
+`~/code/wow-ui-source-forever`). Run the "Recreate" block at the end of that `PINS.md` from that
+directory. It is kept only there so the SHA and the directory list cannot drift between two
+copies, and it checks out the pinned commit rather than the branch head. It ends with
+`git rev-parse HEAD`, which must match the SHA in the PINS.md table. The scripts below come
+from the `forever-tools` Claude Code plugin and are on `PATH` in a session where it is enabled.
 
 **2. Lua 5.1 toolchain.** Homebrew has no `lua@5.1` formula, so this builds PUC Lua 5.1.5
 locally with hererocks. Takes a couple of minutes.
@@ -98,7 +102,7 @@ provenance header, following `spec/fixtures/README.md`.
 and a copy with the newlines stripped:
 
 ```sh
-.claude/skills/ingame-script/scripts/check_script.sh docs/ingame-commands.md
+forever-check-script docs/ingame-commands.md
 ```
 
 **The uidump output changes on purpose.** When a `Model` or `Debug.RenderView` change is meant
@@ -114,17 +118,18 @@ A golden diff you did not intend is a bug, not a file to regenerate.
 **Blizzard pushes a beta build.** Check first, then apply. The check never touches the checkout:
 
 ```sh
-.claude/skills/beta-build-bump/scripts/bump.sh               # writes a diff summary
-.claude/skills/beta-build-bump/scripts/bump.sh --apply <sha>
+forever-bump               # writes a diff summary, triaged for every consumer of the pin
+forever-bump --apply <sha> # moves the shared checkout, then re-checks this repo's citations
+forever-bump --reconcile   # after GuildCrafts moved the pin: catch this repo up
 ```
 
-Record the result in `docs/beta-builds.md` and update `vendor/PINS.md` in the same commit.
+Commit the shared `PINS.md` in its own directory. Here, record the result in
+`docs/beta-builds.md`, run `forever-env --mark-reconciled`, and commit both together.
 
 **Citations after a bump.** Every `path:line` in the docs is pin-relative:
 
 ```sh
-.claude/skills/forever-api-lookup/scripts/verify_citations.py --expect-symbol \
-  docs/legacy-internals.md docs/ui-templates.md
+forever-verify-citations --expect-symbol docs/legacy-internals.md docs/ui-templates.md
 ```
 
 It resolves `.lua` citations only. The `.xml` ones in `docs/ui-templates.md` are checked by

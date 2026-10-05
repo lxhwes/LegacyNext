@@ -1,10 +1,11 @@
 # Forever beta build log
 
-What changed underneath us, per re-pin of `vendor/wow-ui-source`. Newest first.
+What changed underneath us, per re-pin of the shared Forever checkout (`vendor/wow-ui-source`
+until 2026-10-04, `$WOW_FOREVER_SRC/wow-ui-source` since). Newest first.
 
 Written by the `beta-build-bump` skill, which runs whenever Blizzard pushes a beta build.
 "Touches us" means the Legacy API surface LegacyNext actually calls — see
-`.claude/skills/beta-build-bump/references/watchlist.txt` for the list. A build that moved
+`.claude/forever-tools/watchlist.txt` for the list. A build that moved
 only `version.txt` gets an entry too; knowing a build was boring is worth recording, and a
 gap in this file should mean "nobody checked", not "nothing happened".
 

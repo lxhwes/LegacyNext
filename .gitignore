@@ -1,6 +1,6 @@
-# Vendored Blizzard UI source is a pinned reference checkout, not our code.
-vendor/*
-!vendor/PINS.md
+# The Blizzard reference checkout and PINS.md moved to $WOW_FOREVER_SRC on 2026-10-04.
+# vendor/ stays ignored so the transition symlink (and any stale clone) is never committed.
+vendor/
 
 # Local Lua 5.1 + luarocks toolchain built by hererocks.
 tools/

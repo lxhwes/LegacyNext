@@ -164,7 +164,7 @@ Every statement is semicolon-terminated, and there are no `--` comments, so it p
 long line too. Keep both properties if you edit one. A `--` comment in a flattened script
 swallows everything after it, and a missing semicolon gives
 `malformed number near '2802local'`. Every block is run through
-`.claude/skills/ingame-script/scripts/check_script.sh` before it lands here.
+`forever-check-script` (the forever-tools plugin) before it lands here.
 
 ## Copyable output — the `LNDump` block
 
